@@ -29,6 +29,7 @@ addons:
       # packages required for electron-installer-appimage
       - xz-utils
       - xorriso
+      - zsync
 
 branches:
   only:
@@ -59,6 +60,7 @@ script:
   - yarn build:prod
   - yarn test:setup
   - yarn test
+  - yarn run package
 
 after_failure:
   - yarn test:review
