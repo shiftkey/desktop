@@ -23,7 +23,9 @@ addons:
 branches:
   only:
     - master
+    - linux
     - /^__release-.*/
+    - /^release-.*/
 
 language: node_js
 node_js:
