@@ -26,7 +26,7 @@ function getExecutableName() {
   if (process.platform === 'win32') {
     return `${getWindowsIdentifierName()}${suffix}`
   } else if (process.platform === 'linux') {
-    return 'desktop'
+    return 'github-desktop'
   } else {
     return productName
   }
