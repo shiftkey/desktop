@@ -1,5 +1,5 @@
 import Dexie from 'dexie'
-import { APIRefState } from '../api'
+import { APIRefState, IAPIRefStatusItem } from '../api'
 
 export interface IPullRequestRef {
   /**
@@ -59,6 +59,13 @@ export interface IPullRequestStatus {
 
   /** The SHA for which this status applies. */
   readonly sha: string
+
+  /**
+   * The list of statuses for this specific ref or undefined
+   * if the database object was created prior to status support
+   * being added in #3588
+   */
+  readonly statuses: ReadonlyArray<IAPIRefStatusItem> | undefined
 }
 
 export class PullRequestDatabase extends Dexie {

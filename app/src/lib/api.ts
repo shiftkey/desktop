@@ -65,9 +65,26 @@ export interface IAPIUser {
   readonly url: string
   readonly login: string
   readonly avatar_url: string
-  readonly name: string
+
+  /**
+   * The user's real name or null if the user hasn't provided
+   * a real name for their public profile.
+   */
+  readonly name: string | null
+
+  /**
+   * The email address for this user or null if the user has not
+   * specified a public email address in their profile.
+   */
+  readonly email: string | null
   readonly type: 'User' | 'Organization'
 }
+
+/**
+ * An expression that validates a GitHub.com or GitHub Enterprise
+ * username
+ */
+export const validLoginExpression = /^[a-z0-9]+(-[a-z0-9]+)*$/i
 
 /** The users we get from the mentionables endpoint. */
 export interface IAPIMentionableUser {
@@ -112,10 +129,23 @@ export interface IAPIIssue {
 /** The combined state of a ref. */
 export type APIRefState = 'failure' | 'pending' | 'success'
 
+/**
+ * The API response for a combined view of a commit
+ * status for a given ref
+ */
+export interface IAPIRefStatusItem {
+  readonly state: APIRefState
+  readonly target_url: string
+  readonly description: string
+  readonly context: string
+  readonly id: number
+}
+
 /** The API response to a ref status request. */
-export interface IAPIRefStatus {
+interface IAPIRefStatus {
   readonly state: APIRefState
   readonly total_count: number
+  readonly statuses: ReadonlyArray<IAPIRefStatusItem>
 }
 
 interface IAPIPullRequestRef {
@@ -530,6 +560,25 @@ export class API {
       return null
     }
   }
+
+  /**
+   * Retrieve the public profile information of a user with
+   * a given username.
+   */
+  public async fetchUser(login: string): Promise<IAPIUser | null> {
+    try {
+      const response = await this.request('GET', `users/${login}`)
+
+      if (response.status === 404) {
+        return null
+      }
+
+      return await parsedResponse<IAPIUser>(response)
+    } catch (e) {
+      log.warn(`fetchUser: failed with endpoint ${this.endpoint}`, e)
+      throw e
+    }
+  }
 }
 
 export enum AuthorizationResponseKind {
@@ -679,7 +728,7 @@ export async function fetchUser(
       emails,
       avatarURL,
       user.id,
-      user.name
+      user.name || user.login
     )
   } catch (e) {
     log.warn(`fetchUser: failed with endpoint ${endpoint}`, e)
