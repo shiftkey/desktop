@@ -12,6 +12,15 @@ matrix:
     - os: linux
       env: CC=clang CXX=clang++ npm_config_clang=1
       compiler: clang
+      script:
+        - yarn lint
+
+    - os: linux
+      env: CC=clang CXX=clang++ npm_config_clang=1
+      compiler: clang
+      script:
+        - yarn build:prod && yarn test:setup && yarn test
+
 
 addons:
   apt:
