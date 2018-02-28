@@ -10,17 +10,12 @@ sudo: false
 matrix:
   include:
     - os: linux
-      env: CC=clang CXX=clang++ npm_config_clang=1
+      env: LINT_ONLY=1 CC=clang CXX=clang++ npm_config_clang=1
       compiler: clang
-      script:
-        - yarn lint
 
     - os: linux
-      env: CC=clang CXX=clang++ npm_config_clang=1
+      env: BUILD_AND_TEST_ONLY=1 CC=clang CXX=clang++ npm_config_clang=1
       compiler: clang
-      script:
-        - yarn build:prod && yarn test:setup && yarn test
-
 
 addons:
   apt:
@@ -67,7 +62,7 @@ install:
   - yarn install --force
 
 script:
-  - yarn lint && yarn build:prod && yarn test:setup && yarn test
+  - script/travis.sh
 
 after_failure:
   - yarn test:review
