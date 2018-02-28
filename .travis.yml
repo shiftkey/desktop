@@ -10,7 +10,11 @@ sudo: false
 matrix:
   include:
     - os: linux
-      env: CC=clang CXX=clang++ npm_config_clang=1
+      env: LINT_ONLY=1 CC=clang CXX=clang++ npm_config_clang=1
+      compiler: clang
+
+    - os: linux
+      env: BUILD_AND_TEST_ONLY=1 CC=clang CXX=clang++ npm_config_clang=1
       compiler: clang
 
 addons:
@@ -50,15 +54,8 @@ cache:
     - .eslintcache
     - $HOME/.cache/electron-builder
 
-before_install:
-  - curl -o- -L https://yarnpkg.com/install.sh | bash -s -- --version 1.3.2
-  - export PATH=$HOME/.yarn/bin:$PATH
-
-install:
-  - yarn install --force
-
 script:
-  - yarn lint && yarn build:prod && yarn test:setup && yarn test
+  - script/travis.sh
 
 after_failure:
   - yarn test:review
