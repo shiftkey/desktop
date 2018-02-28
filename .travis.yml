@@ -54,9 +54,6 @@ cache:
     - .eslintcache
     - $HOME/.cache/electron-builder
 
-install:
-  - yarn install --force
-
 script:
   - script/travis.sh
 

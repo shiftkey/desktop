@@ -2,8 +2,14 @@
 
 if [ ${LINT_ONLY:-} ]; then
   echo "LINT_ONLY has been set - running subset of build process"
+  yarn install
   yarn lint
-elif [ ${BUILD_AND_TEST_ONLY:-} ]; then
+  exit 0
+fi
+
+yarn install --force
+
+if [ ${BUILD_AND_TEST_ONLY:-} ]; then
   echo "BUILD_AND_TEST_ONLY has been set - running subset of build process"
   yarn build:prod && yarn test:setup && yarn test
 else
