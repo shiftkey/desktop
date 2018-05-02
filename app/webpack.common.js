@@ -6,39 +6,19 @@ const HtmlWebpackPlugin = require('html-webpack-plugin')
 const CleanWebpackPlugin = require('clean-webpack-plugin')
 const webpack = require('webpack')
 const merge = require('webpack-merge')
+const appInfo = require('./app-info')
+const packageInfo = require('./package-info')
 const distInfo = require('../script/dist-info')
 
-const devClientId = '3a723b10ac5575cc5bb9'
-const devClientSecret = '22c34d87789a365981ed921352a7b9a8c3f69d54'
-
 const channel = distInfo.getReleaseChannel()
-
-const replacements = {
-  __OAUTH_CLIENT_ID__: JSON.stringify(
-    process.env.DESKTOP_OAUTH_CLIENT_ID || devClientId
-  ),
-  __OAUTH_SECRET__: JSON.stringify(
-    process.env.DESKTOP_OAUTH_CLIENT_SECRET || devClientSecret
-  ),
-  __DARWIN__: process.platform === 'darwin',
-  __WIN32__: process.platform === 'win32',
-  __LINUX__: process.platform === 'linux',
-  __DEV__: channel === 'development',
-  __RELEASE_CHANNEL__: JSON.stringify(channel),
-  __UPDATES_URL__: JSON.stringify(distInfo.getUpdatesURL()),
-  __SHA__: JSON.stringify(distInfo.getSHA()),
-  __CLI_COMMANDS__: JSON.stringify(distInfo.getCLICommands()),
-  'process.platform': JSON.stringify(process.platform),
-  'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
-  'process.env.TEST_ENV': JSON.stringify(process.env.TEST_ENV),
-}
-
-const outputDir = 'out'
 
 const externals = ['7zip']
 if (channel === 'development') {
   externals.push('devtron')
 }
+
+const outputDir = 'out'
+const replacements = appInfo.getReplacements()
 
 const commonConfig = {
   externals: externals,
@@ -165,12 +145,61 @@ const cliConfig = merge({}, commonConfig, {
   ],
 })
 
+const highlighterConfig = merge({}, commonConfig, {
+  entry: { highlighter: path.resolve(__dirname, 'src/highlighter/index') },
+  output: { libraryTarget: 'var' },
+  target: 'webworker',
+  plugins: [
+    new webpack.DefinePlugin(
+      Object.assign({}, replacements, {
+        __PROCESS_KIND__: JSON.stringify('highlighter'),
+      })
+    ),
+  ],
+  resolve: {
+    // We don't want to bundle all of CodeMirror in the highlighter. A web
+    // worker doesn't have access to the DOM and most of CodeMirror's core
+    // code is useless to us in that context. So instead we use this super
+    // nifty subset of codemirror that defines the minimal context needed
+    // to run a mode inside of node. Now, we're not running in node
+    // but CodeMirror doesn't have to know about that.
+    alias: {
+      codemirror$: 'codemirror/addon/runmode/runmode.node.js',
+      '../lib/codemirror$': '../addon/runmode/runmode.node.js',
+      '../../lib/codemirror$': '../../addon/runmode/runmode.node.js',
+      '../../addon/runmode/runmode$': '../../addon/runmode/runmode.node.js',
+    },
+  },
+})
+
+highlighterConfig.module.rules = [
+  {
+    test: /\.ts$/,
+    include: path.resolve(__dirname, 'src/highlighter'),
+    use: [
+      {
+        loader: 'awesome-typescript-loader',
+        options: {
+          useBabel: true,
+          useCache: true,
+          configFileName: path.resolve(
+            __dirname,
+            'src/highlighter/tsconfig.json'
+          ),
+        },
+      },
+    ],
+    exclude: /node_modules/,
+  },
+]
+
 module.exports = {
   main: mainConfig,
   renderer: rendererConfig,
   askPass: askPassConfig,
   crash: crashConfig,
   cli: cliConfig,
+  highlighter: highlighterConfig,
   replacements: replacements,
   externals: commonConfig.externals,
 }

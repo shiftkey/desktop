@@ -76,9 +76,14 @@ export function tailByLine(
   cb: (line: string) => void
 ): Disposable {
   const tailer = new Tailer(path)
-  const disposable = tailer.onDataAvailable(stream => {
+
+  const onErrorDisposable = tailer.onError(error => {
+    log.warn(`Unable to tail path: ${path}`, error)
+  })
+
+  const onDataDisposable = tailer.onDataAvailable(stream => {
     byline(stream).on('data', (buffer: Buffer) => {
-      if (disposable.disposed) {
+      if (onDataDisposable.disposed) {
         return
       }
 
@@ -90,7 +95,8 @@ export function tailByLine(
   tailer.start()
 
   return new Disposable(() => {
-    disposable.dispose()
+    onDataDisposable.dispose()
+    onErrorDisposable.dispose()
     tailer.stop()
   })
 }
@@ -109,5 +115,66 @@ export function pathExists(path: string): Promise<boolean> {
         resolve(true)
       }
     })
+  })
+}
+
+/**
+ * Asynchronous readFile - Asynchronously reads the entire contents of a file.
+ *
+ * @param fileName
+ * @param options An object with optional {encoding} and {flag} properties.  If {encoding} is specified, readFile returns a string; otherwise it returns a Buffer.
+ * @param callback - The callback is passed two arguments (err, data), where data is the contents of the file.
+ */
+export async function readFile(
+  filename: string,
+  options?: { flag?: string }
+): Promise<Buffer>
+// eslint-disable-next-line no-redeclare
+export async function readFile(
+  filename: string,
+  options?: { encoding: BufferEncoding; flag?: string }
+): Promise<string>
+// eslint-disable-next-line no-redeclare
+export async function readFile(
+  filename: string,
+  options?: { encoding?: string; flag?: string }
+): Promise<Buffer | string> {
+  return new Promise<string | Buffer>((resolve, reject) => {
+    options = options || { flag: 'r' }
+    Fs.readFile(filename, options, (err, data) => {
+      if (err) {
+        reject(err)
+      } else {
+        resolve(data)
+      }
+    })
+  })
+}
+
+/**
+ * Read a specific region from a file.
+ *
+ * @param path  Path to the file
+ * @param start First index relative to the start of the file to
+ *              read from
+ * @param end   Last index (inclusive) relative to the start of the
+ *              file to read to
+ */
+export async function readPartialFile(
+  path: string,
+  start: number,
+  end: number
+): Promise<Buffer> {
+  return await new Promise<Buffer>((resolve, reject) => {
+    const chunks = new Array<Buffer>()
+    let total = 0
+
+    Fs.createReadStream(path, { start, end })
+      .on('data', (chunk: Buffer) => {
+        chunks.push(chunk)
+        total += chunk.length
+      })
+      .on('error', reject)
+      .on('end', () => resolve(Buffer.concat(chunks, total)))
   })
 }

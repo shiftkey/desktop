@@ -1,8 +1,10 @@
 import * as React from 'react'
 import { Repository } from '../../models/repository'
 import { Octicon, iconForRepository } from '../octicons'
-import { showContextualMenu, IMenuItem } from '../main-process-proxy'
+import { showContextualMenu } from '../main-process-proxy'
 import { Repositoryish } from './group-repositories'
+import { IMenuItem } from '../../lib/menu-item'
+import { HighlightText } from '../lib/highlight-text'
 
 const defaultEditorLabel = __DARWIN__
   ? 'Open in External Editor'
@@ -14,7 +16,7 @@ interface IRepositoryListItemProps {
   /** Called when the repository should be removed. */
   readonly onRemoveRepository: (repository: Repositoryish) => void
 
-  /** Called when the repository should be shown in Finder/Explorer. */
+  /** Called when the repository should be shown in Finder/Explorer/File Manager. */
   readonly onShowRepository: (repository: Repositoryish) => void
 
   /** Called when the repository should be shown in the shell. */
@@ -31,6 +33,9 @@ interface IRepositoryListItemProps {
 
   /** The label for the user's preferred shell. */
   readonly shellLabel: string
+
+  /** The characters in the repository name to highlight */
+  readonly matches: ReadonlyArray<number>
 }
 
 /** A repository item. */
@@ -62,7 +67,10 @@ export class RepositoryListItem extends React.Component<
 
         <div className="name">
           {prefix ? <span className="prefix">{prefix}</span> : null}
-          <span>{repository.name}</span>
+          <HighlightText
+            text={repository.name}
+            highlight={this.props.matches}
+          />
         </div>
       </div>
     )
@@ -73,7 +81,10 @@ export class RepositoryListItem extends React.Component<
       nextProps.repository instanceof Repository &&
       this.props.repository instanceof Repository
     ) {
-      return nextProps.repository.id !== this.props.repository.id
+      return (
+        nextProps.repository.id !== this.props.repository.id ||
+        nextProps.matches !== this.props.matches
+      )
     } else {
       return true
     }
@@ -88,6 +99,10 @@ export class RepositoryListItem extends React.Component<
       ? `Open in ${this.props.externalEditorLabel}`
       : defaultEditorLabel
 
+    const showRepositoryLabel = __DARWIN__
+      ? 'Show in Finder'
+      : __WIN32__ ? 'Show in Explorer' : 'Show in your File Manager'
+
     const items: ReadonlyArray<IMenuItem> = [
       {
         label: `Open in ${this.props.shellLabel}`,
@@ -95,7 +110,7 @@ export class RepositoryListItem extends React.Component<
         enabled: !missing,
       },
       {
-        label: __DARWIN__ ? 'Show in Finder' : 'Show in Explorer',
+        label: showRepositoryLabel,
         action: this.showRepository,
         enabled: !missing,
       },

@@ -1,7 +1,11 @@
 import * as React from 'react'
 import { LinkButton } from '../lib/link-button'
+import { encodePathAsUrl } from '../../lib/path'
 
-const BlankSlateImage = `file:///${__dirname}/static/empty-no-file-selected.svg`
+const BlankSlateImage = encodePathAsUrl(
+  __dirname,
+  'static/empty-no-file-selected.svg'
+)
 
 interface INoChangesProps {
   /** Called when the user chooses to open the repository. */
@@ -11,7 +15,9 @@ interface INoChangesProps {
 /** The component to display when there are no local changes. */
 export class NoChanges extends React.Component<INoChangesProps, {}> {
   public render() {
-    const opener = __DARWIN__ ? 'Finder' : 'Explorer'
+    const opener = __DARWIN__
+      ? 'Finder'
+      : __WIN32__ ? 'Explorer' : 'your File Manager'
     return (
       <div className="panel blankslate" id="no-changes">
         <img src={BlankSlateImage} className="blankslate-image" />

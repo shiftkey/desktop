@@ -1,5 +1,6 @@
 import * as React from 'react'
 import * as classNames from 'classnames'
+import { showContextualMenu } from '../main-process-proxy'
 
 interface ITextAreaProps {
   /** The label for the textarea field. */
@@ -44,7 +45,7 @@ interface ITextAreaProps {
   readonly onKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void
 
   /** A callback to receive the underlying `textarea` instance. */
-  readonly onTextAreaRef?: (instance: HTMLTextAreaElement) => void
+  readonly onTextAreaRef?: (instance: HTMLTextAreaElement | null) => void
 }
 
 /** A textarea element with app-standard styles. */
@@ -57,6 +58,10 @@ export class TextArea extends React.Component<ITextAreaProps, {}> {
     if (this.props.onValueChanged && !event.defaultPrevented) {
       this.props.onValueChanged(event.currentTarget.value)
     }
+  }
+  private onContextMenu = (event: React.MouseEvent<any>) => {
+    event.preventDefault()
+    showContextualMenu([{ role: 'editMenu' }])
   }
 
   public render() {
@@ -78,6 +83,7 @@ export class TextArea extends React.Component<ITextAreaProps, {}> {
           onChange={this.onChange}
           onKeyDown={this.props.onKeyDown}
           ref={this.props.onTextAreaRef}
+          onContextMenu={this.onContextMenu}
         />
       </label>
     )

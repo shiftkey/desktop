@@ -6,7 +6,7 @@ import { Repository } from '../../models/repository'
 import { getAheadBehind } from '../../lib/git'
 import { ButtonGroup } from '../lib/button-group'
 import { Dialog, DialogContent, DialogFooter } from '../dialog'
-import { BranchList } from '../branches/branch-list'
+import { BranchList } from '../branches'
 
 interface IMergeProps {
   readonly dispatcher: Dispatcher
@@ -83,15 +83,6 @@ export class Merge extends React.Component<IMergeProps, IMergeState> {
     this.setState({ filterText })
   }
 
-  private onFilterKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Escape') {
-      if (this.state.filterText.length === 0) {
-        this.props.onDismissed()
-        event.preventDefault()
-      }
-    }
-  }
-
   private onSelectionChanged = async (selectedBranch: Branch | null) => {
     if (selectedBranch) {
       this.setState({ selectedBranch })
@@ -161,7 +152,6 @@ export class Merge extends React.Component<IMergeProps, IMergeState> {
             defaultBranch={this.props.defaultBranch}
             recentBranches={this.props.recentBranches}
             filterText={this.state.filterText}
-            onFilterKeyDown={this.onFilterKeyDown}
             onFilterTextChanged={this.onFilterTextChanged}
             selectedBranch={selectedBranch}
             onSelectionChanged={this.onSelectionChanged}

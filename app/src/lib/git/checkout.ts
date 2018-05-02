@@ -1,10 +1,17 @@
-import { git, IGitExecutionOptions } from './core'
+import { git, IGitExecutionOptions, gitNetworkArguments } from './core'
 import { Repository } from '../../models/repository'
+import { Branch, BranchType } from '../../models/branch'
 import {
   CheckoutProgressParser,
   executionOptionsWithProgress,
 } from '../progress'
 import { ICheckoutProgress } from '../app-state'
+
+import {
+  IGitAccount,
+  envForAuthentication,
+  AuthenticationErrors,
+} from './authentication'
 
 export type ProgressCallback = (progress: ICheckoutProgress) => void
 
@@ -14,7 +21,7 @@ export type ProgressCallback = (progress: ICheckoutProgress) => void
  * @param repository - The repository in which the branch checkout should
  *                     take place
  *
- * @param name       - The branch name that should be checked out
+ * @param branch     - The branch name that should be checked out
  *
  * @param progressCallback - An optional function which will be invoked
  *                           with information about the current progress
@@ -24,15 +31,19 @@ export type ProgressCallback = (progress: ICheckoutProgress) => void
  */
 export async function checkoutBranch(
   repository: Repository,
-  name: string,
+  account: IGitAccount | null,
+  branch: Branch,
   progressCallback?: ProgressCallback
 ): Promise<void> {
-  let opts: IGitExecutionOptions = {}
+  let opts: IGitExecutionOptions = {
+    env: envForAuthentication(account),
+    expectedErrors: AuthenticationErrors,
+  }
 
   if (progressCallback) {
-    const title = `Checking out branch ${name}`
+    const title = `Checking out branch ${branch.name}`
     const kind = 'checkout'
-    const targetBranch = name
+    const targetBranch = branch.name
 
     opts = await executionOptionsWithProgress(
       { ...opts, trackLFSProgress: true },
@@ -51,9 +62,15 @@ export async function checkoutBranch(
     progressCallback({ kind, title, value: 0, targetBranch })
   }
 
-  const args = progressCallback
-    ? ['checkout', '--progress', name, '--']
-    : ['checkout', name, '--']
+  const baseArgs =
+    progressCallback != null
+      ? [...gitNetworkArguments, 'checkout', '--progress']
+      : [...gitNetworkArguments, 'checkout']
+
+  const args =
+    branch.type === BranchType.Remote
+      ? baseArgs.concat(branch.name, '-b', branch.nameWithoutRemote, '--')
+      : baseArgs.concat(branch.name, '--')
 
   await git(args, repository.path, 'checkoutBranch', opts)
 }

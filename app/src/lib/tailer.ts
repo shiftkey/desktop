@@ -32,6 +32,19 @@ export class Tailer {
   }
 
   /**
+   * Register a function to be called whenever an error is reported by the underlying
+   * filesystem watcher.
+   */
+  public onError(fn: (error: Error) => void): Disposable {
+    return this.emitter.on('error', fn)
+  }
+
+  private handleError(error: Error) {
+    this.state = null
+    this.emitter.emit('error', error)
+  }
+
+  /**
    * Start tailing the file. This can only be called again after calling `stop`.
    */
   public start() {
@@ -41,8 +54,15 @@ export class Tailer {
       )
     }
 
-    const watcher = Fs.watch(this.path, this.onWatchEvent)
-    this.state = { watcher, position: 0 }
+    try {
+      const watcher = Fs.watch(this.path, this.onWatchEvent)
+      watcher.on('error', error => {
+        this.handleError(error)
+      })
+      this.state = { watcher, position: 0 }
+    } catch (error) {
+      this.handleError(error)
+    }
   }
 
   private onWatchEvent = (event: string) => {

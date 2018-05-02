@@ -1,16 +1,68 @@
 import { assertNever } from '../lib/fatal-error'
 
+/**
+ * V8 has a limit on the size of string it can create, and unless we want to
+ * trigger an unhandled exception we need to do the encoding conversion by hand
+ */
+export const maximumDiffStringSize = 268435441
+
+/**
+ * A container for holding an image for display in the application
+ */
+export class Image {
+  /**
+   * The base64 encoded contents of the image
+   */
+  public readonly contents: string
+
+  /**
+   * The data URI media type, so the browser can render the image correctly
+   */
+  public readonly mediaType: string
+
+  public constructor(contents: string, mediaType: string) {
+    this.contents = contents
+    this.mediaType = mediaType
+  }
+}
+
+/** each diff is made up of a number of hunks */
+export class DiffHunk {
+  /** details from the diff hunk header about the line start and patch length */
+  public readonly header: DiffHunkHeader
+  /** the contents - context and changes - of the diff setion */
+  public readonly lines: ReadonlyArray<DiffLine>
+  /** the diff hunk's start position in the overall file diff */
+  public readonly unifiedDiffStart: number
+  /** the diff hunk's end position in the overall file diff */
+  public readonly unifiedDiffEnd: number
+
+  public constructor(
+    header: DiffHunkHeader,
+    lines: ReadonlyArray<DiffLine>,
+    unifiedDiffStart: number,
+    unifiedDiffEnd: number
+  ) {
+    this.header = header
+    this.unifiedDiffStart = unifiedDiffStart
+    this.unifiedDiffEnd = unifiedDiffEnd
+    this.lines = lines
+  }
+}
+
 export enum DiffType {
-  /** changes to a text file, which may be partially selected for commit */
+  /** Changes to a text file, which may be partially selected for commit */
   Text,
-  /** changes to files of a known format, which can be viewed in the app */
+  /** Changes to files of a known format, which can be viewed in the app */
   Image,
-  /** changes to an unknown file format, which Git is unable to present in a human-friendly format */
+  /** Changes to an unknown file format, which Git is unable to present in a human-friendly format */
   Binary,
-  /** change to a repository which is included as a submodule of this repository */
+  /** Change to a repository which is included as a submodule of this repository */
   Submodule,
-  /** diff too large to render in app */
-  TooLarge,
+  /** Diff is large enough to degrade ux if rendered */
+  LargeText,
+  /** Diff that will not be rendered */
+  Unrenderable,
 }
 
 /** indicate what a line in the diff represents */
@@ -73,18 +125,27 @@ export interface IBinaryDiff {
   readonly kind: DiffType.Binary
 }
 
-export interface IDiffTooLarge {
-  readonly kind: DiffType.TooLarge
-  /**
-   * The length of the diff output from Git which exceeds the runtime limits:
-   *
-   * 268435441 bytes = 256MB - 15 bytes
-   */
-  readonly length: number
+export interface ILargeTextDiff {
+  readonly kind: DiffType.LargeText
+  /** The unified text diff - including headers and context */
+  readonly text: string
+  /** The diff contents organized by hunk - how the git CLI outputs to the caller */
+  readonly hunks: ReadonlyArray<DiffHunk>
+  /** A warning from Git that the line endings have changed in this file and will affect the commit */
+  readonly lineEndingsChange?: LineEndingsChange
+}
+
+export interface IUnrenderableDiff {
+  readonly kind: DiffType.Unrenderable
 }
 
 /** The union of diff types that can be rendered in Desktop */
-export type IDiff = ITextDiff | IImageDiff | IBinaryDiff | IDiffTooLarge
+export type IDiff =
+  | ITextDiff
+  | IImageDiff
+  | IBinaryDiff
+  | ILargeTextDiff
+  | IUnrenderableDiff
 
 /** track details related to each line in the diff */
 export class DiffLine {
@@ -154,45 +215,6 @@ export class DiffHunkHeader {
     this.newStartLine = newStartLine
     this.newLineCount = newLineCount
   }
-}
-
-/** each diff is made up of a number of hunks */
-export class DiffHunk {
-  /** details from the diff hunk header about the line start and patch length */
-  public readonly header: DiffHunkHeader
-  /** the contents - context and changes - of the diff setion */
-  public readonly lines: ReadonlyArray<DiffLine>
-  /** the diff hunk's start position in the overall file diff */
-  public readonly unifiedDiffStart: number
-  /** the diff hunk's end position in the overall file diff */
-  public readonly unifiedDiffEnd: number
-
-  public constructor(
-    header: DiffHunkHeader,
-    lines: ReadonlyArray<DiffLine>,
-    unifiedDiffStart: number,
-    unifiedDiffEnd: number
-  ) {
-    this.header = header
-    this.unifiedDiffStart = unifiedDiffStart
-    this.unifiedDiffEnd = unifiedDiffEnd
-    this.lines = lines
-  }
-}
-
-/**
- * A container for holding an image for display in the application
- */
-export class Image {
-  /**
-   * The base64 encoded contents of the image
-   */
-  public readonly contents: string
-
-  /**
-   * The data URI media type, so the browser can render the image correctly
-   */
-  public readonly mediaType: string
 }
 
 export class FileSummary {

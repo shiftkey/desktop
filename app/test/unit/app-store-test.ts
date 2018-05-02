@@ -1,4 +1,4 @@
-/* tslint:disable:no-sync-functions */
+/* eslint-disable no-sync */
 
 import { expect } from 'chai'
 
@@ -100,7 +100,9 @@ describe('AppStore', () => {
           return selectedState.state
         default:
           throw new chai.AssertionError(
-            `Got selected state of type ${selectedState.type} which is not supported.`
+            `Got selected state of type ${
+              selectedState.type
+            } which is not supported.`
           )
       }
     }

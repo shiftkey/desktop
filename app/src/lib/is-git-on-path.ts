@@ -1,4 +1,5 @@
 import { spawn } from 'child_process'
+import * as Path from 'path'
 
 export function isGitOnPath(): Promise<boolean> {
   // Modern versions of macOS ship with a Git shim that guides you through

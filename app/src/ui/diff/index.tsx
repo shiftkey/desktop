@@ -1,8 +1,10 @@
 import { clipboard } from 'electron'
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
+import * as Path from 'path'
 import { Disposable } from 'event-kit'
 
+import { assertNever } from '../../lib/fatal-error'
 import {
   NewImageDiff,
   ModifiedImageDiff,
@@ -13,10 +15,10 @@ import { BinaryFile } from './binary-file'
 import { Editor } from 'codemirror'
 import { CodeMirrorHost } from './code-mirror-host'
 import { Repository } from '../../models/repository'
-
+import { encodePathAsUrl } from '../../lib/path'
 import { ImageDiffType } from '../../lib/app-state'
 import {
-  FileChange,
+  CommittedFileChange,
   WorkingDirectoryFileChange,
   AppFileStatus,
 } from '../../models/status'
@@ -26,7 +28,9 @@ import {
   IDiff,
   IImageDiff,
   ITextDiff,
+  DiffLine,
   DiffLineType,
+  ILargeTextDiff,
 } from '../../models/diff'
 import { Dispatcher } from '../../lib/dispatcher/dispatcher'
 
@@ -38,7 +42,6 @@ import {
 } from './diff-explorer'
 import { DiffLineGutter } from './diff-line-gutter'
 import { IEditorConfigurationExtra } from './editor-configuration-extra'
-import { getDiffMode } from './diff-mode'
 import { ISelectionStrategy } from './selection/selection-strategy'
 import { DragDropSelection } from './selection/drag-drop-selection-strategy'
 import { RangeSelection } from './selection/range-selection-strategy'
@@ -48,9 +51,19 @@ import { fatalError } from '../../lib/fatal-error'
 
 import { RangeSelectionSizePixels } from './edge-detection'
 import { relativeChanges } from './changed-range'
+import { getPartialBlobContents } from '../../lib/git/show'
+import { readPartialFile } from '../../lib/file-system'
+
+import { DiffSyntaxMode, IDiffSyntaxModeSpec } from './diff-syntax-mode'
+import { highlight } from '../../lib/highlighter/worker'
+import { ITokens } from '../../lib/highlighter/types'
+import { Button } from '../lib/button'
 
 /** The longest line for which we'd try to calculate a line diff. */
 const MaxIntraLineDiffStringLength = 4096
+
+/** The maximum number of bytes we'll process for highlighting. */
+const MaxHighlightContentLength = 256 * 1024
 
 // This is a custom version of the no-newline octicon that's exactly as
 // tall as it needs to be (8px) which helps with aligning it on the line.
@@ -59,6 +72,212 @@ const narrowNoNewlineSymbol = new OcticonSymbol(
   8,
   'm 16,1 0,3 c 0,0.55 -0.45,1 -1,1 l -3,0 0,2 -3,-3 3,-3 0,2 2,0 0,-2 2,0 z M 8,4 C 8,6.2 6.2,8 4,8 1.8,8 0,6.2 0,4 0,1.8 1.8,0 4,0 6.2,0 8,1.8 8,4 Z M 1.5,5.66 5.66,1.5 C 5.18,1.19 4.61,1 4,1 2.34,1 1,2.34 1,4 1,4.61 1.19,5.17 1.5,5.66 Z M 7,4 C 7,3.39 6.81,2.83 6.5,2.34 L 2.34,6.5 C 2.82,6.81 3.39,7 4,7 5.66,7 7,5.66 7,4 Z'
 )
+
+// image used when no diff is displayed
+const NoDiffImage = encodePathAsUrl(__dirname, 'static/ufo-alert.svg')
+
+type ChangedFile = WorkingDirectoryFileChange | CommittedFileChange
+
+interface ILineFilters {
+  readonly oldLineFilter: Array<number>
+  readonly newLineFilter: Array<number>
+}
+
+interface IFileContents {
+  readonly file: ChangedFile
+  readonly oldContents: Buffer
+  readonly newContents: Buffer
+}
+
+interface IFileTokens {
+  readonly oldTokens: ITokens
+  readonly newTokens: ITokens
+}
+
+async function getOldFileContent(
+  repository: Repository,
+  file: ChangedFile
+): Promise<Buffer> {
+  if (file.status === AppFileStatus.New) {
+    return new Buffer(0)
+  }
+
+  let commitish
+
+  if (file instanceof WorkingDirectoryFileChange) {
+    // If we pass an empty string here we get the contents
+    // that are in the index. But since we call diff with
+    // --no-index (see diff.ts) we need to look at what's
+    // actually committed to get the appropriate content.
+    commitish = 'HEAD'
+  } else if (file instanceof CommittedFileChange) {
+    commitish = `${file.commitish}^`
+  } else {
+    return assertNever(file, 'Unknown file change type')
+  }
+
+  return getPartialBlobContents(
+    repository,
+    commitish,
+    file.oldPath || file.path,
+    MaxHighlightContentLength
+  )
+}
+
+async function getNewFileContent(
+  repository: Repository,
+  file: ChangedFile
+): Promise<Buffer> {
+  if (file.status === AppFileStatus.Deleted) {
+    return new Buffer(0)
+  }
+
+  if (file instanceof WorkingDirectoryFileChange) {
+    return readPartialFile(
+      Path.join(repository.path, file.path),
+      0,
+      MaxHighlightContentLength - 1
+    )
+  } else if (file instanceof CommittedFileChange) {
+    return getPartialBlobContents(
+      repository,
+      file.commitish,
+      file.path,
+      MaxHighlightContentLength
+    )
+  }
+
+  return assertNever(file, 'Unknown file change type')
+}
+
+async function getFileContents(
+  repo: Repository,
+  file: ChangedFile,
+  lineFilters: ILineFilters
+): Promise<IFileContents> {
+  const oldContentsPromise = lineFilters.oldLineFilter.length
+    ? getOldFileContent(repo, file)
+    : Promise.resolve(new Buffer(0))
+
+  const newContentsPromise = lineFilters.newLineFilter.length
+    ? getNewFileContent(repo, file)
+    : Promise.resolve(new Buffer(0))
+
+  const [oldContents, newContents] = await Promise.all([
+    oldContentsPromise.catch(e => {
+      log.error('Could not load old contents for syntax highlighting', e)
+      return new Buffer(0)
+    }),
+    newContentsPromise.catch(e => {
+      log.error('Could not load new contents for syntax highlighting', e)
+      return new Buffer(0)
+    }),
+  ])
+
+  return { file, oldContents, newContents }
+}
+
+/**
+ * Figure out which lines we need to have tokenized in
+ * both the old and new version of the file.
+ */
+function getLineFilters(diff: ITextDiff): ILineFilters {
+  const oldLineFilter = new Array<number>()
+  const newLineFilter = new Array<number>()
+
+  const diffLines = new Array<DiffLine>()
+
+  let anyAdded = false
+  let anyDeleted = false
+
+  for (const hunk of diff.hunks) {
+    for (const line of hunk.lines) {
+      anyAdded = anyAdded || line.type === DiffLineType.Add
+      anyDeleted = anyDeleted || line.type === DiffLineType.Delete
+      diffLines.push(line)
+    }
+  }
+
+  for (const line of diffLines) {
+    // So this might need a little explaining. What we're trying
+    // to achieve here is if the diff contains only additions or
+    // only deletions we'll source all the highlighted lines from
+    // either the before or after file. That way we can completely
+    // disregard loading, and highlighting, the other version.
+    if (line.oldLineNumber !== null && line.newLineNumber !== null) {
+      if (anyAdded && !anyDeleted) {
+        newLineFilter.push(line.newLineNumber - 1)
+      } else {
+        oldLineFilter.push(line.oldLineNumber - 1)
+      }
+    } else {
+      // If there's a mix (meaning we'll have to read from both
+      // anyway) we'll prioritize the old version since
+      // that's immutable and less likely to be the subject of a
+      // race condition when someone rapidly modifies the file on
+      // disk.
+      if (line.oldLineNumber !== null) {
+        oldLineFilter.push(line.oldLineNumber - 1)
+      } else if (line.newLineNumber !== null) {
+        newLineFilter.push(line.newLineNumber - 1)
+      }
+    }
+  }
+
+  return { oldLineFilter, newLineFilter }
+}
+
+async function highlightContents(
+  contents: IFileContents,
+  tabSize: number,
+  lineFilters: ILineFilters
+): Promise<IFileTokens> {
+  const { file, oldContents, newContents } = contents
+
+  const [oldTokens, newTokens] = await Promise.all([
+    highlight(
+      oldContents.toString('utf8'),
+      Path.extname(file.oldPath || file.path),
+      tabSize,
+      lineFilters.oldLineFilter
+    ).catch(e => {
+      log.error('Highlighter worked failed for old contents', e)
+      return {}
+    }),
+    highlight(
+      newContents.toString('utf8'),
+      Path.extname(file.path),
+      tabSize,
+      lineFilters.newLineFilter
+    ).catch(e => {
+      log.error('Highlighter worked failed for new contents', e)
+      return {}
+    }),
+  ])
+
+  return { oldTokens, newTokens }
+}
+
+/**
+ * Checks to see if any key parameters in the props object that are used
+ * when performing highlighting has changed. This is used to determine
+ * whether highlighting should abort in between asynchronous operations
+ * due to some factor (like which file is currently selected) have changed
+ * and thus rendering the in-flight highlighting data useless.
+ */
+function highlightParametersEqual(newProps: IDiffProps, prevProps: IDiffProps) {
+  if (newProps === prevProps) {
+    return true
+  }
+
+  return (
+    newProps.file.path === prevProps.file.path &&
+    newProps.file.oldPath === prevProps.file.oldPath &&
+    newProps.diff.kind === DiffType.Text &&
+    prevProps.diff.kind === DiffType.Text &&
+    newProps.diff.text === prevProps.diff.text
+  )
+}
 
 /** The props for the Diff component. */
 interface IDiffProps {
@@ -72,7 +291,7 @@ interface IDiffProps {
   readonly readOnly: boolean
 
   /** The file whose diff should be displayed. */
-  readonly file: FileChange
+  readonly file: ChangedFile
 
   /** Called when the includedness of lines or a range of lines has changed. */
   readonly onIncludeChanged?: (diffSelection: DiffSelection) => void
@@ -87,10 +306,14 @@ interface IDiffProps {
   readonly imageDiffType: ImageDiffType
 }
 
+interface IDiffState {
+  readonly forceShowLargeDiff: boolean
+}
+
 /** A component which renders a diff for a file. */
-export class Diff extends React.Component<IDiffProps, {}> {
-  private codeMirror: Editor | null
-  private gutterWidth: number | null
+export class Diff extends React.Component<IDiffProps, IDiffState> {
+  private codeMirror: Editor | null = null
+  private gutterWidth: number | null = null
 
   /**
    * We store the scroll position before reloading the same diff so that we can
@@ -116,6 +339,14 @@ export class Diff extends React.Component<IDiffProps, {}> {
    */
   private cachedGutterElements = new Map<number, DiffLineGutter>()
 
+  public constructor(props: IDiffProps) {
+    super(props)
+
+    this.state = {
+      forceShowLargeDiff: false,
+    }
+  }
+
   public componentWillReceiveProps(nextProps: IDiffProps) {
     // If we're reloading the same file, we want to save the current scroll
     // position and restore it after the diff's been updated.
@@ -137,6 +368,15 @@ export class Diff extends React.Component<IDiffProps, {}> {
       }
     } else {
       this.scrollPositionToRestore = null
+    }
+
+    if (
+      codeMirror &&
+      nextProps.diff.kind === DiffType.Text &&
+      (this.props.diff.kind !== DiffType.Text ||
+        this.props.diff.text !== nextProps.diff.text)
+    ) {
+      codeMirror.setOption('mode', { name: DiffSyntaxMode.ModeName })
     }
 
     // HACK: This entire section is a hack. Whenever we receive
@@ -175,6 +415,78 @@ export class Diff extends React.Component<IDiffProps, {}> {
 
   public componentWillUnmount() {
     this.dispose()
+  }
+
+  public componentDidUpdate(prevProps: IDiffProps) {
+    const diff = this.props.diff
+    if (diff === prevProps.diff) {
+      return
+    }
+
+    if (
+      prevProps.diff.kind === DiffType.Text &&
+      diff.kind === DiffType.Text &&
+      diff.text === prevProps.diff.text
+    ) {
+      return
+    }
+
+    if (diff.kind === DiffType.Text && this.codeMirror) {
+      this.codeMirror.setOption('mode', { name: DiffSyntaxMode.ModeName })
+    }
+
+    this.initDiffSyntaxMode()
+  }
+
+  public componentDidMount() {
+    if (this.props.diff.kind === DiffType.Text) {
+      this.initDiffSyntaxMode()
+    }
+  }
+
+  public render() {
+    return this.renderDiff(this.props.diff)
+  }
+
+  public async initDiffSyntaxMode() {
+    const cm = this.codeMirror
+    const file = this.props.file
+    const diff = this.props.diff
+    const repo = this.props.repository
+
+    if (!cm || diff.kind !== DiffType.Text) {
+      return
+    }
+
+    // Store the current props to that we can see if anything
+    // changes from underneath us as we're making asynchronous
+    // operations that makes our data stale or useless.
+    const propsSnapshot = this.props
+
+    const lineFilters = getLineFilters(diff)
+    const contents = await getFileContents(repo, file, lineFilters)
+
+    if (!highlightParametersEqual(this.props, propsSnapshot)) {
+      return
+    }
+
+    const tsOpt = cm.getOption('tabSize')
+    const tabSize = typeof tsOpt === 'number' ? tsOpt : 4
+
+    const tokens = await highlightContents(contents, tabSize, lineFilters)
+
+    if (!highlightParametersEqual(this.props, propsSnapshot)) {
+      return
+    }
+
+    const spec: IDiffSyntaxModeSpec = {
+      name: DiffSyntaxMode.ModeName,
+      diff,
+      oldTokens: tokens.oldTokens,
+      newTokens: tokens.newTokens,
+    }
+
+    cm.setOption('mode', spec)
   }
 
   private dispose() {
@@ -509,7 +821,7 @@ export class Diff extends React.Component<IDiffProps, {}> {
       //
       // The only way to unsubscribe is to pass the exact same function given to the
       // 'on' function to the 'off' so we need a reference to ourselves, basically.
-      let deleteHandler: () => void
+      let deleteHandler: () => void // eslint-disable-line prefer-const
 
       // Since we manually render a react component we have to take care of unmounting
       // it or else we'll leak memory. This disposable will unmount the component.
@@ -662,6 +974,64 @@ export class Diff extends React.Component<IDiffProps, {}> {
     return null
   }
 
+  private renderLargeTextDiff() {
+    return (
+      <div className="panel empty large-diff">
+        <img src={NoDiffImage} />
+        <p>
+          The diff is too large to be displayed by default.
+          <br />
+          You can try to show it anyways, but performance may be negatively
+          impacted.
+        </p>
+        <Button onClick={this.showLargeDiff}>
+          {__DARWIN__ ? 'Show Diff' : 'Show diff'}
+        </Button>
+      </div>
+    )
+  }
+
+  private renderUnrenderableDiff() {
+    return (
+      <div className="panel empty large-diff">
+        <img src={NoDiffImage} />
+        <p>The diff is too large to be displayed.</p>
+      </div>
+    )
+  }
+
+  private renderLargeText(diff: ILargeTextDiff) {
+    // guaranteed to be set since this function won't be called if text or hunks are null
+    const textDiff: ITextDiff = {
+      text: diff.text!,
+      hunks: diff.hunks!,
+      kind: DiffType.Text,
+      lineEndingsChange: diff.lineEndingsChange,
+    }
+
+    return this.renderTextDiff(textDiff)
+  }
+
+  private renderText(diff: ITextDiff) {
+    if (diff.hunks.length === 0) {
+      if (this.props.file.status === AppFileStatus.New) {
+        return <div className="panel empty">The file is empty</div>
+      }
+
+      if (this.props.file.status === AppFileStatus.Renamed) {
+        return (
+          <div className="panel renamed">
+            The file was renamed but not changed
+          </div>
+        )
+      }
+
+      return <div className="panel empty">No content changes found</div>
+    }
+
+    return this.renderTextDiff(diff)
+  }
+
   private renderBinaryFile() {
     return (
       <BinaryFile
@@ -679,10 +1049,10 @@ export class Diff extends React.Component<IDiffProps, {}> {
       showCursorWhenSelecting: false,
       cursorBlinkRate: -1,
       lineWrapping: true,
+      mode: { name: DiffSyntaxMode.ModeName },
       // Make sure CodeMirror doesn't capture Tab and thus destroy tab navigation
       extraKeys: { Tab: false },
       scrollbarStyle: __DARWIN__ ? 'simple' : 'native',
-      mode: getDiffMode(),
       styleSelectedText: true,
       lineSeparator: '\n',
       specialChars: /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b-\u200f\u2028\u2029\ufeff]/,
@@ -750,53 +1120,31 @@ export class Diff extends React.Component<IDiffProps, {}> {
     }
   }
 
-  private getAndStoreCodeMirrorInstance = (cmh: CodeMirrorHost) => {
+  private getAndStoreCodeMirrorInstance = (cmh: CodeMirrorHost | null) => {
     this.codeMirror = cmh === null ? null : cmh.getEditor()
   }
 
-  public render() {
-    const diff = this.props.diff
-
-    if (diff.kind === DiffType.Image) {
-      return this.renderImage(diff)
-    }
-
-    if (diff.kind === DiffType.Binary) {
-      return this.renderBinaryFile()
-    }
-
-    if (diff.kind === DiffType.TooLarge) {
-      const BlankSlateImage = `file:///${__dirname}/static/empty-no-file-selected.svg`
-      const diffSizeMB = Math.round(diff.length / (1024 * 1024))
-      return (
-        <div className="panel empty">
-          <img src={BlankSlateImage} className="blankslate-image" />
-          The diff returned by Git is {diffSizeMB}MB ({diff.length} bytes),
-          which is larger than what can be displayed in GitHub Desktop.
-        </div>
-      )
-    }
-
-    if (diff.kind === DiffType.Text) {
-      if (diff.hunks.length === 0) {
-        if (this.props.file.status === AppFileStatus.New) {
-          return <div className="panel empty">The file is empty</div>
-        }
-
-        if (this.props.file.status === AppFileStatus.Renamed) {
-          return (
-            <div className="panel renamed">
-              The file was renamed but not changed
-            </div>
-          )
-        }
-
-        return <div className="panel empty">No content changes found</div>
+  private renderDiff(diff: IDiff): JSX.Element | null {
+    switch (diff.kind) {
+      case DiffType.Text:
+        return this.renderText(diff)
+      case DiffType.Binary:
+        return this.renderBinaryFile()
+      case DiffType.Image:
+        return this.renderImage(diff)
+      case DiffType.LargeText: {
+        return this.state.forceShowLargeDiff
+          ? this.renderLargeText(diff)
+          : this.renderLargeTextDiff()
       }
-
-      return this.renderTextDiff(diff)
+      case DiffType.Unrenderable:
+        return this.renderUnrenderableDiff()
+      default:
+        return assertNever(diff, `Unsupported diff type: ${diff}`)
     }
+  }
 
-    return null
+  private showLargeDiff = () => {
+    this.setState({ forceShowLargeDiff: true })
   }
 }

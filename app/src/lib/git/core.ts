@@ -110,22 +110,11 @@ export async function git(
 
   const opts = { ...defaultOptions, ...options }
 
-  const startTime = performance && performance.now ? performance.now() : null
-
   const commandName = `${name}: git ${args.join(' ')}`
-  log.debug(`Executing ${commandName}`)
 
   const result = await GitPerf.measure(commandName, () =>
     GitProcess.exec(args, path, options)
   )
-
-  if (startTime) {
-    const rawTime = performance.now() - startTime
-    if (rawTime > 1000) {
-      const timeInSeconds = (rawTime / 1000).toFixed(3)
-      log.info(`Executing ${commandName} (took ${timeInSeconds}s)`)
-    }
-  }
 
   const exitCode = result.exitCode
 
@@ -184,9 +173,9 @@ function getDescriptionForError(error: DugiteError): string {
     case DugiteError.SSHAuthenticationFailed:
     case DugiteError.SSHPermissionDenied:
     case DugiteError.HTTPSAuthenticationFailed:
-      return `Authentication failed. You may not have permission to access the repository. Open ${__DARWIN__
-        ? 'preferences'
-        : 'options'} and verify that you're signed in with an account that has permission to access this repository.`
+      return `Authentication failed. You may not have permission to access the repository or the repository may have been archived. Open ${
+        __DARWIN__ ? 'preferences' : 'options'
+      } and verify that you're signed in with an account that has permission to access this repository.`
     case DugiteError.RemoteDisconnection:
       return 'The remote disconnected. Check your Internet connection and try again.'
     case DugiteError.HostDown:
@@ -252,6 +241,12 @@ function getDescriptionForError(error: DugiteError): string {
       return 'Cannot push these commits as they contain an email address marked as private on GitHub.'
     case DugiteError.LFSAttributeDoesNotMatch:
       return 'Git LFS attribute found in global Git configuration does not match expected value.'
+    case DugiteError.ProtectedBranchDeleteRejected:
+      return 'This branch cannot be deleted from the remote repository because it is marked as protected.'
+    case DugiteError.ProtectedBranchRequiredStatus:
+      return 'The push was rejected by the remote server because a required status check has not been satisfied.'
+    case DugiteError.BranchRenameFailed:
+      return 'The branch could not be renamed.'
     default:
       return assertNever(error, `Unknown error: ${error}`)
   }

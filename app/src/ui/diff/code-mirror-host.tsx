@@ -1,13 +1,16 @@
 import * as React from 'react'
 import * as CodeMirror from 'codemirror'
 
+// Required for us to be able to customize the foreground color of selected text
+import 'codemirror/addon/selection/mark-selection'
+
+// Autocompletion plugin
+import 'codemirror/addon/hint/show-hint'
+
 if (__DARWIN__) {
   // This has to be required to support the `simple` scrollbar style.
   require('codemirror/addon/scroll/simplescrollbars')
 }
-
-// Required for us to be able to customize the foreground color of selected text
-require('codemirror/addon/selection/mark-selection')
 
 interface ICodeMirrorHostProps {
   /**
@@ -49,8 +52,8 @@ interface ICodeMirrorHostProps {
  * A component hosting a CodeMirror instance
  */
 export class CodeMirrorHost extends React.Component<ICodeMirrorHostProps, {}> {
-  private wrapper: HTMLDivElement | null
-  private codeMirror: CodeMirror.Editor | null
+  private wrapper: HTMLDivElement | null = null
+  private codeMirror: CodeMirror.Editor | null = null
 
   /**
    * Gets the internal CodeMirror instance or null if CodeMirror hasn't
@@ -141,7 +144,7 @@ export class CodeMirrorHost extends React.Component<ICodeMirrorHostProps, {}> {
     }
   }
 
-  private onRef = (ref: HTMLDivElement) => {
+  private onRef = (ref: HTMLDivElement | null) => {
     this.wrapper = ref
   }
 

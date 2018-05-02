@@ -2,6 +2,7 @@ import { ipcRenderer } from 'electron'
 import { ExecutableMenuItem } from '../models/app-menu'
 import { MenuIDs } from '../main-process/menu'
 import { IMenuItemState } from '../lib/menu-update'
+import { IMenuItem } from '../lib/menu-item'
 
 /** Set the menu item's enabledness. */
 export function updateMenuState(
@@ -39,7 +40,7 @@ export function showCertificateTrustDialog(
  * that would tell the app to quit.
  */
 export function sendWillQuitSync() {
-  // tslint:disable-next-line:no-sync-functions
+  // eslint-disable-next-line no-sync
   ipcRenderer.sendSync('will-quit')
 }
 
@@ -50,20 +51,6 @@ export function sendWillQuitSync() {
  */
 export function getAppMenu() {
   ipcRenderer.send('get-app-menu')
-}
-
-export interface IMenuItem {
-  /** The user-facing label. */
-  readonly label?: string
-
-  /** The action to invoke when the user selects the item. */
-  readonly action?: () => void
-
-  /** The type of item. */
-  readonly type?: 'separator'
-
-  /** Is the menu item enabled? Defaults to true. */
-  readonly enabled?: boolean
 }
 
 /**
@@ -108,6 +95,7 @@ export function showContextualMenu(items: ReadonlyArray<IMenuItem>) {
 /** Update the menu item labels with the user's preferred apps. */
 export function updatePreferredAppMenuItemLabels(labels: {
   editor?: string
+  pullRequestLabel?: string
   shell: string
 }) {
   ipcRenderer.send('update-preferred-app-menu-item-labels', labels)

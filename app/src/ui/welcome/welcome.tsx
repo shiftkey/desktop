@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Dispatcher } from '../../lib/dispatcher'
+import { encodePathAsUrl } from '../../lib/path'
 import { AppStore, SignInState, SignInStep } from '../../lib/stores'
 import { assertNever } from '../../lib/fatal-error'
 import { Start } from './start'
@@ -30,9 +31,18 @@ interface IWelcomeState {
 
 // Note that we're reusing the welcome illustrations in the crash process, any
 // changes to these will have to be reflected in the crash process as well.
-const WelcomeRightImageUri = `file:///${__dirname}/static/welcome-illustration-right.svg`
-const WelcomeLeftTopImageUri = `file:///${__dirname}/static/welcome-illustration-left-top.svg`
-const WelcomeLeftBottomImageUri = `file:///${__dirname}/static/welcome-illustration-left-bottom.svg`
+const WelcomeRightImageUri = encodePathAsUrl(
+  __dirname,
+  'static/welcome-illustration-right.svg'
+)
+const WelcomeLeftTopImageUri = encodePathAsUrl(
+  __dirname,
+  'static/welcome-illustration-left-top.svg'
+)
+const WelcomeLeftBottomImageUri = encodePathAsUrl(
+  __dirname,
+  'static/welcome-illustration-left-bottom.svg'
+)
 
 /** The Welcome flow. */
 export class Welcome extends React.Component<IWelcomeProps, IWelcomeState> {
@@ -93,8 +103,9 @@ export class Welcome extends React.Component<IWelcomeProps, IWelcomeState> {
     // Only advance when the state first changes...
     if (this.props.signInState.kind === nextProps.signInState.kind) {
       log.info(
-        `[Welcome] kind ${this.props.signInState
-          .kind} is the same as ${nextProps.signInState.kind}. ignoring...`
+        `[Welcome] kind ${this.props.signInState.kind} is the same as ${
+          nextProps.signInState.kind
+        }. ignoring...`
       )
       return
     }

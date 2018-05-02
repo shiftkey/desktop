@@ -28,6 +28,7 @@ const DefaultDailyMeasures: IDailyMeasures = {
   commits: 0,
   partialCommits: 0,
   openShellCount: 0,
+  coAuthoredCommits: 0,
 }
 
 interface ICalculatedStats {
@@ -279,6 +280,13 @@ export class StatsStore {
     }))
   }
 
+  /** Record that a commit was created with one or more co-authors. */
+  public recordCoAuthoredCommit(): Promise<void> {
+    return this.updateDailyMeasures(m => ({
+      coAuthoredCommits: m.coAuthoredCommits + 1,
+    }))
+  }
+
   /** Record that the user opened a shell. */
   public recordOpenShell(): Promise<void> {
     return this.updateDailyMeasures(m => ({
@@ -306,11 +314,9 @@ export class StatsStore {
 
   /** Post some data to our stats endpoint. */
   private post(body: object): Promise<Response> {
-    const options = {
+    const options: RequestInit = {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: new Headers({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
     }
 

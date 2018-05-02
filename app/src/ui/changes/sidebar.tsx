@@ -17,11 +17,12 @@ import {
   IssuesAutocompletionProvider,
   UserAutocompletionProvider,
 } from '../autocompletion'
-import { ICommitMessage } from '../../lib/app-state'
 import { ClickSource } from '../lib/list'
 import { WorkingDirectoryFileChange } from '../../models/status'
 import { CSSTransitionGroup } from 'react-transition-group'
 import { openFile } from '../../lib/open-file'
+import { ITrailer } from '../../lib/git/interpret-trailers'
+import { Account } from '../../models/account'
 
 /**
  * The timeout for the animation of the enter/leave animation for Undo.
@@ -46,12 +47,21 @@ interface IChangesSidebarProps {
   readonly isPushPullFetchInProgress: boolean
   readonly gitHubUserStore: GitHubUserStore
   readonly askForConfirmationOnDiscardChanges: boolean
+  readonly accounts: ReadonlyArray<Account>
+  /** The name of the currently selected external editor */
+  readonly externalEditorLabel?: string
+
+  /**
+   * Called to open a file using the user's configured applications
+   * @param path The path of the file relative to the root of the repository
+   */
+  readonly onOpenInExternalEditor: (path: string) => void
 }
 
 export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
   private autocompletionProviders: ReadonlyArray<
     IAutocompletionProvider<any>
-  > | null
+  > | null = null
 
   public constructor(props: IChangesSidebarProps) {
     super(props)
@@ -66,7 +76,8 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
   private receiveProps(props: IChangesSidebarProps) {
     if (
       props.repository.id !== this.props.repository.id ||
-      !this.autocompletionProviders
+      !this.autocompletionProviders ||
+      props.accounts !== this.props.accounts
     ) {
       const autocompletionProviders: IAutocompletionProvider<any>[] = [
         new EmojiAutocompletionProvider(this.props.emoji),
@@ -82,10 +93,16 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
             props.dispatcher
           )
         )
+
+        const account = this.props.accounts.find(
+          a => a.endpoint === gitHubRepository.endpoint
+        )
+
         autocompletionProviders.push(
           new UserAutocompletionProvider(
             props.gitHubUserStore,
-            gitHubRepository
+            gitHubRepository,
+            account
           )
         )
       }
@@ -94,10 +111,16 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
     }
   }
 
-  private onCreateCommit = (message: ICommitMessage): Promise<boolean> => {
+  private onCreateCommit = (
+    summary: string,
+    description: string | null,
+    trailers?: ReadonlyArray<ITrailer>
+  ): Promise<boolean> => {
     return this.props.dispatcher.commitIncludedChanges(
       this.props.repository,
-      message
+      summary,
+      description,
+      trailers
     )
   }
 
@@ -288,6 +311,10 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
           availableWidth={this.props.availableWidth}
           onIgnore={this.onIgnore}
           isCommitting={this.props.isCommitting}
+          showCoAuthoredBy={this.props.changes.showCoAuthoredBy}
+          coAuthors={this.props.changes.coAuthors}
+          externalEditorLabel={this.props.externalEditorLabel}
+          onOpenInExternalEditor={this.props.onOpenInExternalEditor}
         />
         {this.renderMostRecentLocalCommit()}
       </div>

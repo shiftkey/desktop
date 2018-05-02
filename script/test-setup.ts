@@ -1,9 +1,10 @@
-/* tslint:disable:no-sync-functions */
+/* eslint-disable no-sync */
 
 import * as fs from 'fs'
 import * as cp from 'child_process'
 import { getLogFiles } from './review-logs'
-import { getProductName, getDistPath } from './dist-info'
+import { getProductName } from '../app/package-info'
+import { getDistPath } from './dist-info'
 
 const isFork = process.env.CIRCLE_PR_USERNAME
 

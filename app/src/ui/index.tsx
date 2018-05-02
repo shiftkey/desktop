@@ -17,6 +17,7 @@ import {
   missingRepositoryHandler,
   backgroundTaskHandler,
   pushNeedsPullHandler,
+  upstreamAlreadyExistsHandler,
 } from '../lib/dispatcher'
 import {
   AppStore,
@@ -134,6 +135,7 @@ const appStore = new AppStore(
 const dispatcher = new Dispatcher(appStore)
 
 dispatcher.registerErrorHandler(defaultErrorHandler)
+dispatcher.registerErrorHandler(upstreamAlreadyExistsHandler)
 dispatcher.registerErrorHandler(externalEditorErrorHandler)
 dispatcher.registerErrorHandler(openShellErrorHandler)
 dispatcher.registerErrorHandler(lfsAttributeMismatchHandler)
@@ -147,13 +149,15 @@ document.body.classList.add(`platform-${process.platform}`)
 dispatcher.setAppFocusState(remote.getCurrentWindow().isFocused())
 
 ipcRenderer.on('focus', () => {
-  const state = appStore.getState().selectedState
-  if (!state || state.type !== SelectionType.Repository) {
-    return
+  const { selectedState } = appStore.getState()
+
+  // Refresh the currently selected repository on focus (if
+  // we have a selected repository).
+  if (selectedState && selectedState.type === SelectionType.Repository) {
+    dispatcher.refreshRepository(selectedState.repository)
   }
 
   dispatcher.setAppFocusState(true)
-  dispatcher.refreshRepository(state.repository)
 })
 
 ipcRenderer.on('blur', () => {

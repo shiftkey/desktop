@@ -1,6 +1,6 @@
 import '../lib/logging/main/install'
 
-import { app, Menu, MenuItem, ipcMain, BrowserWindow, shell } from 'electron'
+import { app, Menu, ipcMain, BrowserWindow, shell } from 'electron'
 import * as Fs from 'fs'
 
 import { AppWindow } from './app-window'
@@ -21,6 +21,8 @@ import {
 } from '../lib/source-map-support'
 import { now } from './now'
 import { showUncaughtException } from './show-uncaught-exception'
+import { IMenuItem } from '../lib/menu-item'
+import { buildContextMenu } from './menu/build-context-menu'
 
 enableSourceMaps()
 
@@ -69,11 +71,12 @@ if (__WIN32__ && process.argv.length > 1) {
         app.quit()
       })
   } else {
-    handleAppURL(arg)
+    handlePossibleProtocolLauncherArgs(process.argv)
   }
 }
 
 function handleAppURL(url: string) {
+  log.info('Processing protocol url')
   const action = parseAppURL(url)
   onDidLoad(window => {
     // This manual focus call _shouldn't_ be necessary, but is for Chrome on
@@ -102,9 +105,7 @@ if (!handlingSquirrelEvent) {
       mainWindow.focus()
     }
 
-    if (args.length > 1) {
-      handleAppURL(args[1])
-    }
+    handlePossibleProtocolLauncherArgs(args)
   })
 
   if (isDuplicateInstance) {
@@ -117,12 +118,57 @@ if (shellNeedsPatching(process)) {
 }
 
 app.on('will-finish-launching', () => {
+  // macOS only
   app.on('open-url', (event, url) => {
     event.preventDefault()
-
     handleAppURL(url)
   })
 })
+
+/**
+ * Attempt to detect and handle any protocol handler arguments passed
+ * either via the command line directly to the current process or through
+ * IPC from a duplicate instance (see makeSingleInstance)
+ *
+ * @param args Essentially process.argv, i.e. the first element is the exec
+ *             path
+ */
+function handlePossibleProtocolLauncherArgs(args: ReadonlyArray<string>) {
+  log.info(`Received possible protocol arguments: ${args.length}`)
+
+  if (__WIN32__) {
+    // We register our protocol handler callback on Windows as
+    // [executable path] --protocol-launcher -- "%1" meaning that any
+    // url data comes after we've stopped processing arguments. We check
+    // for that exact scenario here before doing any processing. If there's
+    // more than 4 args because of a malformed url then we bail out.
+    if (
+      args.length === 4 &&
+      args[1] === '--protocol-launcher' &&
+      args[2] === '--'
+    ) {
+      handleAppURL(args[3])
+    }
+  } else if (args.length > 1) {
+    handleAppURL(args[1])
+  }
+}
+
+/**
+ * Wrapper around app.setAsDefaultProtocolClient that adds our
+ * custom prefix command line switches on Windows that prevents
+ * command line argument parsing after the `--`.
+ */
+function setAsDefaultProtocolClient(protocol: string) {
+  if (__WIN32__) {
+    app.setAsDefaultProtocolClient(protocol, process.execPath, [
+      '--protocol-launcher',
+      '--',
+    ])
+  } else {
+    app.setAsDefaultProtocolClient(protocol)
+  }
+}
 
 app.on('ready', () => {
   if (isDuplicateInstance || handlingSquirrelEvent) {
@@ -131,19 +177,19 @@ app.on('ready', () => {
 
   readyTime = now() - launchTime
 
-  app.setAsDefaultProtocolClient('x-github-client')
+  setAsDefaultProtocolClient('x-github-client')
 
   if (__DEV__) {
-    app.setAsDefaultProtocolClient('x-github-desktop-dev-auth')
+    setAsDefaultProtocolClient('x-github-desktop-dev-auth')
   } else {
-    app.setAsDefaultProtocolClient('x-github-desktop-auth')
+    setAsDefaultProtocolClient('x-github-desktop-auth')
   }
 
   // Also support Desktop Classic's protocols.
   if (__DARWIN__) {
-    app.setAsDefaultProtocolClient('github-mac')
+    setAsDefaultProtocolClient('github-mac')
   } else if (__WIN32__) {
-    app.setAsDefaultProtocolClient('github-windows')
+    setAsDefaultProtocolClient('github-windows')
   }
 
   createWindow()
@@ -155,9 +201,13 @@ app.on('ready', () => {
     'update-preferred-app-menu-item-labels',
     (
       event: Electron.IpcMessageEvent,
-      labels: { editor?: string; shell: string }
+      labels: { editor?: string; pullRequestLabel?: string; shell: string }
     ) => {
-      menu = buildDefaultMenu(labels.editor, labels.shell)
+      menu = buildDefaultMenu(
+        labels.editor,
+        labels.shell,
+        labels.pullRequestLabel
+      )
       Menu.setApplicationMenu(menu)
       if (mainWindow) {
         mainWindow.sendAppMenu()
@@ -224,20 +274,10 @@ app.on('ready', () => {
 
   ipcMain.on(
     'show-contextual-menu',
-    (event: Electron.IpcMessageEvent, items: ReadonlyArray<any>) => {
-      const menu = new Menu()
-      const menuItems = items.map((item, i) => {
-        return new MenuItem({
-          label: item.label,
-          click: () => event.sender.send('contextual-menu-action', i),
-          type: item.type,
-          enabled: item.enabled,
-        })
-      })
-
-      for (const item of menuItems) {
-        menu.append(item)
-      }
+    (event: Electron.IpcMessageEvent, items: ReadonlyArray<IMenuItem>) => {
+      const menu = buildContextMenu(items, ix =>
+        event.sender.send('contextual-menu-action', ix)
+      )
 
       const window = BrowserWindow.fromWebContents(event.sender)
       menu.popup(window, { async: true })
@@ -299,6 +339,14 @@ app.on('ready', () => {
   ipcMain.on(
     'open-external',
     (event: Electron.IpcMessageEvent, { path }: { path: string }) => {
+      const pathLowerCase = path.toLowerCase()
+      if (
+        pathLowerCase.startsWith('http://') ||
+        pathLowerCase.startsWith('https://')
+      ) {
+        log.info(`opening in browser: ${path}`)
+      }
+
       const result = shell.openExternal(path)
       event.sender.send('open-external-result', { result })
     }
