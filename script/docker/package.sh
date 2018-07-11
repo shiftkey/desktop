@@ -1,9 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 
-DIRNAME="$(dirname "$0")"
-ROOTDIR="$(dirname $(dirname $DIRNAME))"
-# TODO: this only works for Linux - what about other host OSes?
-ROOTPATH="$(readlink --canonicalize $ROOTDIR)"
+DIRNAME="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOTPATH="$DIRNAME/../../"
 
 docker run --rm \
   -v $ROOTPATH:/project \
