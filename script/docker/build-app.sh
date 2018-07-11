@@ -1,3 +1,5 @@
+#!/bin/sh
+
 DIRNAME="$(dirname "$0")"
 ROOTDIR="$(dirname $(dirname $DIRNAME))"
 # TODO: this only works for Linux - what about other host OSes?
