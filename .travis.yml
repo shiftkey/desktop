@@ -30,7 +30,7 @@ services:
   - docker
 
 script:
-  - ./script/build-on-docker.sh
+  - ./script/docker/build-app.sh
 
 after_failure:
   - yarn test:review
