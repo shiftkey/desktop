@@ -1,5 +1,5 @@
 DIRNAME="$(dirname "$0")"
-ROOTDIR="$(dirname $DIRNAME)"
+ROOTDIR="$(dirname $(dirname $DIRNAME))"
 # TODO: this only works for Linux - what about other host OSes?
 ROOTPATH="$(readlink --canonicalize $ROOTDIR)"
 
