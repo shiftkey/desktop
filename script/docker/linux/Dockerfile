@@ -14,7 +14,7 @@ RUN apt-get install --quiet --yes \
     libsecret-1-dev \
     # essential for testing Electron in a headless fashion
     # https://github.com/electron/electron/blob/master/docs/tutorial/testing-on-headless-ci.md
-    libgtk2.0-0 \
+    libgtk-3-0 \
     libxtst6 \
     libxss1 \
     libgconf-2-4 \
