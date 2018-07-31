@@ -30,7 +30,7 @@ services:
   - docker
 
 script:
-  - ./script/docker/build-app.sh
+  - ./script/docker/travis.sh
 
 after_failure:
   - yarn test:review
