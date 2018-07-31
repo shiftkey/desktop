@@ -1,6 +1,6 @@
 FROM ubuntu:trusty
 
-RUN apt-get update
+RUN apt-get update --fix-missing
 RUN apt-get install --quiet --yes \
     build-essential \
     curl \
