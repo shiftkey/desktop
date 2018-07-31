@@ -42,6 +42,12 @@ RUN echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources
 
 RUN apt-get update && apt-get install --no-install-recommends --yes --quiet git nodejs yarn
 
+## touching the mounted filesystem as root means you might need to sudo rm later :-/
+RUN useradd -ms /bin/bash desktop
+
+ENV HOME=/home/desktop
+USER desktop
+
 ENV CC clang
 ENV CXX clang++
 ENV npm_config_clang 1
