@@ -1,3 +1,12 @@
+trigger:
+  batch: true
+  branches:
+    include:
+      - master
+      - linux
+      - __release-*
+      - release-*
+
 jobs:
   - job: Linux
     pool:
