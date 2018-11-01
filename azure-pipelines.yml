@@ -1,6 +1,12 @@
 variables:
   PYTHON: 'python2.7'
 
+resources:
+  repositories:
+    - repository: self
+      checkoutOptions:
+        submodules: true
+
 jobs:
   - job: Windows
     pool:
