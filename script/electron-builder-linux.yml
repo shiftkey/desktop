@@ -1,5 +1,4 @@
-productName: 'GitHubDesktop'
-artifactName: '${productName}-${os}-${arch}-${version}.${ext}'
+artifactName: 'GitHubDesktop-${os}-${version}.${ext}'
 linux:
   category: 'GNOME;GTK;Development'
   packageCategory: 'GNOME;GTK;Development'
