@@ -5,12 +5,12 @@ set -e
 PROFILE_D_FILE="/etc/profile.d/${productFilename}.sh"
 INSTALL_DIR="/opt/${productFilename}"
 SCRIPT="#!/bin/sh
-export PATH=$INSTALL_DIR:\$PATH"
+export PATH='$INSTALL_DIR:\$PATH'"
 
 case "$1" in
     configure)
-      echo "$SCRIPT" > ${PROFILE_D_FILE};
-      . ${PROFILE_D_FILE};
+      echo "$SCRIPT" > "${PROFILE_D_FILE}";
+      . "${PROFILE_D_FILE}";
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
