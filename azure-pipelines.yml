@@ -67,8 +67,8 @@ jobs:
           shiftkey/github-desktop:snapcraft-node-yarn sh -c "yarn run package"
         displayName: 'Package in Container'
         condition:
-          and(succeeded(), eq(variables['Build.SourceBranch'],
-          'refs/heads/linux'))
+          and(succeeded(), startsWith(variables['Build.SourceBranch'],
+          'refs/tags/'))
       - task: CopyFiles@2
         inputs:
           contents: |
@@ -80,12 +80,12 @@ jobs:
           targetFolder: $(Build.ArtifactStagingDirectory)
           flattenFolders: true
         condition:
-          and(succeeded(), eq(variables['Build.SourceBranch'],
-          'refs/heads/linux'))
+          and(succeeded(), startsWith(variables['Build.SourceBranch'],
+          'refs/tags/'))
       - task: PublishBuildArtifacts@1
         condition:
-          and(succeeded(), eq(variables['Build.SourceBranch'],
-          'refs/heads/linux'))
+          and(succeeded(), startsWith(variables['Build.SourceBranch'],
+          'refs/tags/'))
       - task: PublishTestResults@2
         displayName: 'Publish Test Results'
         inputs:
