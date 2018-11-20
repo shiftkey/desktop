@@ -1,6 +1,6 @@
 ---
-name: "\U00002B50 Submit a request or solve a problem"
-about: Surface a problem that you think should be solved
+name: "⭐ Submit a feature request"
+about: Feature requests are considered based on team''s capacity
 
 ---
 
