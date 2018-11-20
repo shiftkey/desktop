@@ -3,6 +3,9 @@ linux:
   category: 'GNOME;GTK;Development'
   packageCategory: 'GNOME;GTK;Development'
   icon: 'app/static/logos'
+  mimeTypes:
+    - x-scheme-handler/x-github-client
+    - x-scheme-handler/x-github-desktop-auth
   target:
     - deb
     - rpm
@@ -35,11 +38,21 @@ rpm:
     # keytar dependencies
     - libsecret
 snap:
-  confinement: 'classic'
+  confinement: 'strict'
   stagePackages:
     - default
     - libcurl3
-    - libsecret-1-0
     - openssh-client
+    - gettext
   plugs:
+    - browser-support
+    - desktop
+    - desktop-legacy
+    - gsettings
+    - home
+    - network
+    - opengl
     - password-manager-service
+    - ssh-keys
+    - unity7
+    - wayland
