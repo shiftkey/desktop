@@ -50,5 +50,6 @@ snap:
     - network
     - opengl
     - password-manager-service
+    - ssh-keys
     - unity7
     - wayland
