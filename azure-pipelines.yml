@@ -1,5 +1,9 @@
 variables:
   PYTHON: 'python2.7'
+  # flags to enable/disable agents without needing to remove config
+  BUILD_WINDOWS: 'false'
+  BUILD_MACOS: 'false'
+  BUILD_LINUX: 'true'
 
 resources:
   repositories:
@@ -9,6 +13,7 @@ resources:
 
 jobs:
   - job: Windows
+    condition: eq(variables['BUILD_WINDOWS'], 'true')
     pool:
       vmImage: vs2017-win2016
     steps:
@@ -39,6 +44,7 @@ jobs:
           summaryFileLocation: '**/coverage/cobertura-coverage.xml'
 
   - job: Linux
+    condition: eq(variables['BUILD_LINUX'], 'true')
     pool:
       vmImage: ubuntu-16.04
     steps:
@@ -98,6 +104,7 @@ jobs:
           summaryFileLocation: '**/coverage/cobertura-coverage.xml'
 
   - job: macOS
+    condition: eq(variables['BUILD_MACOS'], 'true')
     pool:
       vmImage: xcode9-macos10.13
     steps:
