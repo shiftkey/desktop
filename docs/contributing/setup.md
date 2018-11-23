@@ -74,7 +74,7 @@ $ curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
 After that, install the dependencies to build and test the app:
 
 ```shellsession
-$ sudo apt update && sudo apt install -y nodejs gcc make libsecret-1-dev
+$ sudo apt update && sudo apt install -y nodejs g++ make libsecret-1-dev
 ```
 
 If you want to package Desktop for distribution, install these packages:
