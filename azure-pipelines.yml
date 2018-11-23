@@ -72,9 +72,6 @@ jobs:
           /tmp/local/.node-gyp:/.node-gyp -v /tmp/local/.local:/.local -w /src
           shiftkey/desktop:snapcraft-node-yarn sh -c "yarn run package"
         displayName: 'Package in Container'
-        condition:
-          and(succeeded(), startsWith(variables['Build.SourceBranch'],
-          'refs/tags/'))
       - task: CopyFiles@2
         inputs:
           contents: |
