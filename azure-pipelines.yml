@@ -59,7 +59,7 @@ jobs:
           /tmp/local/.cache:/.cache -v /tmp/local/.yarn:/.yarn -v
           /tmp/local/.node-gyp:/.node-gyp -v /tmp/local/.local:/.local -w /src
           shiftkey/desktop:trusty-node-yarn-git sh -c "yarn install --force &&
-          yarn build:prod"
+          yarn build:prod; exit $?"
         displayName: 'Build in container'
       - script: |
           export DISPLAY=':99.0'
@@ -70,7 +70,7 @@ jobs:
           docker run -v $(Build.SourcesDirectory):/src -v
           /tmp/local/.cache:/.cache -v /tmp/local/.yarn:/.yarn -v
           /tmp/local/.node-gyp:/.node-gyp -v /tmp/local/.local:/.local -w /src
-          shiftkey/desktop:snapcraft-node-yarn sh -c "yarn run package"
+          shiftkey/desktop:snapcraft-node-yarn sh -c "yarn run package; exit $?"
         displayName: 'Package in Container'
       - task: CopyFiles@2
         inputs:
