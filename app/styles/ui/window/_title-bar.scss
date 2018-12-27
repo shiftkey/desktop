@@ -27,6 +27,18 @@
     }
   }
 
+  @include linux {
+    height: var(--win32-title-bar-height);
+    background: var(--win32-title-bar-background-color);
+    border-bottom: 1px solid #000;
+
+    .app-icon {
+      color: var(--toolbar-button-secondary-color);
+      margin: 0 var(--spacing);
+      align-self: center;
+    }
+  }
+
   .resize-handle {
     position: absolute;
     top: 0px;

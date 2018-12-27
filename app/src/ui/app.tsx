@@ -986,8 +986,8 @@ export class App extends React.Component<IAppProps, IAppState> {
    * on Windows.
    */
   private renderAppMenuBar() {
-    // We only render the app menu bar on Windows
-    if (!__WIN32__) {
+    // We render the app menu bar on Windows and Linux
+    if (__DARWIN__) {
       return null
     }
 
@@ -1046,13 +1046,16 @@ export class App extends React.Component<IAppProps, IAppState> {
     // When we're in full-screen mode on Windows we only need to render
     // the title bar when the menu bar is active. On other platforms we
     // never render the title bar while in full-screen mode.
+
+    const appMenuPlatform = __WIN32__ || __LINUX__
+
     if (inFullScreen) {
-      if (!__WIN32__ || !menuBarActive) {
+      if (!appMenuPlatform || !menuBarActive) {
         return null
       }
     }
 
-    const showAppIcon = __WIN32__ && !this.state.showWelcomeFlow
+    const showAppIcon = appMenuPlatform && !this.state.showWelcomeFlow
 
     return (
       <TitleBar
