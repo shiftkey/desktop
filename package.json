@@ -165,7 +165,7 @@
     "@types/winston": "^2.2.0",
     "@types/xml2js": "^0.4.0",
     "electron": "3.1.6",
-    "electron-builder": "20.28.4",
+    "electron-builder": "20.39.0",
     "electron-packager": "^13.1.0",
     "electron-winstaller": "2.5.2"
   }
