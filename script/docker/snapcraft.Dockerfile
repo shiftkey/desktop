@@ -1,4 +1,4 @@
-FROM snapcore/snapcraft
+FROM snapcore/snapcraft:edge
 
 RUN apt -qq install --yes curl gnupg
 
