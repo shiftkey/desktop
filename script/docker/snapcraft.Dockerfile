@@ -7,8 +7,8 @@ RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
 RUN echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list
 
 # add custom tools required for electron-builder
-RUN apt -qq update
-RUN apt -qq install --yes \
+RUN apt-get -qq update
+RUN apt-get -qq install --yes \
   nodejs \
   yarn \
   # needed for pacman builds
