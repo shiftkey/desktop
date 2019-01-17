@@ -95,6 +95,7 @@ import { UsageStatsChange } from './usage-stats-change'
 import { PushNeedsPullWarning } from './push-needs-pull'
 import { LocalChangesOverwrittenWarning } from './local-changes-overwritten'
 import { RebaseConflictsDialog } from './rebase'
+import { detectSnapInstall, SnapMigrationGuide } from './snap-migration-guide'
 
 const MinuteInMilliseconds = 1000 * 60
 const HourInMilliseconds = MinuteInMilliseconds * 60
@@ -275,6 +276,14 @@ export class App extends React.Component<IAppProps, IAppState> {
 
     log.info(`launching: ${getVersion()} (${getOS()})`)
     log.info(`execPath: '${process.execPath}'`)
+
+    if (__LINUX__) {
+      detectSnapInstall().then(found => {
+        if (found) {
+          this.showPopup({ type: PopupType.SnapMigrationGuide })
+        }
+      })
+    }
   }
 
   private onMenuEvent(name: MenuEvent): any {
@@ -1573,6 +1582,8 @@ export class App extends React.Component<IAppProps, IAppState> {
           />
         )
       }
+      case PopupType.SnapMigrationGuide:
+        return <SnapMigrationGuide onDismissed={this.onPopupDismissed} />
       default:
         return assertNever(popup, `Unknown popup type: ${popup}`)
     }

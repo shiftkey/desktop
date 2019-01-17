@@ -45,6 +45,7 @@ export enum PopupType {
   PushNeedsPull,
   LocalChangesOverwritten,
   RebaseConflicts,
+  SnapMigrationGuide,
 }
 
 export type Popup =
@@ -172,4 +173,7 @@ export type Popup =
       repository: Repository
       baseBranch?: string
       targetBranch: string
+    }
+  | {
+      type: PopupType.SnapMigrationGuide
     }
