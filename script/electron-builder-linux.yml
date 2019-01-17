@@ -42,7 +42,6 @@ snap:
   stagePackages:
     - default
     - libcurl3
-    - libsecret-1-0
     - openssh-client
     - gettext
   plugs:
