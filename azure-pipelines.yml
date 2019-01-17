@@ -15,7 +15,10 @@ trigger:
   branches:
     include:
       - refs/heads/development
+      # specific to shiftkey/desktop
       - refs/heads/linux
+      # transient branch to help with Snap confinement migration
+      - refs/heads/snap-strict-enclosure
       - refs/tags/*
 
 jobs:
