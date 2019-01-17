@@ -12,18 +12,15 @@ resources:
         submodules: true
 
 trigger:
-  branches:
-    include:
-      - refs/heads/development
-      - refs/heads/linux
-      - refs/tags/*
-
-trigger:
   batch: true
   branches:
     include:
-      - development
-      - releases/*
+      - refs/heads/development
+      # specific to shiftkey/desktop
+      - refs/heads/linux
+      # transient branch to help with Snap confinement migration
+      - refs/heads/snap-strict-enclosure
+      - refs/tags/*
 
 pr:
   autoCancel: true
