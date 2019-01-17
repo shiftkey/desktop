@@ -6,8 +6,10 @@ import * as path from 'path'
 import * as crypto from 'crypto'
 import * as electronInstaller from 'electron-winstaller'
 import * as glob from 'glob'
+import * as YAML from 'yaml'
+const rimraf = require('rimraf')
 
-import { getProductName, getCompanyName } from '../app/package-info'
+import { getProductName, getCompanyName, getVersion } from '../app/package-info'
 import {
   getDistPath,
   getDistRoot,
@@ -145,28 +147,55 @@ function getSha256Checksum(fullPath: string): Promise<string> {
   })
 }
 
-function packageLinux() {
-  const electronBuilder = path.resolve(
-    __dirname,
-    '..',
-    'node_modules',
-    '.bin',
-    'electron-builder'
+function throwIfError(command: string, args: string[]) {
+  const { error } = cp.spawnSync(command, args, { stdio: 'inherit' })
+
+  if (error != null) {
+    throw error
+  }
+}
+
+function workaroundForSnapPackage() {
+  const distRoot = getDistRoot()
+
+  const snapArchive = path.join(
+    distRoot,
+    `GitHubDesktop-linux-${getVersion()}.snap`
   )
+  const snapFileSystem = path.join(distRoot, 'unsquashfs-root')
 
-  const configPath = path.resolve(__dirname, 'electron-builder-linux.yml')
+  throwIfError('unsquashfs', [
+    '-dest',
+    snapFileSystem,
+    '-no-progress',
+    snapArchive,
+  ])
 
-  const args = [
-    'build',
-    '--prepackaged',
-    distPath,
-    '--x64',
-    '--config',
-    configPath,
-  ]
+  const snapMetaYaml = path.join(snapFileSystem, 'meta', 'snap.yaml')
 
-  cp.spawnSync(electronBuilder, args, { stdio: 'inherit' })
+  const yamlText = fs.readFileSync(snapMetaYaml, 'utf8')
+  const yaml = YAML.parse(yamlText)
 
+  // regenerate the YAML without whatever electron-builder has included for the plugs
+  // element, because a package using the strict enclosure should not define this
+  const yamlWithoutPlugs = {
+    ...yaml,
+    apps: {
+      'github-desktop': {
+        command: 'command.sh',
+      },
+    },
+  }
+
+  const newYaml = YAML.stringify(yamlWithoutPlugs)
+  fs.writeFileSync(snapMetaYaml, newYaml, 'utf8')
+
+  throwIfError('snapcraft', ['pack', snapFileSystem, '--output', snapArchive])
+
+  rimraf.sync(snapFileSystem)
+}
+
+function generateChecksums() {
   const distRoot = getDistRoot()
 
   const installersPath = `${distRoot}/GitHubDesktop-linux-*`
@@ -194,4 +223,35 @@ function packageLinux() {
 
     fs.writeFile(checksumFile, checksumsText)
   })
+}
+
+function packageLinux() {
+  const electronBuilder = path.resolve(
+    __dirname,
+    '..',
+    'node_modules',
+    '.bin',
+    'electron-builder'
+  )
+
+  const configPath = path.resolve(__dirname, 'electron-builder-linux.yml')
+
+  const args = [
+    'build',
+    '--prepackaged',
+    distPath,
+    '--x64',
+    '--config',
+    configPath,
+  ]
+
+  const { error } = cp.spawnSync(electronBuilder, args, { stdio: 'inherit' })
+
+  if (error != null) {
+    throw error
+  }
+
+  workaroundForSnapPackage()
+
+  generateChecksums()
 }

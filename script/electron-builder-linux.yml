@@ -38,48 +38,11 @@ rpm:
     # keytar dependencies
     - libsecret
 snap:
-  confinement: 'strict'
+  confinement: 'classic'
   stagePackages:
     - default
     - libcurl3
     - openssh-client
     - gettext
-  plugs:
-    - browser-support
-    - desktop
-    - desktop-legacy
-    - gsettings
-    - home
-    - network
-    - opengl
-    - password-manager-service
-    - ssh-keys
-    - unity7
-    - wayland
-    # additional plugs to pick up the GTK theme and icons from the system, mouse cursor theme still not fixed
-    - {
-        'gtk-3-themes':
-          {
-            'interface': 'content',
-            'target': '$SNAP/data-dir/themes',
-            'default-provider': 'gtk-common-themes:gtk-3-themes',
-          },
-      }
-    - {
-        'icon-themes':
-          {
-            'interface': 'content',
-            'target': '$SNAP/data-dir/icons',
-            'default-provider': 'gtk-common-themes:icon-themes',
-          },
-      }
-    - {
-        'sound-themes':
-          {
-            'interface': 'content',
-            'target': '$SNAP/data-dir/sounds',
-            'default-provider': 'gtk-common-themes:sounds-themes',
-          },
-      }
   environment:
     DISABLE_WAYLAND: 1
