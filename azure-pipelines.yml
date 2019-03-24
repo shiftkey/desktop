@@ -92,6 +92,7 @@ jobs:
             dist/*.deb
             dist/*.rpm
             dist/*.snap
+            dist/*.txt
           targetFolder: $(Build.ArtifactStagingDirectory)
           flattenFolders: true
         condition:
