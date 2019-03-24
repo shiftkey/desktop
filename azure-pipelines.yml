@@ -109,7 +109,6 @@ jobs:
       - task: CopyFiles@2
         inputs:
           contents: |
-            dist/*.yml
             dist/*.AppImage
             dist/*.deb
             dist/*.rpm
