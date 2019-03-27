@@ -13,8 +13,8 @@ export class SnapMigrationGuide extends React.Component<
   {}
 > {
   public render() {
-    const commands = `$ snap uninstall github-desktop
-$ snap install --beta github-desktop`
+    const commands = `$ snap remove github-desktop
+$ snap install github-desktop --beta --classic`
 
     return (
       <Dialog
