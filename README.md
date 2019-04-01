@@ -28,15 +28,23 @@ It also hosts preview packages for various Linux distributions:
 Check out the [latest releases](https://github.com/shiftkey/desktop/releases) to
 help out with testing on your distribution.
 
-If you install the Snap package, ensure you also connect it to your password
-manager:
+### Snapcraft Store
 
-```shellsession
-$ sudo snap connect github-desktop:password-manager-service
+We are currently testing out a new version of the Snap that requires using the
+`classic` enclosure, as GitHub Desktop has integrations to launch your chosen
+shell or editor which are not supported in the `strict` enclosure.
+
+**If you are currently running the Snap installed from `edge`**
+
+You will be prompted to manually upgrade to the `beta` channel as an installed
+application cannot upgrade it's enclosure via an update.
+
+To upgrade manually, run these commands:
+
 ```
-
-Without this, GitHub Desktop cannot store or retrieve account details it
-requires in the user's keychain.
+$ snap remove github-desktop
+$ snap install --beta github-desktop
+```
 
 ## Other Distributions
 
