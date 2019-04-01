@@ -1,29 +1,21 @@
-import { spawnSync } from 'child_process'
+// example of matching string in executable path:
+// `/snap/github-desktop/52/app/github-desktop`
+const snapExecPathRe = /^\/snap\/github-desktop\/(\d*)\/app\/github-desktop$/
 
-// example of matching string in stdout:
-// `github-desktop  1.6.0-linux1  40   edge      snapcrafters  private`
-const snapInstallRe = /github-desktop\s*([\.0-9\-]*[0-9a-z]*)\s*\d{1,}\s*(edge)\s*snapcrafters.*/
+function isInstalledSnap() {
+  const match = snapExecPathRe.exec(process.execPath)
+  return match !== null && match.length === 2
+}
 
 export async function detectSnapInstall(): Promise<boolean> {
   return new Promise<boolean>((resolve, reject) => {
     try {
-      const result = spawnSync('snap', ['list', 'github-desktop'])
+      const installedSnap = isInstalledSnap()
 
-      if (result.error != null) {
-        resolve(false)
-        return
-      }
+      const hasDisableGPUCompositing =
+        process.argv.indexOf('--disable-gpu-compositing') >= 0
 
-      const lines = result.stdout
-      const match = snapInstallRe.exec(lines)
-      if (match === null) {
-        resolve(false)
-        return
-      }
-
-      const channel = match[2]
-
-      resolve(channel === 'edge')
+      resolve(installedSnap && hasDisableGPUCompositing)
     } catch {
       resolve(false)
     }
