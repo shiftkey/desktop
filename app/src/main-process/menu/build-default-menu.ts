@@ -1,4 +1,4 @@
-import { Menu, ipcMain, shell, app } from 'electron'
+import { Menu, ipcMain, shell } from 'electron'
 import { ensureItemIds } from './ensure-item-ids'
 import { MenuEvent } from './menu-event'
 import { truncateWithEllipsis } from '../../lib/truncate-with-ellipsis'
@@ -366,15 +366,8 @@ export function buildDefaultMenu({
   const submitIssueItem: Electron.MenuItemConstructorOptions = {
     label: __DARWIN__ ? 'Report Issue…' : 'Report issue…',
     click() {
-      shell.openExternal('https://github.com/desktop/desktop/issues/new/choose')
-    },
-  }
-
-  const contactSupportItem: Electron.MenuItemConstructorOptions = {
-    label: __DARWIN__ ? 'Contact GitHub Support…' : '&Contact GitHub support…',
-    click() {
       shell.openExternal(
-        `https://github.com/contact?from_desktop_app=1&app_version=${app.getVersion()}`
+        'https://github.com/shiftkey/desktop/issues/new/choose'
       )
     },
   }
@@ -406,12 +399,7 @@ export function buildDefaultMenu({
     },
   }
 
-  const helpItems = [
-    submitIssueItem,
-    contactSupportItem,
-    showUserGuides,
-    showLogsItem,
-  ]
+  const helpItems = [submitIssueItem, showUserGuides, showLogsItem]
 
   if (__DEV__) {
     helpItems.push(
