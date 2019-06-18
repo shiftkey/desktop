@@ -22,7 +22,7 @@ export function parse(label: string): ExternalEditor | null {
   }
 
   if (label === ExternalEditor.VisualStudioCodeInsiders) {
-    return ExternalEditor.VisualStudioCode
+    return ExternalEditor.VisualStudioCodeInsiders
   }
 
   if (label === ExternalEditor.SublimeText) {
@@ -44,32 +44,41 @@ async function getPathIfAvailable(path: string): Promise<string | null> {
   return (await pathExists(path)) ? path : null
 }
 
+async function getFirstPathIfAvailable(possiblePaths: string[]): Promise<string | null> {
+  for (const possiblePath of possiblePaths) {
+    const path = await getPathIfAvailable(possiblePath)
+    if (path) {
+      return path
+    }
+  }
+  return null
+}
+
 async function getEditorPath(editor: ExternalEditor): Promise<string | null> {
   switch (editor) {
     case ExternalEditor.Atom:
       return getPathIfAvailable('/usr/bin/atom')
     case ExternalEditor.VisualStudioCode:
-      return getPathIfAvailable('/usr/bin/code')
+      return getFirstPathIfAvailable([
+        '/snap/bin/code',
+        '/usr/bin/code',
+      ])
     case ExternalEditor.VisualStudioCodeInsiders:
-      return getPathIfAvailable('/usr/bin/code-insiders')
+      return getFirstPathIfAvailable([
+        '/snap/bin/code-insiders',
+        '/usr/bin/code-insiders',
+      ])
     case ExternalEditor.SublimeText:
       return getPathIfAvailable('/usr/bin/subl')
     case ExternalEditor.Typora:
       return getPathIfAvailable('/usr/bin/typora')
     case ExternalEditor.SlickEdit:
-      const possiblePaths = [
+      return getFirstPathIfAvailable([
         '/opt/slickedit-pro2018/bin/vs',
         '/opt/slickedit-pro2017/bin/vs',
         '/opt/slickedit-pro2016/bin/vs',
         '/opt/slickedit-pro2015/bin/vs',
-      ]
-      for (const possiblePath of possiblePaths) {
-        const slickeditPath = await getPathIfAvailable(possiblePath)
-        if (slickeditPath) {
-          return slickeditPath
-        }
-      }
-      return null
+      ])
     default:
       return assertNever(editor, `Unknown editor: ${editor}`)
   }
@@ -106,7 +115,7 @@ export async function getAvailableEditors(): Promise<
 
   if (codeInsidersPath) {
     results.push({
-      editor: ExternalEditor.VisualStudioCode,
+      editor: ExternalEditor.VisualStudioCodeInsiders,
       path: codeInsidersPath,
     })
   }
