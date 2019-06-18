@@ -44,7 +44,9 @@ async function getPathIfAvailable(path: string): Promise<string | null> {
   return (await pathExists(path)) ? path : null
 }
 
-async function getFirstPathIfAvailable(possiblePaths: string[]): Promise<string | null> {
+async function getFirstPathIfAvailable(
+  possiblePaths: string[]
+): Promise<string | null> {
   for (const possiblePath of possiblePaths) {
     const path = await getPathIfAvailable(possiblePath)
     if (path) {
@@ -59,10 +61,7 @@ async function getEditorPath(editor: ExternalEditor): Promise<string | null> {
     case ExternalEditor.Atom:
       return getPathIfAvailable('/usr/bin/atom')
     case ExternalEditor.VisualStudioCode:
-      return getFirstPathIfAvailable([
-        '/snap/bin/code',
-        '/usr/bin/code',
-      ])
+      return getFirstPathIfAvailable(['/snap/bin/code', '/usr/bin/code'])
     case ExternalEditor.VisualStudioCodeInsiders:
       return getFirstPathIfAvailable([
         '/snap/bin/code-insiders',
