@@ -15,4 +15,8 @@ RUN apt -qq install --yes \
   # needed for pacman builds
   bsdtar \
   # needed for RPM builds
-  rpm
+  rpm \
+  # needed for deb builds using fpm
+  binutils \
+  # needed for tweaking Snap output post-packaging
+  squashfs-tools
