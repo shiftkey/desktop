@@ -37,6 +37,7 @@ rpm:
     - libcurl
     # keytar dependencies
     - libsecret
+    - gnome-keyring
 snap:
   confinement: 'classic'
   stagePackages:
