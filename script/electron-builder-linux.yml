@@ -27,6 +27,7 @@ deb:
     - libcurl3 | libcurl4
     # keytar dependencies
     - libsecret-1-0
+    - gnome-keyring
 rpm:
   depends:
     # default Electron dependencies
