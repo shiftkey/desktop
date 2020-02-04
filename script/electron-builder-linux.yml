@@ -9,7 +9,6 @@ linux:
   target:
     - deb
     - rpm
-    - snap
     - AppImage
   maintainer: 'GitHub, Inc <opensource+desktop@github.com>'
 deb:
