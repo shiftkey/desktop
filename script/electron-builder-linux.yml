@@ -26,6 +26,7 @@ deb:
     - libcurl3 | libcurl4
     # keytar dependencies
     - libsecret-1-0
+    - gnome-keyring
 rpm:
   depends:
     # default Electron dependencies
@@ -36,6 +37,7 @@ rpm:
     - libcurl
     # keytar dependencies
     - libsecret
+    - gnome-keyring
 snap:
   confinement: 'classic'
   stagePackages:
