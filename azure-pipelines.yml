@@ -14,6 +14,8 @@ trigger:
       - refs/heads/development
       # specific to shiftkey/desktop
       - refs/heads/linux
+      # release candidate branches
+      - refs/heads/linux-release-*
       # transient branch to help with Snap confinement migration
       - refs/heads/snap-strict-enclosure
       - refs/tags/*
