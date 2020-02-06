@@ -8,19 +8,6 @@ resources:
         submodules: true
 
 trigger:
-  branches:
-    include:
-      - refs/heads/development
-      - refs/heads/linux
-      - refs/tags/*
-
-resources:
-  repositories:
-    - repository: self
-      checkoutOptions:
-        submodules: true
-
-trigger:
   batch: true
   branches:
     include:
