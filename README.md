@@ -20,28 +20,9 @@ It also hosts preview packages for various Linux distributions:
  - AppImage (`.AppImage`)
  - Debian (`.deb`)
  - RPM (`.rpm`)
- - Snap (`.snap`) - also available from [snapcraft.io](https://snapcraft.io/github-desktop)
 
 Check out the [latest releases](https://github.com/shiftkey/desktop/releases) to
 help out with testing on your distribution.
-
-### Snapcraft Store
-
-We are currently testing out a new version of the Snap that requires using the
-`classic` enclosure, as GitHub Desktop has integrations to launch your chosen
-shell or editor which are not supported in the `strict` enclosure.
-
-**If you are currently running the Snap installed from `edge`**
-
-You will be prompted to manually upgrade to the `beta` channel as an installed
-application cannot upgrade it's enclosure via an update.
-
-To upgrade manually, run these commands:
-
-```
-$ snap remove github-desktop
-$ snap install github-desktop --beta --classic
-```
 
 ## Other Distributions
 
