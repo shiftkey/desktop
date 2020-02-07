@@ -1,7 +1,6 @@
 # [GitHub Desktop](https://desktop.github.com) - The Linux Fork
 
-[![Travis](https://img.shields.io/travis/shiftkey/desktop.svg?style=flat-square&label=Travis+CI)](https://travis-ci.org/shiftkey/desktop)
-[![Azure DevOps Pipelines Build Status](https://dev.azure.com/github/Desktop/_apis/build/status/Continuous%20Integration)](https://dev.azure.com/github/Desktop/_build/latest?definitionId=3)
+[![Build Status](https://brendanforster.visualstudio.com/desktop-linux/_apis/build/status/Azure%20Pipelines%20Build?branchName=linux)](https://brendanforster.visualstudio.com/desktop-linux/_build/latest?definitionId=10&branchName=linux)
 [![GitHub Desktop](https://snapcraft.io/github-desktop/badge.svg)](https://snapcraft.io/github-desktop)
 [![license](https://img.shields.io/github/license/desktop/desktop.svg?style=flat-square)](https://github.com/desktop/desktop/blob/development/LICENSE)
 ![90+% TypeScript](https://img.shields.io/github/languages/top/desktop/desktop.svg?style=flat-square&colorB=green)
