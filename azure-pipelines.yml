@@ -119,7 +119,7 @@ jobs:
 
   - job: macOS
     pool:
-      vmImage: xcode10-macOS-10.15
+      vmImage: macOS-10.15
     steps:
       - task: NodeTool@0
         inputs:
