@@ -29,7 +29,7 @@ pr:
 jobs:
   - job: Windows
     pool:
-      vmImage: vs2017-win2016
+      vmImage: windows-2019
     steps:
       - task: NodeTool@0
         inputs:
@@ -119,7 +119,7 @@ jobs:
 
   - job: macOS
     pool:
-      vmImage: xcode9-macos10.13
+      vmImage: macOS-10.15
     steps:
       - task: NodeTool@0
         inputs:
