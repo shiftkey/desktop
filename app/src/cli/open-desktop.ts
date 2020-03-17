@@ -12,10 +12,12 @@ export function openDesktop(url: string = '') {
     return ChildProcess.spawn('open', [url], { env })
   } else if (__WIN32__) {
     return ChildProcess.spawn('cmd', ['/c', 'start', url], { env })
+  } else if (__LINUX__) {
+    return ChildProcess.spawn('xdg-open', [url], { env })
   } else {
     throw new Error(
       `Desktop command line interface not currently supported on platform ${
-        process.platform
+      process.platform
       }`
     )
   }
