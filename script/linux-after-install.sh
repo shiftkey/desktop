@@ -1,13 +1,13 @@
 #!/bin/bash
 
 set -e
-productFilename="GitHub Desktop"
+
 PROFILE_D_FILE="/etc/profile.d/github-desktop.sh"
 INSTALL_DIR="/opt/${productFilename}"
 CLI_DIR="$INSTALL_DIR/resources/app/static"
-SCRIPT="#!/bin/sh
-export PATH=\"$INSTALL_DIR:$CLI_DIR:\$PATH\""
-
+SCRIPT=$"#!/bin/sh
+export PATH=\"$INSTALL_DIR:\$PATH\"
+export PATH=\"$CLI_DIR:\$PATH\""
 
 case "$1" in
     configure)
