@@ -17,7 +17,7 @@ export function openDesktop(url: string = '') {
   } else {
     throw new Error(
       `Desktop command line interface not currently supported on platform ${
-      process.platform
+        process.platform
       }`
     )
   }
