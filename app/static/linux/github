@@ -17,7 +17,7 @@ fi
 if [ -f "$GITHUB_PATH/github-desktop-dev" ]; then
 	BINARY_NAME="github-desktop-dev"
 else
-  BINARY_NAME="github-desktop"
+	BINARY_NAME="github-desktop"
 fi
 
 ELECTRON="$GITHUB_PATH/$BINARY_NAME"
