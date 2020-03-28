@@ -84,11 +84,8 @@ export class TitleBar extends React.Component<ITitleBarProps, ITitleBarState> {
     const inFullScreen = this.props.windowState === 'full-screen'
     const isMaximized = this.props.windowState === 'maximized'
 
-    const appMenuPlatform = __WIN32__ || __LINUX__
-
     // No Windows controls when we're in full-screen mode.
-    const winControls =
-      appMenuPlatform && !inFullScreen ? <WindowControls /> : null
+    const winControls = __WIN32__ && !inFullScreen ? <WindowControls /> : null
 
     // On Windows it's not possible to resize a frameless window if the
     // element that sits flush along the window edge has -webkit-app-region: drag.

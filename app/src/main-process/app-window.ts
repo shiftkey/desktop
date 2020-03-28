@@ -53,7 +53,6 @@ export class AppWindow {
     } else if (__WIN32__) {
       windowOptions.frame = false
     } else if (__LINUX__) {
-      windowOptions.frame = false
       windowOptions.icon = path.join(__dirname, 'static', 'icon-logo.png')
 
       // relax restriction here for users trying to run app at a small
