@@ -23,6 +23,6 @@ fi
 ELECTRON="$GITHUB_PATH/$BINARY_NAME"
 CLI="$GITHUB_PATH/resources/app/cli.js"
 
-ELECTRON_RUN_AS_NODE=1 "$ELECTRON" "$CLI" "$@"
+ELECTRON_RUN_AS_NODE=1 "$ELECTRON" "$CLI" "$@" </dev/null &>/dev/null &
 
 exit $?
