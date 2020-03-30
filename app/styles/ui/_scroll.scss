@@ -63,8 +63,8 @@
 @include linux-context {
   // Linux scrollbars need styled, too
   ::-webkit-scrollbar {
-    width: var(--win32-scroll-bar-size);
-    height: var(--win32-scroll-bar-size);
+    width: var(--linux-scroll-bar-size);
+    height: var(--linux-scroll-bar-size);
     background: transparent;
     cursor: pointer;
 
