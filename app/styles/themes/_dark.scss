@@ -40,7 +40,7 @@ body.theme-dark {
    * Background color for custom scroll bars.
    * The color is applied to the thumb part of the scrollbar.
    *
-   * Note: Only applies to win32 platforms
+   * Note: Only applies to win32 and linux platforms
    */
   --scroll-bar-thumb-background-color: rgba(0, 0, 0, 0.7);
 
@@ -48,7 +48,7 @@ body.theme-dark {
    * Background color for custom scroll bars in their active state.
    * The color is applied to the thumb part of the scrollbar.
    *
-   * Note: Only applies to win32 platforms
+   * Note: Only applies to win32 and linux platforms
    */
   --scroll-bar-thumb-background-color-active: rgba(0, 0, 0, 0.8);
 
