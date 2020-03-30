@@ -14,8 +14,7 @@ import { Disposable } from 'event-kit'
 import { Loading } from '../lib/loading'
 import { RelativeTime } from '../relative-time'
 import { assertNever } from '../../lib/fatal-error'
-import { ReleaseNotesUri } from '../lib/releases'
-import { LinuxReleasesUri } from '../lib/releases'
+import { ReleaseNotesUri, LinuxReleasesUri } from '../lib/releases'
 import { encodePathAsUrl } from '../../lib/path'
 
 const DesktopLogo = encodePathAsUrl(__dirname, 'static/logo-64x64@2x.png')
@@ -97,7 +96,7 @@ export class About extends React.Component<IAboutProps, IAboutState> {
 
     if (__LINUX__) {
       const linuxReleaseLink = (
-        <LinkButton uri={LinuxReleasesUri}>View Linux Releases</LinkButton>
+        <LinkButton uri={LinuxReleasesUri}>View Releases</LinkButton>
       )
       return (
         <Row>
