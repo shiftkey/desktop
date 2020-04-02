@@ -1,16 +1,16 @@
 name: CI
 on:
   push:
-    branches: [ linux ]
+    branches: [linux]
   pull_request:
-    branches: [ linux ]
+    branches: [linux]
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-node@v1
-    - run: yarn install --force
-    - run: yarn build:prod
-    - run: yarn test:setup && yarn test
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+      - run: yarn install --force
+      - run: yarn build:prod
+      - run: yarn test:setup && yarn test
