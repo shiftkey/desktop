@@ -1,6 +1,6 @@
 ---
 name: "\U0001F4BB Installation issue"
-about: Report a problem when installating the application
+about: Report a problem when installing the application
 title: ''
 labels: ''
 assignees: ''
