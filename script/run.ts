@@ -43,3 +43,25 @@ export function run(spawnOptions: SpawnOptions) {
 
   return spawn(binaryPath, [], opts)
 }
+
+// fallback workaround for hardened linux kernel, especially Debian 10
+
+export function runNoSandbox(spawnOptions: SpawnOptions) {
+  try {
+    // eslint-disable-next-line no-sync
+    const stats = Fs.statSync(binaryPath)
+    if (!stats.isFile()) {
+      return null
+    }
+  } catch (e) {
+    return null
+  }
+
+  const opts = Object.assign({}, spawnOptions)
+
+  opts.env = Object.assign(opts.env || {}, process.env, {
+    NODE_ENV: 'development',
+  })
+
+  return spawn(binaryPath, ['--no-sandbox'], opts)
+}

@@ -7,7 +7,7 @@ import { forceUnwrap as u } from '../app/src/lib/fatal-error'
 
 import configs = require('../app/webpack.development')
 
-import { run } from './run'
+import { run, runNoSandbox } from './run'
 
 function getPortOrDefault() {
   const port = process.env.PORT
@@ -31,6 +31,31 @@ function startApp() {
     process.exit(1)
     return
   }
+
+  runningApp.on('exit', (code, signal) => {
+    if (process.platform === 'linux') {
+      // attempt --no-sandbox workaround
+      const display_warning =
+        '\nWARNING: Default behavior is to abort upon sandbox error, but ' +
+        'GitHub Desktop will override to run without sandboxing.' +
+        '\nAdditional configuration may allow you to avoid seeing this error.' +
+        '\n\nPlease see more details on https://github.com/shiftkey/desktop/issues/222\n'
+      console.log(display_warning)
+      const linuxNoSandbox = runNoSandbox({ stdio: 'inherit' })
+
+      if (linuxNoSandbox != null) {
+        linuxNoSandbox.on('close', () => {
+          process.exit(0)
+        })
+      }
+    } else {
+      console.log('child process exited with code ' + code)
+    }
+  })
+
+  runningApp.on('error', (err) => {
+    console.log('failed to start process', err)
+  })
 
   runningApp.on('close', () => {
     process.exit(0)
