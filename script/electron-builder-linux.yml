@@ -11,6 +11,7 @@ linux:
     - rpm
     - AppImage
   maintainer: 'GitHub, Inc <opensource+desktop@github.com>'
+  executableName: 'github-launch'
 deb:
   afterInstall: './script/linux-after-install.sh'
   afterRemove: './script/linux-after-remove.sh'

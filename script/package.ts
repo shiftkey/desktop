@@ -183,6 +183,16 @@ function packageLinux() {
   if (exists) {
     console.log('Updating file mode for chrome-sandbox…')
     fs.chmodSync(helperPath, 0o4755)
+    const launchPath = path.join(
+      getDistPath(),
+      'resources/app/static/github-launch.sh'
+    )
+    if (fs.pathExistsSync(launchPath)) {
+      const symlink = path.join(getDistPath(), 'github-launch')
+      fs.chmodSync(launchPath, 0o775)
+      fs.symlinkSync(launchPath, symlink)
+      console.log('The permissions for github-launch have been changed')
+    }
   }
 
   const electronBuilder = path.resolve(
