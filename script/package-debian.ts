@@ -1,12 +1,16 @@
-import * as glob from 'glob'
-import { rename } from 'fs-extra'
+import { promisify } from 'util'
 import { join } from 'path'
+
+import * as glob from 'glob'
+const statPromise = promisify(glob)
+
+import { rename } from 'fs-extra'
 const installer = require('electron-installer-debian')
 
 import { getVersion } from '../app/package-info'
 import { getDistPath, getDistRoot } from './dist-info'
 
-const dest = getDistRoot()
+const distRoot = getDistRoot()
 
 // best guess based on documentation
 type DebianOptions = {
@@ -31,7 +35,7 @@ type DebianOptions = {
 
 const options: DebianOptions = {
   src: getDistPath(),
-  dest: dest,
+  dest: distRoot,
   arch: 'amd64',
   categories: ['GNOME', 'GTK', 'Development'],
   section: 'devel',
@@ -62,33 +66,26 @@ const options: DebianOptions = {
 }
 
 export async function packageDebian() {
-  console.log('Creating debian package (this may take a while)')
+  console.log('Creating debian package')
   try {
     await installer(options)
-    const installersPath = `${options.dest}/github-desktop*.deb`
+    const installersPath = `${distRoot}/github-desktop*.deb`
 
-    glob(installersPath, async (error, files) => {
-      if (error != null) {
-        throw error
-      }
+    const files = await statPromise(installersPath)
 
-      if (files.length !== 1) {
-        throw new Error(
-          `Expected one file but instead found '${files.join(
-            ', '
-          )}' - exiting...`
-        )
-      }
+    if (files.length !== 1) {
+      throw new Error(
+        `Expected one file but instead found '${files.join(', ')}' - exiting...`
+      )
+    }
 
-      const oldPath = files[0]
-      console.log(`Renaming file '${oldPath}'`)
+    const oldPath = files[0]
 
-      const newFileName = `GitHubDesktop-linux-${getVersion()}.deb`
-      const newPath = join(getDistRoot(), newFileName)
-      await rename(oldPath, newPath)
-    })
+    const newFileName = `GitHubDesktop-linux-${getVersion()}.deb`
+    const newPath = join(distRoot, newFileName)
+    await rename(oldPath, newPath)
 
-    // TODO: how to rename file to consistent format?
+    console.log(`Installer created at '${newPath}'`)
   } catch (err) {
     console.error(err, err.stack)
     process.exit(1)
