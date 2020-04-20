@@ -5,7 +5,6 @@ import * as glob from 'glob'
 const statPromise = promisify(glob)
 
 import { rename } from 'fs-extra'
-const installer = require('electron-installer-debian')
 
 import { getVersion } from '../app/package-info'
 import { getDistPath, getDistRoot } from './dist-info'
@@ -71,6 +70,12 @@ const options: DebianOptions = {
 }
 
 export async function packageDebian() {
+  if (process.platform === 'win32') {
+    return
+  }
+
+  const installer = require('electron-installer-debian')
+
   console.log('Creating debian package')
   try {
     await installer(options)
