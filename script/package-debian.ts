@@ -45,7 +45,7 @@ const options: DebianOptions = {
   categories: ['GNOME', 'GTK', 'Development'],
   section: 'devel',
   depends: [
-    // additional core dependencies - are these actually needed?
+    // additional core dependencies - are these still needed?
     'gconf2',
     'gconf-service',
     'libappindicator1',
