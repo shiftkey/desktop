@@ -1,0 +1,70 @@
+import { getDistPath, getDistRoot } from './dist-info'
+
+const installer = require('electron-installer-debian')
+
+const dest = getDistRoot()
+
+// best guess based on documentation
+type DebianOptions = {
+  // required
+  src: string
+  dest: string
+  arch: 'amd64' | 'i386' | 'arm64'
+  // optional
+  categories?: Array<string>
+  section?: string
+  icon?: any
+  scripts?: {
+    preinst?: string
+    postinst?: string
+    prerm?: string
+    postrm?: string
+  }
+  mimeType?: Array<string>
+  maintainer?: string
+  depends?: Array<string>
+}
+
+const options: DebianOptions = {
+  src: getDistPath(),
+  dest: dest,
+  arch: 'amd64',
+  categories: ['GNOME', 'GTK', 'Development'],
+  section: 'devel',
+  depends: [
+    // additional core dependencies - are these actually needed?
+    'gconf2',
+    'gconf-service',
+    'libappindicator1',
+    // Desktop-specific dependencies
+    'libcurl3 | libcurl4',
+    'libsecret-1-0',
+    'gnome-keyring',
+  ],
+  icon: {
+    '256x256': 'app/static/logos/256x256.png',
+    '512x512': 'app/static/logos/512x512.png',
+    '1024x1024': 'app/static/logos/1024x1024.png',
+  },
+  scripts: {
+    postinst: 'script/resources/deb/postinst.sh',
+    postrm: 'script/resources/deb/postrm.sh',
+  },
+  mimeType: [
+    'x-scheme-handler/x-github-client',
+    'x-scheme-handler/x-github-desktop-auth',
+  ],
+  maintainer: 'Brendan Forster <github@brendanforster.com>',
+}
+
+export async function packageDebian() {
+  console.log('Creating debian package (this may take a while)')
+  try {
+    await installer(options)
+    console.log(`Successfully created package at ${options.dest}`)
+    // TODO: how to rename file to consistent format?
+  } catch (err) {
+    console.error(err, err.stack)
+    process.exit(1)
+  }
+}

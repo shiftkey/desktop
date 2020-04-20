@@ -7,6 +7,8 @@ import * as crypto from 'crypto'
 import * as electronInstaller from 'electron-winstaller'
 import * as glob from 'glob'
 
+import { packageDebian } from './package-debian'
+
 import { getProductName, getCompanyName } from '../app/package-info'
 import {
   getDistPath,
@@ -176,7 +178,7 @@ function generateChecksums() {
   })
 }
 
-function packageLinux() {
+async function packageLinux() {
   const helperPath = path.join(getDistPath(), 'chrome-sandbox')
   const exists = fs.pathExistsSync(helperPath)
 
@@ -209,6 +211,8 @@ function packageLinux() {
   if (error != null) {
     throw error
   }
+
+  await packageDebian()
 
   generateChecksums()
 }
