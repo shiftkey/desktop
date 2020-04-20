@@ -19,6 +19,8 @@ type DebianOptions = {
   dest: string
   arch: 'amd64' | 'i386' | 'arm64'
   // optional
+  description?: string
+  productDescription?: string
   categories?: Array<string>
   section?: string
   icon?: any
@@ -37,6 +39,9 @@ const options: DebianOptions = {
   src: getDistPath(),
   dest: distRoot,
   arch: 'amd64',
+  description: 'Simple collaboration from your desktop',
+  productDescription:
+    'This is the unofficial port of GitHub Desktop for Linux distributions',
   categories: ['GNOME', 'GTK', 'Development'],
   section: 'devel',
   depends: [
