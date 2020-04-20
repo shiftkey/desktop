@@ -1,6 +1,10 @@
-import { getDistPath, getDistRoot } from './dist-info'
-
+import * as glob from 'glob'
+import { rename } from 'fs-extra'
+import { join } from 'path'
 const installer = require('electron-installer-debian')
+
+import { getVersion } from '../app/package-info'
+import { getDistPath, getDistRoot } from './dist-info'
 
 const dest = getDistRoot()
 
@@ -61,7 +65,29 @@ export async function packageDebian() {
   console.log('Creating debian package (this may take a while)')
   try {
     await installer(options)
-    console.log(`Successfully created package at ${options.dest}`)
+    const installersPath = `${options.dest}/github-desktop*.deb`
+
+    glob(installersPath, async (error, files) => {
+      if (error != null) {
+        throw error
+      }
+
+      if (files.length !== 1) {
+        throw new Error(
+          `Expected one file but instead found '${files.join(
+            ', '
+          )}' - exiting...`
+        )
+      }
+
+      const oldPath = files[0]
+      console.log(`Renaming file '${oldPath}'`)
+
+      const newFileName = `GitHubDesktop-linux-${getVersion()}.deb`
+      const newPath = join(getDistRoot(), newFileName)
+      await rename(oldPath, newPath)
+    })
+
     // TODO: how to rename file to consistent format?
   } catch (err) {
     console.error(err, err.stack)
