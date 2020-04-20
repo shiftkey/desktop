@@ -18,5 +18,8 @@ RUN apt -qq install --yes \
   rpm \
   # needed for deb builds using fpm
   binutils \
+  # needed for electron-installer-debian
+  dpkg \
+  fakeroot \
   # needed for tweaking Snap output post-packaging
   squashfs-tools
