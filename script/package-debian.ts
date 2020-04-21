@@ -22,6 +22,8 @@ type DebianOptions = {
   productDescription?: string
   categories?: Array<string>
   section?: string
+  priority?: 'required' | 'important' | 'standard' | 'optional' | 'extra'
+  homepage?: string
   icon?: any
   scripts?: {
     preinst?: string
@@ -42,7 +44,9 @@ const options: DebianOptions = {
   productDescription:
     'This is the unofficial port of GitHub Desktop for Linux distributions',
   categories: ['GNOME', 'GTK', 'Development'],
-  section: 'devel',
+  section: 'GNOME;GTK;Development',
+  priority: 'extra',
+  homepage: 'https://github.com/shiftkey/desktop',
   depends: [
     // additional core dependencies - are these still needed?
     'gconf2',
