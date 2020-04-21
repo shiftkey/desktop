@@ -5,7 +5,6 @@ import * as cp from 'child_process'
 import * as path from 'path'
 import * as crypto from 'crypto'
 import * as electronInstaller from 'electron-winstaller'
-import * as glob from 'glob'
 
 import { packageDebian } from './package-debian'
 
@@ -22,6 +21,7 @@ import {
   getIconFileName,
 } from './dist-info'
 import { isAppveyor } from './build-platforms'
+import { packageElectronBuilder } from './package-electron-builder'
 
 const distPath = getDistPath()
 const productName = getProductName()
@@ -135,47 +135,39 @@ function getSha256Checksum(fullPath: string): Promise<string> {
     const shasum = crypto.createHash(algo)
 
     const s = fs.createReadStream(fullPath)
-    s.on('data', function(d) {
+    s.on('data', function (d) {
       shasum.update(d)
     })
     s.on('error', err => {
       reject(err)
     })
-    s.on('end', function() {
+    s.on('end', function () {
       const d = shasum.digest('hex')
       resolve(d)
     })
   })
 }
 
-function generateChecksums() {
+async function generateChecksums(files: Array<string>) {
   const distRoot = getDistRoot()
 
-  const installersPath = `${distRoot}/GitHubDesktop-linux-*`
+  const checksums = new Map<string, string>()
 
-  glob(installersPath, async (error, files) => {
-    if (error != null) {
-      throw error
-    }
+  for (const f of files) {
+    const checksum = await getSha256Checksum(f)
+    checksums.set(f, checksum)
+  }
 
-    const checksums = new Map<string, string>()
+  let checksumsText = `Checksums: \n`
 
-    for (const f of files) {
-      const checksum = await getSha256Checksum(f)
-      checksums.set(f, checksum)
-    }
+  for (const [fullPath, checksum] of checksums) {
+    const fileName = path.basename(fullPath)
+    checksumsText += `${checksum} - ${fileName}\n`
+  }
 
-    let checksumsText = `Checksums: \n`
+  const checksumFile = path.join(distRoot, 'checksums.txt')
 
-    for (const [fullPath, checksum] of checksums) {
-      const fileName = path.basename(fullPath)
-      checksumsText += `${checksum} - ${fileName}\n`
-    }
-
-    const checksumFile = path.join(distRoot, 'checksums.txt')
-
-    fs.writeFile(checksumFile, checksumsText)
-  })
+  await fs.writeFile(checksumFile, checksumsText)
 }
 
 async function packageLinux() {
@@ -187,33 +179,10 @@ async function packageLinux() {
     fs.chmodSync(helperPath, 0o4755)
   }
 
-  const electronBuilder = path.resolve(
-    __dirname,
-    '..',
-    'node_modules',
-    '.bin',
-    'electron-builder'
-  )
-
-  const configPath = path.resolve(__dirname, 'electron-builder-linux.yml')
-
-  const args = [
-    'build',
-    '--prepackaged',
-    distPath,
-    '--x64',
-    '--config',
-    configPath,
-  ]
-
-  const { error } = cp.spawnSync(electronBuilder, args, { stdio: 'inherit' })
-
-  if (error != null) {
-    throw error
-  }
+  const files = await packageElectronBuilder()
 
   const packages = await packageDebian()
   console.log(`Installers created at: '${packages.join(', ')}'`)
 
-  generateChecksums()
+  generateChecksums([...files, ...packages])
 }
