@@ -95,7 +95,5 @@ export async function packageDebian(): Promise<Array<string>> {
   const newPath = join(distRoot, newFileName)
   await rename(oldPath, newPath)
 
-  console.log(`Installer created at '${newPath}'`)
-
   return Promise.resolve([newPath])
 }
