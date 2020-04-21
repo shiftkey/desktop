@@ -2,7 +2,7 @@ import { promisify } from 'util'
 import { join } from 'path'
 
 import * as glob from 'glob'
-const statPromise = promisify(glob)
+const globPromise = promisify(glob)
 
 import { rename } from 'fs-extra'
 
@@ -81,7 +81,7 @@ export async function packageDebian(): Promise<Array<string>> {
   await installer(options)
   const installersPath = `${distRoot}/github-desktop*.deb`
 
-  const files = await statPromise(installersPath)
+  const files = await globPromise(installersPath)
 
   if (files.length !== 1) {
     return Promise.reject(
