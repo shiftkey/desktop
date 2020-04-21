@@ -180,11 +180,14 @@ async function packageLinux() {
   }
 
   const files = await packageElectronBuilder()
-  const packages = await packageDebian()
+  const debianPackage = await packageDebian()
 
-  const installers = files.concat(packages)
+  const installers = [...files, debianPackage]
 
-  console.log(`Installers created at: '${installers.join(', ')}'`)
+  console.log(`Installers created:`)
+  for (const installer of installers) {
+    console.log(` - ${installer}`)
+  }
 
   generateChecksums(installers)
 }

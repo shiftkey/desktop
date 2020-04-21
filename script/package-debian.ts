@@ -69,14 +69,12 @@ const options: DebianOptions = {
   maintainer: 'Brendan Forster <github@brendanforster.com>',
 }
 
-export async function packageDebian(): Promise<Array<string>> {
+export async function packageDebian(): Promise<string> {
   if (process.platform === 'win32') {
     return Promise.reject('Windows is not supported')
   }
 
   const installer = require('electron-installer-debian')
-
-  console.log('Creating debian package')
 
   await installer(options)
   const installersPath = `${distRoot}/github-desktop*.deb`
@@ -95,5 +93,5 @@ export async function packageDebian(): Promise<Array<string>> {
   const newPath = join(distRoot, newFileName)
   await rename(oldPath, newPath)
 
-  return Promise.resolve([newPath])
+  return Promise.resolve(newPath)
 }
