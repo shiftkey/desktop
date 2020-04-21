@@ -69,35 +69,33 @@ const options: DebianOptions = {
   maintainer: 'Brendan Forster <github@brendanforster.com>',
 }
 
-export async function packageDebian() {
+export async function packageDebian(): Promise<Array<string>> {
   if (process.platform === 'win32') {
-    return
+    return Promise.reject('Windows is not supported')
   }
 
   const installer = require('electron-installer-debian')
 
   console.log('Creating debian package')
-  try {
-    await installer(options)
-    const installersPath = `${distRoot}/github-desktop*.deb`
 
-    const files = await statPromise(installersPath)
+  await installer(options)
+  const installersPath = `${distRoot}/github-desktop*.deb`
 
-    if (files.length !== 1) {
-      throw new Error(
-        `Expected one file but instead found '${files.join(', ')}' - exiting...`
-      )
-    }
+  const files = await statPromise(installersPath)
 
-    const oldPath = files[0]
-
-    const newFileName = `GitHubDesktop-linux-${getVersion()}.deb`
-    const newPath = join(distRoot, newFileName)
-    await rename(oldPath, newPath)
-
-    console.log(`Installer created at '${newPath}'`)
-  } catch (err) {
-    console.error(err, err.stack)
-    process.exit(1)
+  if (files.length !== 1) {
+    return Promise.reject(
+      `Expected one file but instead found '${files.join(', ')}' - exiting...`
+    )
   }
+
+  const oldPath = files[0]
+
+  const newFileName = `GitHubDesktop-linux-${getVersion()}.deb`
+  const newPath = join(distRoot, newFileName)
+  await rename(oldPath, newPath)
+
+  console.log(`Installer created at '${newPath}'`)
+
+  return Promise.resolve([newPath])
 }

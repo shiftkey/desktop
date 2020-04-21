@@ -212,7 +212,8 @@ async function packageLinux() {
     throw error
   }
 
-  await packageDebian()
+  const packages = await packageDebian()
+  console.log(`Installers created at: '${packages.join(', ')}'`)
 
   generateChecksums()
 }
