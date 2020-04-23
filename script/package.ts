@@ -6,8 +6,6 @@ import * as path from 'path'
 import * as crypto from 'crypto'
 import * as electronInstaller from 'electron-winstaller'
 
-import { packageDebian } from './package-debian'
-
 import { getProductName, getCompanyName } from '../app/package-info'
 import {
   getDistPath,
@@ -21,7 +19,9 @@ import {
   getIconFileName,
 } from './dist-info'
 import { isAppveyor } from './build-platforms'
+
 import { packageElectronBuilder } from './package-electron-builder'
+import { packageDebian } from './package-debian'
 
 const distPath = getDistPath()
 const productName = getProductName()
