@@ -43,7 +43,6 @@ const options: DebianOptions = {
   description: 'Simple collaboration from your desktop',
   productDescription:
     'This is the unofficial port of GitHub Desktop for Linux distributions',
-  categories: ['GNOME', 'GTK', 'Development'],
   section: 'GNOME;GTK;Development',
   priority: 'extra',
   homepage: 'https://github.com/shiftkey/desktop',
