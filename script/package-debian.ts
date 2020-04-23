@@ -68,6 +68,11 @@ const options: DebianOptions = {
   mimeType: [
     'x-scheme-handler/x-github-client',
     'x-scheme-handler/x-github-desktop-auth',
+    // workaround for handling OAuth flow until we figure out what we're doing
+    // with the development OAuth details
+    //
+    // see https://github.com/shiftkey/desktop/issues/72 for more details
+    'x-scheme-handler/x-github-desktop-dev-auth',
   ],
   maintainer: 'Brendan Forster <github@brendanforster.com>',
 }
