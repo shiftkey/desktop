@@ -619,11 +619,11 @@ function zoom(direction: ZoomDirection): ClickHandler {
       webContents.setZoomFactor(1)
       webContents.send('zoom-factor-changed', 1)
     } else {
-      const rawZoom = webContents.getZoomFactor()
+      const rawZoom = webContents.zoomFactor
       const zoomFactors =
         direction === ZoomDirection.In ? ZoomInFactors : ZoomOutFactors
 
-      // So the values that we get from getZoomFactor are floating point
+      // So the values that we get from zoomFactor are floating point
       // precision numbers from chromium that don't always round nicely so
       // we'll have to do a little trick to figure out which of our supported
       // zoom factors the value is referring to.
