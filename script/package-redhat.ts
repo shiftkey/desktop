@@ -55,8 +55,8 @@ const options: RedhatOptions = {
     '1024x1024': 'app/static/logos/1024x1024.png',
   },
   scripts: {
-    postinst: 'script/resources/deb/postinst.sh',
-    postrm: 'script/resources/deb/postrm.sh',
+    postinst: 'script/resources/rpm/postinst.sh',
+    postrm: 'script/resources/rpm/postrm.sh',
   },
   mimeType: [
     'x-scheme-handler/x-github-client',
