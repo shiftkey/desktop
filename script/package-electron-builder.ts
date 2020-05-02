@@ -40,7 +40,7 @@ export async function packageElectronBuilder(): Promise<Array<string>> {
 
   const appImageInstaller = `${distRoot}/GitHubDesktop-linux-*.AppImage`
 
-  let files = await globPromise(appImageInstaller)
+  const files = await globPromise(appImageInstaller)
   if (files.length !== 1) {
     return Promise.reject(
       `Expected one AppImage installer but instead found '${files.join(
