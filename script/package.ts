@@ -22,6 +22,7 @@ import { isAppveyor } from './build-platforms'
 
 import { packageElectronBuilder } from './package-electron-builder'
 import { packageDebian } from './package-debian'
+import { packageRedhat } from './package-redhat'
 
 const distPath = getDistPath()
 const productName = getProductName()
@@ -181,8 +182,9 @@ async function packageLinux() {
 
   const files = await packageElectronBuilder()
   const debianPackage = await packageDebian()
+  const redhatPackage = await packageRedhat()
 
-  const installers = [...files, debianPackage]
+  const installers = [...files, debianPackage, redhatPackage]
 
   console.log(`Installers created:`)
   for (const installer of installers) {
