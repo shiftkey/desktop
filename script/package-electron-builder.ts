@@ -51,18 +51,5 @@ export async function packageElectronBuilder(): Promise<Array<string>> {
 
   const appImageInstallerPath = files[0]
 
-  const rpmInstaller = `${distRoot}/GitHubDesktop-linux-*.rpm`
-
-  files = await globPromise(rpmInstaller)
-  if (files.length !== 1) {
-    return Promise.reject(
-      `Expected one RPM installer but instead found '${files.join(
-        ', '
-      )}' - exiting...`
-    )
-  }
-
-  const rpmInstallerPath = files[0]
-
-  return Promise.resolve([appImageInstallerPath, rpmInstallerPath])
+  return Promise.resolve([appImageInstallerPath])
 }
