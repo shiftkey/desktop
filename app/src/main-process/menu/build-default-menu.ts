@@ -616,7 +616,7 @@ function zoom(direction: ZoomDirection): ClickHandler {
     const { webContents } = window
 
     if (direction === ZoomDirection.Reset) {
-      webContents.setZoomFactor(1)
+      webContents.zoomFactor = 1
       webContents.send('zoom-factor-changed', 1)
     } else {
       const rawZoom = webContents.zoomFactor
@@ -638,7 +638,7 @@ function zoom(direction: ZoomDirection): ClickHandler {
       // factor we've got.
       const newZoom = nextZoomLevel === undefined ? currentZoom : nextZoomLevel
 
-      webContents.setZoomFactor(newZoom)
+      webContents.zoomFactor = newZoom
       webContents.send('zoom-factor-changed', newZoom)
     }
   }
