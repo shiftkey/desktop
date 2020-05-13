@@ -24,6 +24,45 @@ It also hosts preview packages for various Linux distributions:
 Check out the [latest releases](https://github.com/shiftkey/desktop/releases) to
 help out with testing on your distribution.
 
+## packagecloud
+
+We are trialing using [PackageCloud](https://packagecloud.io/) for distributing
+the installers for Debian and RPM-based distributions.
+
+### Debian/Ubuntu distributions
+
+To setup the package repository, run these commands:
+
+```
+$ wget -qO - https://packagecloud.io/shiftkey/desktop/gpgkey | sudo apt-key add -
+$ sudo sh -c 'echo "deb [arch=amd64] https://packagecloud.io/shiftkey/desktop/any/ any main" > /etc/apt/sources.list.d/packagecloud-shiftky-desktop.list'
+$ sudo apt-get update
+```
+
+Then install GitHub Desktop:
+
+```
+$ sudo apt install github-desktop
+```
+
+### Red Hat/CentOS/Fedora distributions
+
+To setup the package repository, run these commands:
+
+```
+$ sudo rpm --import https://packagecloud.io/shiftkey/desktop/gpgkey
+$ sudo sh -c 'echo -e "[shiftkey]\nname=GitHub Desktop\nbaseurl=https://packagecloud.io/shiftkey/desktop/el/7/\$basearch\nenabled=1\ngpgcheck=0\nrepo_gpgcheck=1\ngpgkey=https://packagecloud.io/shiftkey/desktop/gpgkey" > /etc/yum.repos.d/shiftkey-desktop.repo'
+```
+
+Then install GitHub Desktop:
+
+```
+# if yum is your package manager
+$ sudo yum install github-desktop
+# if dnf is your package manager
+$ sudo dnf install github-desktop
+```
+
 ## Other Distributions
 
 Arch Linux users can install GitHub Desktop from the
