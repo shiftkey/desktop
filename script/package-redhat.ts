@@ -27,6 +27,7 @@ type RedhatOptions = {
     prerm?: string
     postrm?: string
   }
+  homepage?: string
   mimeType?: Array<string>
   requires?: Array<string>
 }
