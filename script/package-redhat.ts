@@ -44,6 +44,9 @@ const options: RedhatOptions = {
     'libXScrnSaver',
     'libappindicator',
     'libnotify',
+    'libX11-xcb',
+    'nss',
+    'alsa-lib',
     // dugite-native dependencies
     'libcurl',
     // keytar dependencies
