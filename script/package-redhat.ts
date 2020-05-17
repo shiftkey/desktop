@@ -59,6 +59,7 @@ const options: RedhatOptions = {
     postinst: 'script/resources/rpm/postinst.sh',
     postrm: 'script/resources/rpm/postrm.sh',
   },
+  homepage: 'https://github.com/shiftkey/desktop',
   mimeType: [
     'x-scheme-handler/x-github-client',
     'x-scheme-handler/x-github-desktop-auth',
