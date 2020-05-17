@@ -45,9 +45,7 @@ const options: RedhatOptions = {
     // default Electron dependencies
     'libXScrnSaver',
     'libappindicator',
-    'libnotify',
     'libX11-xcb',
-    'nss',
     'alsa-lib',
     // dugite-native dependencies
     'libcurl',
