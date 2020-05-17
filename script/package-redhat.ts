@@ -16,7 +16,7 @@ type RedhatOptions = {
   // required
   src: string
   dest: string
-  arch: 'x64'
+  arch: 'x86_64'
   // optional
   description?: string
   productDescription?: string
@@ -35,7 +35,7 @@ type RedhatOptions = {
 const options: RedhatOptions = {
   src: getDistPath(),
   dest: distRoot,
-  arch: 'x64',
+  arch: 'x86_64',
   description: 'Simple collaboration from your desktop',
   productDescription:
     'This is the unofficial port of GitHub Desktop for Linux distributions',
