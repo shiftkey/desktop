@@ -15,7 +15,6 @@ else
 fi
 
 # create symbolic links to /usr/bin directory
-ln -f -s "$INSTALL_DIR"/$BINARY_NAME /usr/bin || :
 ln -f -s "$CLI_DIR"/github /usr/bin || :
 
 exit 0
