@@ -60,7 +60,7 @@ const options: RedhatOptions = {
   },
   scripts: {
     post: 'script/resources/rpm/post.sh',
-    postun: 'script/resources/rpm/postun.sh',
+    preun: 'script/resources/rpm/preun.sh',
   },
   homepage: 'https://github.com/shiftkey/desktop',
   mimeType: [
