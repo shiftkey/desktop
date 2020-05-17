@@ -20,6 +20,7 @@ type RedhatOptions = {
   // optional
   description?: string
   productDescription?: string
+  categories?: Array<string>
   icon?: any
   scripts?: {
     preinst?: string
@@ -39,6 +40,7 @@ const options: RedhatOptions = {
   description: 'Simple collaboration from your desktop',
   productDescription:
     'This is the unofficial port of GitHub Desktop for Linux distributions',
+  categories: ['GNOME', 'GTK', 'Development'],
   requires: [
     // default Electron dependencies
     'libXScrnSaver',
