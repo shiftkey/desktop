@@ -23,10 +23,10 @@ type RedhatOptions = {
   categories?: Array<string>
   icon?: any
   scripts?: {
-    preinst?: string
-    postinst?: string
-    prerm?: string
-    postrm?: string
+    pre?: string
+    post?: string
+    preun?: string
+    postun?: string
   }
   homepage?: string
   mimeType?: Array<string>
@@ -59,8 +59,8 @@ const options: RedhatOptions = {
     '1024x1024': 'app/static/logos/1024x1024.png',
   },
   scripts: {
-    postinst: 'script/resources/rpm/postinst.sh',
-    postrm: 'script/resources/rpm/postrm.sh',
+    post: 'script/resources/rpm/post.sh',
+    postun: 'script/resources/rpm/postun.sh',
   },
   homepage: 'https://github.com/shiftkey/desktop',
   mimeType: [
