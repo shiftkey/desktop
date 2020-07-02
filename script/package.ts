@@ -134,13 +134,13 @@ function getSha256Checksum(fullPath: string): Promise<string> {
     const shasum = crypto.createHash(algo)
 
     const s = fs.createReadStream(fullPath)
-    s.on('data', function(d) {
+    s.on('data', function (d) {
       shasum.update(d)
     })
     s.on('error', err => {
       reject(err)
     })
-    s.on('end', function() {
+    s.on('end', function () {
       const d = shasum.digest('hex')
       resolve(d)
     })
