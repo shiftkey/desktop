@@ -66,6 +66,32 @@ $ sudo yum install github-desktop
 $ sudo dnf install github-desktop
 ```
 
+### openSUSE/SLES distributions
+
+To setup the package repository, run these commands:
+
+```sh
+$ sudo rpm --import https://packagecloud.io/shiftkey/desktop/gpgkey
+$ sudo sh -c 'echo -e "[shiftkey]\nname=GitHub Desktop\nbaseurl=https://packagecloud.io/shiftkey/desktop/el/7/\$basearch\nenabled=1\ngpgcheck=0\nrepo_gpgcheck=1\ngpgkey=https://packagecloud.io/shiftkey/desktop/gpgkey" > /etc/zypp/repos.d/shiftkey-desktop.repo'
+```
+
+Then install GitHub Desktop:
+
+```sh
+$ sudo zypper ref
+$ sudo zypper install github-desktop
+```
+
+You may need to accept an override (see #312):
+```
+Problem: nothing provides libcurl needed by github-desktop-2.5.3.linux1-1.x86_64
+ Solution 1: do not install github-desktop-2.5.3.linux1-1.x86_64
+ Solution 2: break github-desktop-2.5.3.linux1-1.x86_64 by ignoring some of its dependencies
+
+Choose from above solutions by number or cancel [1/2/c/d/?] (c): 2
+```
+This seems to be non-critical, and only related to packaging.
+
 ## Other Distributions
 
 Arch Linux users can install GitHub Desktop from the
