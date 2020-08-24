@@ -68,6 +68,9 @@ export function isRunningOnFork() {
       process.env.GITHUB_EVENT_NAME === 'push' &&
       process.env.GITHUB_REPOSITORY !== 'desktop/desktop'
     ) {
+      console.log(
+        `Found push event for repository '${process.env.GITHUB_REPOSITORY}' which is considered a fork`
+      )
       return true
     } else if (
       process.env.GITHUB_EVENT_NAME === 'pull_request' &&
@@ -75,6 +78,9 @@ export function isRunningOnFork() {
       process.env.GITHUB_HEAD_REF !== undefined &&
       process.env.GITHUB_HEAD_REF.length > 0
     ) {
+      console.log(
+        `Found head ref '${process.env.GITHUB_HEAD_REF}' for repository '${process.env.GITHUB_REPOSITORY}' which is considered a fork`
+      )
       return true
     }
   }
