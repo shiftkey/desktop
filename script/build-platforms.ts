@@ -63,12 +63,20 @@ export function isRunningOnFork() {
     return true
   }
 
-  if (
-    isGitHubActions() &&
-    process.env.GITHUB_HEAD_REF !== undefined &&
-    process.env.GITHUB_HEAD_REF.length > 0
-  ) {
-    return true
+  if (isGitHubActions()) {
+    if (
+      process.env.GITHUB_EVENT_NAME === 'push' &&
+      process.env.GITHUB_REPOSITORY !== 'desktop/desktop'
+    ) {
+      return true
+    } else if (
+      process.env.GITHUB_EVENT_NAME === 'pull_request' &&
+      process.env.GITHUB_REPOSITORY !== 'desktop/desktop' &&
+      process.env.GITHUB_HEAD_REF !== undefined &&
+      process.env.GITHUB_HEAD_REF.length > 0
+    ) {
+      return true
+    }
   }
 
   return false
