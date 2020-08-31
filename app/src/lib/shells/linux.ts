@@ -14,6 +14,7 @@ export enum Shell {
   Terminology = 'Terminology',
   Deepin = 'Deepin Terminal',
   Elementary = 'Elementary Terminal',
+  XFCE = 'XFCE Terminal',
 }
 
 export const Default = Shell.Gnome
@@ -59,6 +60,10 @@ export function parse(label: string): Shell {
     return Shell.Elementary
   }
 
+  if (label === Shell.XFCE) {
+    return Shell.XFCE
+  }
+
   return Default
 }
 
@@ -88,6 +93,8 @@ function getShellPath(shell: Shell): Promise<string | null> {
       return getPathIfAvailable('/usr/bin/deepin-terminal')
     case Shell.Elementary:
       return getPathIfAvailable('/usr/bin/io.elementary.terminal')
+    case Shell.XFCE:
+      return getPathIfAvailable('/usr/bin/xfce4-terminal')
     default:
       return assertNever(shell, `Unknown shell: ${shell}`)
   }
@@ -107,6 +114,7 @@ export async function getAvailableShells(): Promise<
     terminologyPath,
     deepinPath,
     elementaryPath,
+    xfcePath,
   ] = await Promise.all([
     getShellPath(Shell.Gnome),
     getShellPath(Shell.Mate),
@@ -118,6 +126,7 @@ export async function getAvailableShells(): Promise<
     getShellPath(Shell.Terminology),
     getShellPath(Shell.Deepin),
     getShellPath(Shell.Elementary),
+    getShellPath(Shell.XFCE),
   ])
 
   const shells: Array<IFoundShell<Shell>> = []
@@ -161,6 +170,10 @@ export async function getAvailableShells(): Promise<
     shells.push({ shell: Shell.Elementary, path: elementaryPath })
   }
 
+  if (xfcePath) {
+    shells.push({ shell: Shell.XFCE, path: xfcePath })
+  }
+
   return shells
 }
 
@@ -174,6 +187,7 @@ export function launch(
     case Shell.Mate:
     case Shell.Tilix:
     case Shell.Terminator:
+    case Shell.XFCE:
       return spawn(foundShell.path, ['--working-directory', path])
     case Shell.Urxvt:
       return spawn(foundShell.path, ['-cd', path])
