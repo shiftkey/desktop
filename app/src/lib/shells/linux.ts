@@ -14,7 +14,7 @@ export enum Shell {
   Terminology = 'Terminology',
   Deepin = 'Deepin Terminal',
   Elementary = 'Elementary Terminal',
-  XFCE = 'XFCE Terminal'
+  XFCE = 'XFCE Terminal',
 }
 
 export const Default = Shell.Gnome
@@ -59,7 +59,7 @@ export function parse(label: string): Shell {
   if (label === Shell.Elementary) {
     return Shell.Elementary
   }
-  
+
   if (label === Shell.XFCE) {
     return Shell.XFCE
   }
@@ -169,7 +169,7 @@ export async function getAvailableShells(): Promise<
   if (elementaryPath) {
     shells.push({ shell: Shell.Elementary, path: elementaryPath })
   }
-  
+
   if (xfcePath) {
     shells.push({ shell: Shell.XFCE, path: xfcePath })
   }
