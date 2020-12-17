@@ -6,8 +6,8 @@ on:
       - development
       - linux
       - 'linux-release-*'
-  tags:
-    - 'release-*.*.*-linux*'
+    tags:
+      - 'release-*.*.*-linux*'
   pull_request:
     branches:
       - linux
