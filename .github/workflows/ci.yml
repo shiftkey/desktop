@@ -4,8 +4,14 @@ on:
   push:
     branches:
       - development
-      - __release-*
+      - linux
+      - 'linux-release-*'
+  tags:
+    - 'release-*.*.*-linux*'
   pull_request:
+    branches:
+      - linux
+      - 'linux-release-*'
 
 jobs:
   build:
