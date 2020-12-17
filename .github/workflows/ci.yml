@@ -54,8 +54,6 @@ jobs:
 
       - name: Install and build dependencies
         run: yarn
-      - name: Lint
-        run: yarn lint
       - name: Validate changelog
         run: yarn validate-changelog
       - name: Ensure a clean working directory
