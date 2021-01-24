@@ -5,9 +5,9 @@ import * as path from 'path'
 import * as cp from 'child_process'
 import * as fs from 'fs-extra'
 import packager, {
-  arch,
-  ElectronNotarizeOptions,
-  ElectronOsXSignOptions,
+  TargetArch,
+  OsxNotarizeOptions,
+  OsxSignOptions,
   Options,
 } from 'electron-packager'
 import frontMatter from 'front-matter'
@@ -122,7 +122,7 @@ interface IPackageAdditionalOptions {
     readonly name: string
     readonly schemes: ReadonlyArray<string>
   }>
-  readonly osxSign: ElectronOsXSignOptions & {
+  readonly osxSign: OsxSignOptions & {
     readonly hardenedRuntime?: boolean
   }
 }
@@ -139,7 +139,7 @@ function packageApp() {
     )
   }
 
-  const toPackageArch = (targetArch: string | undefined): arch => {
+  const toPackageArch = (targetArch: string | undefined): TargetArch => {
     if (targetArch === undefined) {
       return 'x64'
     }
@@ -304,12 +304,8 @@ function copyDependencies() {
   const updatedPackage = Object.assign({}, originalPackage, {
     productName: getProductName(),
     dependencies: newDependencies,
-    devDependencies: newDevDependencies,
+    devDependencies: isDevelopmentBuild ? newDevDependencies : undefined,
   })
-
-  if (!isDevelopmentBuild) {
-    delete updatedPackage.devDependencies
-  }
 
   fs.writeFileSync(
     path.join(outRoot, 'package.json'),
@@ -426,7 +422,7 @@ ${licenseText}`
   fs.removeSync(chooseALicense)
 }
 
-function getNotarizationCredentials(): ElectronNotarizeOptions | undefined {
+function getNotarizationCredentials(): OsxNotarizeOptions | undefined {
   const appleId = process.env.APPLE_ID
   const appleIdPassword = process.env.APPLE_ID_PASSWORD
   if (appleId === undefined || appleIdPassword === undefined) {
