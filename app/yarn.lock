@@ -1367,10 +1367,10 @@ regenerator-runtime@^0.13.4:
   resolved "https://registry.yarnpkg.com/regenerator-runtime/-/regenerator-runtime-0.13.7.tgz#cac2dacc8a1ea675feaabaeb8ae833898ae46f55"
   integrity sha512-a54FxoJDIr27pgf7IgeQGxmqUNYrcV338lf/6gH456HZ/PhX+5BcwHXG9ajESmwe6WRO0tAzRUrRmNONWgkrew==
 
-registry-js@^1.12.0:
-  version "1.12.0"
-  resolved "https://registry.yarnpkg.com/registry-js/-/registry-js-1.12.0.tgz#35ecfba4d3c3777ff1605e239abaa823fa32979f"
-  integrity sha512-5xk/L83Ph3u7JY+6tb8XrnB78iDoyCwilY4/5C1VhZYiw0jeTUkdTn77kXycWpPK8jQ22LL5DQiAlNcluh+eZw==
+registry-js@^1.13.0:
+  version "1.13.0"
+  resolved "https://registry.yarnpkg.com/registry-js/-/registry-js-1.13.0.tgz#8c25c83383aad53a295a47f1ac38df6bee0b19c9"
+  integrity sha512-yFwrYjxVaEopLEXyP5ok7MNKxbi+dKBDLcmDGOO3gb2hISlwBizaQkr0K94xNZn3ovuBMYnTf+D9v+jowmMEng==
   dependencies:
     nan "^2.14.1"
     prebuild-install "^5.3.5"
