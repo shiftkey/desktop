@@ -532,13 +532,13 @@ focus-trap@^6.1.0:
   dependencies:
     tabbable "^5.1.0"
 
-fs-admin@^0.15.0:
-  version "0.15.0"
-  resolved "https://registry.yarnpkg.com/fs-admin/-/fs-admin-0.15.0.tgz#ffa7daab2f1184ca81df73e7db8365ee1747410c"
-  integrity sha512-2czA7rZNnu/RSVwxZUSX4fF48PRj8gJ7fKMKpY+G3ESiEzHMPCHvNQaC02PhU+PAyzBUiqfiMHJisnj4LONwLA==
+fs-admin@^0.16.0:
+  version "0.16.0"
+  resolved "https://registry.yarnpkg.com/fs-admin/-/fs-admin-0.16.0.tgz#806a3f4faacfa6235f5645a6f48ee945501051fd"
+  integrity sha512-ojkZQ4kmpdEViUNiqBbQ8YZuH+UjgJj621V9zeyfvviVgy7buf5K4vrVCCxf96QsWWLAtNiiplNMmxFO5zGoHg==
   dependencies:
     nan "^2.13.2"
-    prebuild-install "5.3.5"
+    prebuild-install "^6.0.0"
 
 fs-constants@^1.0.0:
   version "1.0.0"
@@ -1140,7 +1140,7 @@ plist@^2.1.0:
     xmlbuilder "8.2.2"
     xmldom "0.1.x"
 
-prebuild-install@5.3.5, prebuild-install@^5.3.5:
+prebuild-install@^5.3.5:
   version "5.3.5"
   resolved "https://registry.yarnpkg.com/prebuild-install/-/prebuild-install-5.3.5.tgz#e7e71e425298785ea9d22d4f958dbaccf8bb0e1b"
   integrity sha512-YmMO7dph9CYKi5IR/BzjOJlRzpxGGVo1EsLSUZ0mt/Mq0HWZIHOKHHcHdT69yG54C9m6i45GpItwRHpk0Py7Uw==
