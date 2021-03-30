@@ -22,7 +22,7 @@ const editors: ILinuxExternalEditor[] = [
   },
   {
     name: 'Visual Studio Code',
-    paths: ['/snap/bin/code', '/usr/bin/code'],
+    paths: ['/usr/share/code/code', '/snap/bin/code', '/usr/bin/code'],
   },
   {
     name: 'Visual Studio Code (Insiders)',
