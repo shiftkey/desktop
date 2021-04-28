@@ -85,7 +85,7 @@ jobs:
         run: yarn test:integration
       - name: Package application
         run: yarn run package
-        if: ${{ matrix.os == 'ubuntu-18.04' }}
+        if: ${{ matrix.os == 'ubuntu-18.04' && matrix.arch == 'x64' }}
       - name: Create Release
         uses: softprops/action-gh-release@v1
         if:
