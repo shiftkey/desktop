@@ -14,7 +14,7 @@ A clear and concise description of what the bug is.
 
 <!-- Important: Read First -->
 
-<!-- if you are using the appimage/deb/rpm from the  release page  make sure to use the very latest version  that is available  check releases: https://github.com/shiftkey/desktop/releases   if the issue still occurs in the latest release please  continue  -->
+<!-- If you are using the appimage/deb/rpm from the release page make sure you have the very latest version that is available. Check the releases page to see if there are new updates available: https://github.com/shiftkey/desktop/releases -->
 
 
 ### Version & OS
