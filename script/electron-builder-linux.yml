@@ -6,6 +6,7 @@ linux:
   mimeTypes:
     - x-scheme-handler/x-github-client
     - x-scheme-handler/x-github-desktop-auth
+    - x-scheme-handler/x-github-desktop-dev-auth
   target:
     - AppImage
   maintainer: 'GitHub, Inc <opensource+desktop@github.com>'
