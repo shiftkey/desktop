@@ -29,6 +29,11 @@ the installers for Debian and RPM-based distributions. These are not free servic
 so if you can afford to help with these costs please [**Sponsor**](https://github.com/sponsors/shiftkey)
 the project using the link in the header.
 
+## Using Github Auth with the Appimages 
+
+Github desktop uses github Auth  for logins due to this the process can be a bit different for Appimages 
+when you click authorize  the  application the  said browser will auto look for Github Desktop , due to how Appimages work  the said browser may  not correctly find  it  , you may have to manually  tell the browser to open with the specific appimage
+
 ### Debian/Ubuntu distributions
 
 To setup the package repository, run these commands:
