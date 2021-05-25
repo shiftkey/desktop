@@ -262,7 +262,7 @@ import { WorkflowPreferences } from '../../models/workflow-preferences'
 import { RepositoryIndicatorUpdater } from './helpers/repository-indicator-updater'
 import { getAttributableEmailsFor } from '../email'
 import { TrashNameLabel } from '../../ui/lib/context-menu'
-import { GitError as DugiteError } from 'dugite'
+import { GitError as DugiteError } from '@shiftkey/dugite'
 import { ErrorWithMetadata, CheckoutError } from '../error-with-metadata'
 import {
   ShowSideBySideDiffDefault,
