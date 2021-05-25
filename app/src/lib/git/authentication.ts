@@ -1,6 +1,6 @@
 import * as Path from 'path'
 
-import { GitError as DugiteError } from 'dugite'
+import { GitError as DugiteError } from '@shiftkey/dugite'
 import { IGitAccount } from '../../models/git-account'
 import { enableDesktopTrampoline } from '../feature-flag'
 import { getDesktopTrampolineFilename } from 'desktop-trampoline'
