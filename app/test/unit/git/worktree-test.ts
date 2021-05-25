@@ -1,7 +1,7 @@
 import * as Os from 'os'
 import * as Path from 'path'
 import * as FSE from 'fs-extra'
-import { GitProcess } from 'dugite'
+import { GitProcess } from '@shiftkey/dugite'
 
 import { setupEmptyRepository } from '../../helpers/repositories'
 import {
