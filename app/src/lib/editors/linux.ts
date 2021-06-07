@@ -21,6 +21,10 @@ const editors: ILinuxExternalEditor[] = [
     paths: ['/snap/bin/atom', '/usr/bin/atom'],
   },
   {
+    name: 'Neovim',
+    paths: ['/usr/bin/nvim'],
+  },
+  {
     name: 'Visual Studio Code',
     paths: ['/usr/share/code/bin/code', '/snap/bin/code', '/usr/bin/code'],
   },
@@ -30,7 +34,7 @@ const editors: ILinuxExternalEditor[] = [
   },
   {
     name: 'VSCodium',
-    paths: ['/usr/bin/codium'],
+    paths: ['/usr/bin/codium','/var/lib/flatpak/app/com.vscodium.codium'],
   },
   {
     name: 'Sublime Text',
