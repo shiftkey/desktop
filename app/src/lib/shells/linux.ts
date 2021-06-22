@@ -163,8 +163,6 @@ export function launch(
     case Shell.Tilix:
     case Shell.Terminator:
     case Shell.XFCE:
-    case Shell.Kitty:
-      return spawn(foundShell.path, ['--single-instance', '--directory', path])
     case Shell.Alacritty:
       return spawn(foundShell.path, ['--working-directory', path])
     case Shell.Urxvt:
@@ -179,6 +177,8 @@ export function launch(
       return spawn(foundShell.path, ['-w', path])
     case Shell.Elementary:
       return spawn(foundShell.path, ['-w', path])
+    case Shell.Kitty:
+      return spawn(foundShell.path, ['--single-instance', '--directory', path])
     default:
       return assertNever(shell, `Unknown shell: ${shell}`)
   }
