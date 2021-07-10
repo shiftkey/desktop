@@ -18,31 +18,31 @@ interface ILinuxExternalEditor {
 const editors: ILinuxExternalEditor[] = [
   {
     name: 'Atom',
-    paths: ['/snap/bin/atom', '/usr/bin/atom'],
+    paths: ['/snap/bin/atom', '/usr/bin/atom', '/var/run/host/usr/bin/atom'],
   },
   {
     name: 'Neovim',
-    paths: ['/usr/bin/nvim'],
+    paths: ['/usr/bin/nvim', '/var/run/host/usr/bin/nvim'],
   },
   {
     name: 'Visual Studio Code',
-    paths: ['/usr/share/code/bin/code', '/snap/bin/code', '/usr/bin/code'],
+    paths: ['/usr/share/code/bin/code', '/snap/bin/code', '/usr/bin/code', '/var/run/host/usr/bin/code'],
   },
   {
     name: 'Visual Studio Code (Insiders)',
-    paths: ['/snap/bin/code-insiders', '/usr/bin/code-insiders'],
+    paths: ['/snap/bin/code-insiders', '/usr/bin/code-insiders', '/var/run/host/usr/bin/code-insiders'],
   },
   {
     name: 'VSCodium',
-    paths: ['/usr/bin/codium', '/var/lib/flatpak/app/com.vscodium.codium'],
+    paths: ['/usr/bin/codium', '/var/lib/flatpak/app/com.vscodium.codium', '/var/run/host/usr/bin/codium'],
   },
   {
     name: 'Sublime Text',
-    paths: ['/usr/bin/subl'],
+    paths: ['/usr/bin/subl', '/var/run/host/usr/bin/subl'],
   },
   {
     name: 'Typora',
-    paths: ['/usr/bin/typora'],
+    paths: ['/usr/bin/typora', '/var/run/host/usr/bin/typora'],
   },
   {
     name: 'SlickEdit',
@@ -57,7 +57,7 @@ const editors: ILinuxExternalEditor[] = [
     // Code editor for elementary OS
     // https://github.com/elementary/code
     name: 'Code',
-    paths: ['/usr/bin/io.elementary.code'],
+    paths: ['/usr/bin/io.elementary.code', '/var/run/host/usr/bin/io.elementary.code'],
   },
 ]
 
