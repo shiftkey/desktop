@@ -34,7 +34,7 @@ const editors: ILinuxExternalEditor[] = [
   },
   {
     name: 'VSCodium',
-    paths: ['/usr/bin/codium', '/usr/bin/vscodium', '/var/lib/flatpak/app/com.vscodium.codium', '/var/run/host/usr/bin/codium', '/var/run/host/usr/bin/vscodium'],
+    paths: ['/usr/bin/codium', '/var/lib/flatpak/app/com.vscodium.codium', '/var/run/host/usr/bin/codium'],
   },
   {
     name: 'Sublime Text',
