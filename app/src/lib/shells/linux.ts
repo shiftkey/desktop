@@ -27,7 +27,12 @@ export function parse(label: string): Shell {
 }
 
 async function getPathIfAvailable(path: string): Promise<string | null> {
-  return (await pathExists(path)) ? path : null
+  if (process.env.FLATPAK_HOST !== 'undefined') {
+    path = "/var/run/host".toString().concat(path)
+    return (await pathExists(path)) ? path : null
+  } else {
+    return (await pathExists(path)) ? path : null
+  }
 }
 
 function getShellPath(shell: Shell): Promise<string | null> {
