@@ -1,6 +1,11 @@
 import { join } from 'path'
 import { pathExists as pathExistsInternal } from 'fs-extra'
-import { spawn, SpawnOptionsWithoutStdio } from 'child_process'
+import {
+  ChildProcess,
+  spawn,
+  SpawnOptionsWithoutStdio,
+  SpawnOptions,
+} from 'child_process'
 
 export function isFlatpakBuild() {
   return __LINUX__ && process.env.FLATPAK_HOST === '1'
@@ -40,7 +45,7 @@ export async function pathExists(path: string): Promise<boolean> {
  *
  * @param path path to shell, relative to the root of the filesystem
  * @param args arguments to provide to the shell
- * @param options additional options to provide to spawn
+ * @param options additional options to provide to spawn function
  *
  * @returns a child process to observe and monitor
  */
@@ -48,10 +53,33 @@ export function spawnShell(
   path: string,
   args: string[],
   options?: SpawnOptionsWithoutStdio
-) {
+): ChildProcess {
   if (isFlatpakBuild()) {
     return spawn('flatpak-spawn', ['--host', path, ...args], options)
   }
 
   return spawn(path, args, options)
+}
+
+/**
+ * Spawn a given editor in a way that works for Flatpak-based usage
+ *
+ * @param path path to editor, relative to the root of the filesystem
+ * @param workingDirectory working directory to open initially in editor
+ * @param options additional options to provide to spawn function
+ */
+export function spawnEditor(
+  path: string,
+  workingDirectory: string,
+  options: SpawnOptions
+): ChildProcess {
+  if (isFlatpakBuild()) {
+    return spawn(
+      'flatpak-spawn',
+      ['--host', `"${path}"`, `"${workingDirectory}"`],
+      options
+    )
+  } else {
+    return spawn(path, [workingDirectory], options)
+  }
 }
