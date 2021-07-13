@@ -17,7 +17,11 @@ export function isFlatpakBuild() {
  * @param path a path to an executable relative to the root of the filesystem
  *
  */
-function convertToFlatpakPath(path: string) {
+export function convertToFlatpakPath(path: string) {
+  if (path.startsWith('/opt/')) {
+    return path
+  }
+
   return join('/var/run/host', path)
 }
 
