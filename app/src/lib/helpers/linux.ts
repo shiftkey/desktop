@@ -18,6 +18,10 @@ export function isFlatpakBuild() {
  *
  */
 export function convertToFlatpakPath(path: string) {
+  if (!__LINUX__) {
+    return path
+  }
+
   if (path.startsWith('/opt/')) {
     return path
   }
