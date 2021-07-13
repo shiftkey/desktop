@@ -1,6 +1,6 @@
 import { ChildProcess } from 'child_process'
 import { pathExists } from 'fs-extra'
-
+import { pathExistsLinux } from '../helpers/linux'
 import * as Darwin from './darwin'
 import * as Win32 from './win32'
 import * as Linux from './linux'
@@ -81,7 +81,12 @@ export async function launchShell(
   // We have to manually cast the wider `Shell` type into the platform-specific
   // type. This is less than ideal, but maybe the best we can do without
   // platform-specific build targets.
-  const exists = await pathExists(shell.path)
+  let exists
+  if (__LINUX__) {
+    exists = await pathExistsLinux(shell.path)
+  } else {
+    exists = await pathExists(shell.path)
+  }
   if (!exists) {
     const label = __DARWIN__ ? 'Preferences' : 'Options'
     throw new ShellError(
