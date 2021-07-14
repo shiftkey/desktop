@@ -84,7 +84,7 @@ export function spawnEditor(
   if (isFlatpakBuild()) {
     return spawn(
       'flatpak-spawn',
-      ['--host', `"${path}"`, `"${workingDirectory}"`],
+      ['--host', path, `"${workingDirectory}"`],
       options
     )
   } else {
