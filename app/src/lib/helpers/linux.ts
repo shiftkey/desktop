@@ -82,10 +82,9 @@ export function spawnEditor(
   options: SpawnOptions
 ): ChildProcess {
   if (isFlatpakBuild()) {
-    let EscapedworkingDirectory = workingDirectory.replace(/(\s)/, "\\ ")
     return spawn(
       'flatpak-spawn',
-      ['--host', path, EscapedworkingDirectory],
+      ['--host', path, `"${workingDirectory}"`],
       options
     )
   } else {
