@@ -28,7 +28,7 @@ function findYarnVersion(callback: (path: string) => void) {
   })
 }
 function isOffline() {
-  return process.env.OFFLINE === 1
+  return process.env.OFFLINE === '1'
 }
 
 findYarnVersion(path => {
