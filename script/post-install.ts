@@ -64,7 +64,7 @@ findYarnVersion(path => {
   if (isOffline()) {
     result = spawnSync('node', [path, '--offline', 'compile:tslint'], options)
   } else {
-    result = spawnSync('node', [path, '--offline', 'compile:tslint'], options)
+    result = spawnSync('node', [path, 'compile:tslint'], options)
   }
   if (result.status !== 0) {
     process.exit(result.status || 1)
