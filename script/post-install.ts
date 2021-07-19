@@ -27,36 +27,53 @@ function findYarnVersion(callback: (path: string) => void) {
     callback(latestVersion)
   })
 }
+function isOffline() {
+  return process.env.OFFLINE === 1
+}
 
 findYarnVersion(path => {
-  let result = spawnSync(
-    'node',
-    [path, '--cwd', 'app', 'install', '--force'],
-    options
-  )
+  let result
+  if (isOffline()) {
+    result = spawnSync(
+      'node',
+      [path, '--offline', '--cwd', 'app', 'install', '--force'],
+      options
+    )
+  } else {
+    result = spawnSync(
+      'node',
+      [path, '--cwd', 'app', 'install', '--force'],
+      options
+    )
+  }
 
   if (result.status !== 0) {
     process.exit(result.status || 1)
   }
-
-  result = spawnSync(
-    'git',
-    ['submodule', 'update', '--recursive', '--init'],
-    options
-  )
+  if (!isOffline()) {
+    result = spawnSync(
+      'git',
+      ['submodule', 'update', '--recursive', '--init'],
+      options
+    )
+  }
 
   if (result.status !== 0) {
     process.exit(result.status || 1)
   }
-
-  result = spawnSync('node', [path, 'compile:tslint'], options)
-
+  if (isOffline()) {
+    result = spawnSync('node', [path, '--offline', 'compile:tslint'], options)
+  } else {
+    result = spawnSync('node', [path, '--offline', 'compile:tslint'], options)
+  }
   if (result.status !== 0) {
     process.exit(result.status || 1)
   }
-
-  result = spawnSync('node', [path, 'compile:script'], options)
-
+  if (isOffline()) {
+    result = spawnSync('node', [path, '--offline', 'compile:script'], options)
+  } else {
+    result = spawnSync('node', [path, 'compile:script'], options)
+  }
   if (result.status !== 0) {
     process.exit(result.status || 1)
   }
