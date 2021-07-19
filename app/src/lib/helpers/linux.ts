@@ -28,7 +28,9 @@ export function convertToFlatpakPath(path: string) {
 
   return join('/var/run/host', path)
 }
-
+export function formatWorkingDirectoryForFlatpak(path: string): string {
+  return path.replace(/(\s)/, "\ ")
+}
 /**
  * Checks the file path on disk exists before attempting to launch a specific shell
  *
@@ -82,7 +84,7 @@ export function spawnEditor(
   options: SpawnOptions
 ): ChildProcess {
   if (isFlatpakBuild()) {
-    let EscapedworkingDirectory = workingDirectory.replace(/(\s)/, "\ ")
+    let EscapedworkingDirectory = formatWorkingDirectoryForFlatpak(workingDirectory)
     return spawn(
       'flatpak-spawn',
       ['--host', path, EscapedworkingDirectory],
