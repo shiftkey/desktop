@@ -16,6 +16,7 @@ import {
   ITextDiff,
   ILargeTextDiff,
 } from '../../models/diff'
+import { IBlameProfile } from '../../models/blame'
 import { Loading } from '../lib/loading'
 import { getFileContents, IFileContents } from './syntax-highlighting'
 import { getTextDiffWithBottomDummyHunk } from './text-diff-expansion'
@@ -68,6 +69,16 @@ interface ISeamlessDiffSwitcherProps {
   // eslint-disable-next-line react/no-unused-prop-types
   readonly showSideBySideDiff: boolean
 
+  /** Whether we should display blame annotations. */
+  // Used in getDerivedStateFromProps, no-unused-prop-types doesn't know that
+  // eslint-disable-next-line react/no-unused-prop-types
+  readonly showBlame: boolean
+
+  /** The blame information for the current file, if available. */
+  // Used in getDerivedStateFromProps, no-unused-prop-types doesn't know that
+  // eslint-disable-next-line react/no-unused-prop-types
+  readonly blame: IBlameProfile | null
+
   /** Whether or not to show the diff check marks indicating inclusion in a commit */
   // Used in getDerivedStateFromProps, no-unused-prop-types doesn't know that
   // eslint-disable-next-line react/no-unused-prop-types
@@ -112,6 +123,11 @@ interface ISeamlessDiffSwitcherProps {
   // Used in getDerivedStateFromProps, no-unused-prop-types doesn't know that
   // eslint-disable-next-line react/no-unused-prop-types
   readonly onHideWhitespaceInDiffChanged: (checked: boolean) => void
+
+  /** Called when the user changes the show blame setting. */
+  // Used in getDerivedStateFromProps, no-unused-prop-types doesn't know that
+  // eslint-disable-next-line react/no-unused-prop-types
+  readonly onShowBlameChanged: (checked: boolean) => void
 }
 
 interface ISeamlessDiffSwitcherState {
@@ -332,6 +348,8 @@ export class SeamlessDiffSwitcher extends React.Component<
       readOnly,
       hideWhitespaceInDiff,
       showSideBySideDiff,
+      showBlame,
+      blame,
       showDiffCheckMarks,
       onIncludeChanged,
       onDiscardChanges,
@@ -340,6 +358,7 @@ export class SeamlessDiffSwitcher extends React.Component<
       onOpenSubmodule,
       onChangeImageDiffType,
       onHideWhitespaceInDiffChanged,
+      onShowBlameChanged,
     } = this.state.propSnapshot
 
     const className = classNames('seamless-diff-switcher', {
@@ -366,6 +385,8 @@ export class SeamlessDiffSwitcher extends React.Component<
             readOnly={readOnly}
             hideWhitespaceInDiff={hideWhitespaceInDiff}
             showSideBySideDiff={showSideBySideDiff}
+            showBlame={showBlame}
+            blame={blame}
             askForConfirmationOnDiscardChanges={
               this.props.askForConfirmationOnDiscardChanges
             }
@@ -378,6 +399,7 @@ export class SeamlessDiffSwitcher extends React.Component<
             onHideWhitespaceInDiffChanged={
               isLoadingDiff ? noop : onHideWhitespaceInDiffChanged
             }
+            onShowBlameChanged={isLoadingDiff ? noop : onShowBlameChanged}
           />
         ) : null}
         {loadingIndicator}

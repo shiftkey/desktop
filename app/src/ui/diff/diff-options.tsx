@@ -21,6 +21,9 @@ interface IDiffOptionsProps {
   readonly showSideBySideDiff: boolean
   readonly onShowSideBySideDiffChanged: (showSideBySideDiff: boolean) => void
 
+  readonly showBlame: boolean
+  readonly onShowBlameChanged: (showBlame: boolean) => void
+
   /** Called when the user opens the diff options popover */
   readonly onDiffOptionsOpened: () => void
 }
@@ -81,6 +84,10 @@ export class DiffOptions extends React.Component<
     )
   }
 
+  private onShowBlameChanged = (event: React.FormEvent<HTMLInputElement>) => {
+    return this.props.onShowBlameChanged(event.currentTarget.checked)
+  }
+
   public render() {
     const buttonLabel = `Diff ${__DARWIN__ ? 'Settings' : 'Options'}`
     return (
@@ -119,9 +126,23 @@ export class DiffOptions extends React.Component<
         onClickOutside={this.closePopover}
       >
         <h3 id="diff-options-popover-header">{header}</h3>
+        {this.renderShowBlame()}
         {this.renderHideWhitespaceChanges()}
         {this.renderShowSideBySide()}
       </Popover>
+    )
+  }
+
+  private renderShowBlame() {
+    return (
+      <fieldset>
+        <legend>Blame</legend>
+        <Checkbox
+          value={this.props.showBlame ? CheckboxValue.On : CheckboxValue.Off}
+          onChange={this.onShowBlameChanged}
+          label="Show blame annotations"
+        />
+      </fieldset>
     )
   }
 

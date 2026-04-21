@@ -21,6 +21,7 @@ import {
   ImageDiffType,
   ISubmoduleDiff,
 } from '../../models/diff'
+import { IBlameProfile } from '../../models/blame'
 import { Button } from '../lib/button'
 import {
   NewImageDiff,
@@ -71,6 +72,12 @@ interface IDiffProps {
   /** Whether we should display side by side diffs. */
   readonly showSideBySideDiff: boolean
 
+  /** Whether we should display blame annotations. */
+  readonly showBlame: boolean
+
+  /** The blame information for the current file, if available. */
+  readonly blame: IBlameProfile | null
+
   /** Whether we should show a confirmation dialog when the user discards changes */
   readonly askForConfirmationOnDiscardChanges?: boolean
 
@@ -103,6 +110,9 @@ interface IDiffProps {
 
   /** Called when the user changes the hide whitespace in diffs setting. */
   readonly onHideWhitespaceInDiffChanged: (checked: boolean) => void
+
+  /** Called when the user changes the show blame setting. */
+  readonly onShowBlameChanged: (checked: boolean) => void
 }
 
 interface IDiffState {
@@ -287,6 +297,7 @@ export class Diff extends React.Component<IDiffProps, IDiffState> {
         }
         onHideWhitespaceInDiffChanged={this.props.onHideWhitespaceInDiffChanged}
         showDiffCheckMarks={this.props.showDiffCheckMarks}
+        blame={this.props.blame}
       />
     )
   }

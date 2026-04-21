@@ -47,6 +47,7 @@ import {
 } from '../models/multi-commit-operation'
 import { IChangesetData } from './git'
 import { Popup } from '../models/popup'
+import { IBlameProfile } from '../models/blame'
 import { RepoRulesInfo } from '../models/repo-rules'
 import { IAPIRepoRuleset } from './api'
 import { ICustomIntegration } from './custom-integration'
@@ -161,6 +162,9 @@ export interface IAppState {
   readonly appMenuState: ReadonlyArray<IMenu>
 
   readonly errorCount: number
+
+  /** Whether or not to show the blame column in the diff view */
+  readonly showBlame: boolean
 
   /** Map from the emoji shortcut (e.g., :+1:) to the image's local path. */
   readonly emoji: Map<string, Emoji>
@@ -677,6 +681,9 @@ export interface ICommitSelection {
 
   /** The diff of the currently-selected file */
   readonly diff: IDiff | null
+
+  /** The blame information for the currently-selected file */
+  readonly blame: IBlameProfile | null
 }
 
 export enum ChangesSelectionKind {
@@ -693,6 +700,9 @@ export type ChangesWorkingDirectorySelection = {
    */
   readonly selectedFileIDs: ReadonlyArray<string>
   readonly diff: IDiff | null
+
+  /** The blame information for the currently-selected file */
+  readonly blame: IBlameProfile | null
 }
 
 export type ChangesStashSelection = {
@@ -703,6 +713,9 @@ export type ChangesStashSelection = {
 
   /** Currently selected file's diff */
   readonly selectedStashedFileDiff: IDiff | null
+
+  /** The blame information for the currently-selected file */
+  readonly blame: IBlameProfile | null
 }
 
 export type ChangesSelection =

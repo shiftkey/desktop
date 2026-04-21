@@ -10,6 +10,7 @@ import {
 } from '../../models/status'
 import { DiffHunk, DiffHunkExpansionType } from '../../models/diff/raw-diff'
 import { DiffLineType, ILargeTextDiff, ITextDiff } from '../../models/diff'
+import { IBlameCommit } from '../../models/blame'
 
 /**
  * DiffRowType defines the different types of
@@ -68,6 +69,11 @@ export interface IDiffRowData {
    * Array of tokens to do syntax highlighting on the diff line.
    */
   readonly tokens: ReadonlyArray<ILineTokens>
+
+  /**
+   * The blame commit for this line, if available.
+   */
+  readonly blame: IBlameCommit | null
 }
 
 /**
@@ -170,6 +176,16 @@ interface IDiffRowContext {
    * Tokens to use to syntax highlight the contents of the after version of the line.
    */
   readonly afterTokens: ReadonlyArray<ILineTokens>
+
+  /**
+   * The blame commit for the before version of the line, if available.
+   */
+  readonly beforeBlame: IBlameCommit | null
+
+  /**
+   * The blame commit for the after version of the line, if available.
+   */
+  readonly afterBlame: IBlameCommit | null
 }
 
 /**

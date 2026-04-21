@@ -49,6 +49,9 @@ interface IChangesProps {
    */
   readonly showSideBySideDiff: boolean
 
+  /** Whether we should display blame annotations. */
+  readonly showBlame: boolean
+
   /** Whether or not to show the diff check marks indicating inclusion in a commit */
   readonly showDiffCheckMarks: boolean
 
@@ -110,6 +113,8 @@ export class Changes extends React.Component<IChangesProps, {}> {
           onShowSideBySideDiffChanged={this.onShowSideBySideDiffChanged}
           hideWhitespaceInDiff={this.props.hideWhitespaceInDiff}
           onHideWhitespaceInDiffChanged={this.onHideWhitespaceInDiffChanged}
+          showBlame={this.props.showBlame}
+          onShowBlameChanged={this.onShowBlameChanged}
           onDiffOptionsOpened={this.props.onDiffOptionsOpened}
         />
 
@@ -123,6 +128,8 @@ export class Changes extends React.Component<IChangesProps, {}> {
           diff={this.props.diff}
           hideWhitespaceInDiff={this.props.hideWhitespaceInDiff}
           showSideBySideDiff={this.props.showSideBySideDiff}
+          showBlame={this.props.showBlame}
+          blame={null}
           showDiffCheckMarks={this.props.showDiffCheckMarks}
           askForConfirmationOnDiscardChanges={
             this.props.askForConfirmationOnDiscardChanges
@@ -131,6 +138,7 @@ export class Changes extends React.Component<IChangesProps, {}> {
           onOpenSubmodule={this.props.onOpenSubmodule}
           onChangeImageDiffType={this.props.onChangeImageDiffType}
           onHideWhitespaceInDiffChanged={this.onHideWhitespaceInDiffChanged}
+          onShowBlameChanged={this.onShowBlameChanged}
         />
       </div>
     )
@@ -138,6 +146,10 @@ export class Changes extends React.Component<IChangesProps, {}> {
 
   private onShowSideBySideDiffChanged = (showSideBySideDiff: boolean) => {
     this.props.dispatcher.onShowSideBySideDiffChanged(showSideBySideDiff)
+  }
+
+  private onShowBlameChanged = (showBlame: boolean) => {
+    this.props.dispatcher._setShowBlame(showBlame)
   }
 
   private onHideWhitespaceInDiffChanged = (hideWhitespaceInDiff: boolean) => {

@@ -23,6 +23,12 @@ interface IDiffHeaderProps {
   /** Called when the user changes the hide whitespace in diffs setting. */
   readonly onHideWhitespaceInDiffChanged: (checked: boolean) => Promise<void>
 
+  /** Whether we should display blame annotations. */
+  readonly showBlame: boolean
+
+  /** Called when the user changes the show blame setting. */
+  readonly onShowBlameChanged: (checked: boolean) => void
+
   /** Called when the user opens the diff options popover */
   readonly onDiffOptionsOpened: () => void
 }
@@ -62,6 +68,8 @@ export class DiffHeader extends React.Component<IDiffHeaderProps, {}> {
         hideWhitespaceChanges={this.props.hideWhitespaceInDiff}
         onShowSideBySideDiffChanged={this.props.onShowSideBySideDiffChanged}
         showSideBySideDiff={this.props.showSideBySideDiff}
+        showBlame={this.props.showBlame}
+        onShowBlameChanged={this.props.onShowBlameChanged}
         onDiffOptionsOpened={this.props.onDiffOptionsOpened}
       />
     )

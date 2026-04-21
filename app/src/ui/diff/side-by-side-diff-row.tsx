@@ -14,6 +14,7 @@ import { Octicon, OcticonSymbolVariant } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
 import { shallowEquals, structuralEquals } from '../../lib/equality'
 import { DiffHunkExpansionType, DiffSelectionType } from '../../models/diff'
+import { IBlameCommit } from '../../models/blame'
 import { PopoverAnchorPosition } from '../lib/popover'
 import { WhitespaceHintPopover } from './whitespace-hint-popover'
 import { TooltipDirection } from '../lib/tooltip'
@@ -137,8 +138,10 @@ interface ISideBySideDiffRowProps {
    */
   readonly showSideBySideDiff: boolean
 
-  /** Whether or not whitespace changes are hidden. */
-  readonly hideWhitespaceInDiff: boolean
+  /** Whether we'll show blame annotations. */
+  readonly showBlame: boolean
+
+  /** Whether or not whitespace changes are hidden. */  readonly hideWhitespaceInDiff: boolean
 
   /**
    * The width (in pixels) of the diff gutter.
@@ -293,6 +296,7 @@ export class SideBySideDiffRow extends React.Component<
                   [beforeLineNumber, afterLineNumber],
                   undefined
                 )}
+                {this.renderBlame(row.afterBlame)}
                 {this.renderContentFromString(row.content, row.beforeTokens)}
               </div>
             </div>
@@ -303,10 +307,12 @@ export class SideBySideDiffRow extends React.Component<
           <div className={rowClasses} role="cell">
             <div className="before">
               {this.renderLineNumber(beforeLineNumber, DiffColumn.Before)}
+              {this.renderBlame(row.beforeBlame)}
               {this.renderContentFromString(row.content, row.beforeTokens)}
             </div>
             <div className="after">
               {this.renderLineNumber(afterLineNumber, DiffColumn.After)}
+              {this.renderBlame(row.afterBlame)}
               {this.renderContentFromString(row.content, row.afterTokens)}
             </div>
           </div>
@@ -325,6 +331,7 @@ export class SideBySideDiffRow extends React.Component<
                   DiffColumn.After,
                   isSelected
                 )}
+                {this.renderBlame(row.data.blame)}
                 {this.renderContent(row.data, DiffRowPrefix.Added)}
                 {this.renderWhitespaceHintPopover(DiffColumn.After)}
               </div>
@@ -336,12 +343,14 @@ export class SideBySideDiffRow extends React.Component<
           <div className={rowClasses} role="cell">
             <div className={beforeClasses}>
               {this.renderLineNumber(undefined, DiffColumn.Before)}
+              {this.renderBlame(null)}
               {this.renderContentFromString('')}
               {this.renderWhitespaceHintPopover(DiffColumn.Before)}
             </div>
             {this.renderHunkHandle()}
             <div className={afterClasses}>
               {this.renderLineNumber(lineNumber, DiffColumn.After, isSelected)}
+              {this.renderBlame(row.data.blame)}
               {this.renderContent(row.data, DiffRowPrefix.Added)}
               {this.renderWhitespaceHintPopover(DiffColumn.After)}
             </div>
@@ -361,6 +370,7 @@ export class SideBySideDiffRow extends React.Component<
                   DiffColumn.Before,
                   isSelected
                 )}
+                {this.renderBlame(row.data.blame)}
                 {this.renderContent(row.data, DiffRowPrefix.Deleted)}
                 {this.renderWhitespaceHintPopover(DiffColumn.Before)}
               </div>
@@ -372,12 +382,14 @@ export class SideBySideDiffRow extends React.Component<
           <div className={rowClasses} role="cell">
             <div className={beforeClasses}>
               {this.renderLineNumber(lineNumber, DiffColumn.Before, isSelected)}
+              {this.renderBlame(row.data.blame)}
               {this.renderContent(row.data, DiffRowPrefix.Deleted)}
               {this.renderWhitespaceHintPopover(DiffColumn.Before)}
             </div>
             {this.renderHunkHandle()}
             <div className={afterClasses}>
               {this.renderLineNumber(undefined, DiffColumn.After)}
+              {this.renderBlame(null)}
               {this.renderContentFromString('', [])}
               {this.renderWhitespaceHintPopover(DiffColumn.After)}
             </div>
@@ -390,21 +402,15 @@ export class SideBySideDiffRow extends React.Component<
         return (
           <div className={rowClasses} role="cell">
             <div className={beforeClasses}>
-              {this.renderLineNumber(
-                before.lineNumber,
-                DiffColumn.Before,
-                before.isSelected
-              )}
+              {this.renderLineNumber(before.lineNumber, DiffColumn.Before, before.isSelected)}
+              {this.renderBlame(before.blame)}
               {this.renderContent(before, DiffRowPrefix.Deleted)}
               {this.renderWhitespaceHintPopover(DiffColumn.Before)}
             </div>
             {this.renderHunkHandle()}
             <div className={afterClasses}>
-              {this.renderLineNumber(
-                after.lineNumber,
-                DiffColumn.After,
-                after.isSelected
-              )}
+              {this.renderLineNumber(after.lineNumber, DiffColumn.After, after.isSelected)}
+              {this.renderBlame(after.blame)}
               {this.renderContent(after, DiffRowPrefix.Added)}
               {this.renderWhitespaceHintPopover(DiffColumn.After)}
             </div>
@@ -820,6 +826,23 @@ export class SideBySideDiffRow extends React.Component<
         onChange={this.onLineNumberCheckboxChange}
         checked={isSelected}
       />
+    )
+  }
+
+  private renderBlame(commit: IBlameCommit | null) {
+    if (!this.props.showBlame) {
+      return null
+    }
+
+    if (!commit) {
+      return <div className="blame-column empty" />
+    }
+
+    return (
+      <div className="blame-column" title={`${commit.summary}\n\n${commit.author.name} on ${commit.author.date.toLocaleDateString()}`}>
+        <span className="blame-author">{commit.author.name}</span>
+        <span className="blame-sha">{commit.sha.substring(0, 7)}</span>
+      </div>
     )
   }
 
