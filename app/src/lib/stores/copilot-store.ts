@@ -177,7 +177,10 @@ export class CopilotStore extends BaseStore {
       // Proactively fetch models so they are ready when the user opens the
       // Copilot tab in Settings, even if they signed in without reopening
       // the dialog.
-      this.getCachedModels().then(this.emitUpdate, this.emitUpdate)
+      this.getCachedModels().then(
+        () => this.emitUpdate(),
+        () => this.emitUpdate()
+      )
     }
   }
 

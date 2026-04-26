@@ -354,8 +354,15 @@ function copyDependencies() {
     )
 
     const copilotDestination = path.resolve(outRoot, 'copilot')
+
+    // Workaround: delete the .bin directory in copilot's node_modules before copying
+    // as it contains broken symlinks which cause Node's cpSync to throw ENOENT
+    const copilotBinDir = path.join(copilotPkgDir, 'node_modules', '.bin')
+    rmSync(copilotBinDir, { recursive: true, force: true })
+
     cpSync(copilotPkgDir, copilotDestination, {
       recursive: true,
+      verbatimSymlinks: true,
     })
 
     const nonValidPlatforms = ['darwin', 'linux', 'win32'].filter(

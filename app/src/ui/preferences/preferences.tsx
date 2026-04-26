@@ -589,6 +589,8 @@ export class Preferences extends React.Component<
               this.state.preferAbsoluteDates ?? getPreferAbsoluteDates()
             }
             onPreferAbsoluteDatesChanged={this.onPreferAbsoluteDatesChanged}
+            titleBarStyle={this.state.titleBarStyle}
+            onTitleBarStyleChanged={this.onTitleBarStyleChanged}
           />
         )
         break

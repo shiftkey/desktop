@@ -169,6 +169,7 @@ import { SSHUserPassword } from './ssh/ssh-user-password'
 import { showContextualMenu } from '../lib/menu-item'
 import { UnreachableCommitsDialog } from './history/unreachable-commits-dialog'
 import { OpenPullRequestDialog } from './open-pull-request/open-pull-request-dialog'
+import { ConfirmRestart } from './preferences/confirm-restart'
 import { sendNonFatalException } from '../lib/helpers/non-fatal-exception'
 import { ICustomIntegration } from '../lib/custom-integration'
 import { createCommitURL } from '../lib/commit-url'
@@ -2614,6 +2615,14 @@ export class App extends React.Component<IAppProps, IAppState> {
           <CommitProgress
             key="commit-progress-dialog"
             subscribeToCommitOutput={popup.subscribeToCommitOutput}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
+      case PopupType.ConfirmRestart: {
+        return (
+          <ConfirmRestart
+            key="confirm-restart"
             onDismissed={onPopupDismissedFn}
           />
         )

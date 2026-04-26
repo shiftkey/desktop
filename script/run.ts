@@ -41,5 +41,7 @@ export function run(spawnOptions: SpawnOptions) {
     NODE_ENV: 'development',
   })
 
-  return spawn(binaryPath, [], opts)
+  const args = process.platform === 'linux' ? ['--no-sandbox'] : []
+
+  return spawn(binaryPath, args, opts)
 }

@@ -1,4 +1,3 @@
-import { parseCommandLineArgv } from 'windows-argv-parser'
 import stringArgv from 'string-argv'
 import { promisify } from 'util'
 import { execFile, spawn, SpawnOptions } from 'child_process'

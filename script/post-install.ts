@@ -92,9 +92,9 @@ findYarnVersion(path => {
       const patches = fs.readdirSync(patchesDir).filter((f: string) => f.endsWith('.patch'))
       for (const patch of patches) {
         const patchPath = Path.join(patchesDir, patch)
-        result = spawnSync('patch', ['-p1', '--forward', '--input', patchPath], {
+        result = spawnSync('patch', ['-p1', '--forward', '--force', '--input', patchPath], {
           ...options,
-          cwd: Path.join(root, 'node_modules'),
+          cwd: root,
         })
         if (result.status !== 0 && result.status !== 1) {
           // status 1 means already applied (idempotent), only fail on other errors

@@ -17,6 +17,7 @@ import { DesktopNotificationPermission } from 'desktop-notifications'
 import { NotificationCallback } from 'desktop-notifications'
 import { DesktopAliveEvent } from './stores/alive-store'
 import { CLIAction } from './cli-action'
+import { TitleBarStyle } from '../ui/lib/title-bar-style'
 
 /**
  * Defines the simplex IPC channel names we use from the renderer

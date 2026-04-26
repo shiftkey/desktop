@@ -37,6 +37,8 @@ interface IAppearanceProps {
   readonly onSelectedNumberFormatChanged: (format: INumberFormat) => void
   readonly preferAbsoluteDates: boolean
   readonly onPreferAbsoluteDatesChanged: (value: boolean) => void
+  readonly titleBarStyle: TitleBarStyle
+  readonly onTitleBarStyleChanged: (titleBarStyle: TitleBarStyle) => void
 }
 
 interface IAppearanceState {
@@ -108,6 +110,14 @@ export class Appearance extends React.Component<
     event: React.FormEvent<HTMLSelectElement>
   ) => {
     this.props.onSelectedTabSizeChanged(parseInt(event.currentTarget.value))
+  }
+
+  private onTitleBarStyleChanged = (
+    event: React.FormEvent<HTMLSelectElement>
+  ) => {
+    const value = event.currentTarget.value as TitleBarStyle
+    this.setState({ titleBarStyle: value })
+    this.props.onTitleBarStyleChanged(value)
   }
 
   private onDateFormatChanged = (event: React.FormEvent<HTMLSelectElement>) => {
@@ -190,7 +200,7 @@ export class Appearance extends React.Component<
 
         <Select
           value={this.state.titleBarStyle}
-          onChange={this.onSelectChanged}
+          onChange={this.onTitleBarStyleChanged}
         >
           <option value="native">Native</option>
           <option value="custom">Custom</option>

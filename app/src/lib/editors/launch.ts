@@ -1,5 +1,5 @@
 import { spawn, SpawnOptions } from 'child_process'
-import { pathExists, spawnEditor } from '../helpers/linux'
+import { pathExists } from '../helpers/linux'
 import { ExternalEditorError, FoundEditor } from './shared'
 import {
   expandTargetPathArgument,
