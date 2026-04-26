@@ -2,9 +2,8 @@
 /// <reference path="./globals.d.ts" />
 
 import * as cp from 'child_process'
-import packager, { OfficialArch, OsxNotarizeOptions } from 'electron-packager'
+import packager, { OsxNotarizeOptions } from 'electron-packager'
 import frontMatter from 'front-matter'
-import * as os from 'os'
 import * as path from 'path'
 import { getPrintenvzPath } from 'printenvz'
 import { getProxyCommandPath } from 'process-proxy'
