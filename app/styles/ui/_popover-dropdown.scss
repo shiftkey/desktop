@@ -1,14 +1,33 @@
+@import '../mixins';
+
 .popover-dropdown-component {
   display: inline-flex;
+  flex-direction: column;
+  min-width: 0;
 
-  .button-content,
-  .popover-dropdown-button-label {
+  > label {
+    margin-bottom: var(--spacing-third);
+  }
+
+  .button-component {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    padding: 0 var(--spacing-half);
+    align-self: unset;
+  }
+
+  .button-content {
+    flex-grow: 1;
     font-weight: var(--font-weight-semibold);
+    display: flex;
+    justify-content: flex-start;
   }
 
   .popover-dropdown-button-label {
     color: var(--text-secondary-color);
-    margin: 0 var(--spacing-half);
+    margin: 0;
+    margin-right: var(--spacing-half);
   }
 
   .popover-dropdown-popover {
@@ -35,6 +54,7 @@
         font-size: var(--font-size);
       }
 
+      @include close-button;
       .close {
         margin-right: 0;
       }

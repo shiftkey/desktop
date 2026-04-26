@@ -1,5 +1,6 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { GitError } from 'dugite'
-import { Repository } from '../../../src/models/repository'
 import {
   git,
   parseConfigLockFilePathFromError,
@@ -7,100 +8,71 @@ import {
 } from '../../../src/lib/git'
 import { setupFixtureRepository } from '../../helpers/repositories'
 import { join, resolve } from 'path'
-import { copy } from 'fs-extra'
+import { cp } from 'fs/promises'
 
 describe('git/core', () => {
-  let repository: Repository
-
-  beforeEach(async () => {
-    const testRepoPath = await setupFixtureRepository('test-repo')
-    repository = new Repository(testRepoPath, -1, null, false)
-  })
-
   describe('error handling', () => {
-    it('does not throw for errors that were expected', async () => {
+    it('does not throw for errors that were expected', async t => {
+      const testRepoPath = await setupFixtureRepository(t, 'test-repo')
+
       const args = ['rev-list', '--left-right', '--count', 'some-ref', '--']
-
-      let threw = false
-      try {
-        const result = await git(args, repository.path, 'test', {
-          expectedErrors: new Set([GitError.BadRevision]),
-        })
-        expect(result.gitError).toBe(GitError.BadRevision)
-      } catch (e) {
-        threw = true
-      }
-
-      expect(threw).toBe(false)
+      const result = await git(args, testRepoPath, 'test', {
+        expectedErrors: new Set([GitError.BadRevision]),
+      })
+      assert.equal(result.gitError, GitError.BadRevision)
     })
 
-    it('throws for errors that were not expected', async () => {
-      const args = ['rev-list', '--left-right', '--count', 'some-ref', '--']
+    it('throws for errors that were not expected', async t => {
+      const testRepoPath = await setupFixtureRepository(t, 'test-repo')
 
-      let threw = false
-      try {
-        await git(args, repository.path, 'test', {
+      const args = ['rev-list', '--left-right', '--count', 'some-ref', '--']
+      await assert.rejects(
+        git(args, testRepoPath, 'test', {
           expectedErrors: new Set([GitError.SSHKeyAuditUnverified]),
         })
-      } catch (e) {
-        threw = true
-      }
-
-      expect(threw).toBe(true)
+      )
     })
   })
 
   describe('exit code handling', () => {
-    it('does not throw for exit codes that were expected', async () => {
+    it('does not throw for exit codes that were expected', async t => {
+      const repoPath = await setupFixtureRepository(t, 'test-repo')
       const args = ['rev-list', '--left-right', '--count', 'some-ref', '--']
-
-      let threw = false
-      try {
-        const result = await git(args, repository.path, 'test', {
-          successExitCodes: new Set([128]),
-        })
-        expect(result.exitCode).toBe(128)
-      } catch (e) {
-        threw = true
-      }
-
-      expect(threw).toBe(false)
+      const result = await git(args, repoPath, 'test', {
+        successExitCodes: new Set([128]),
+      })
+      assert.equal(result.exitCode, 128)
     })
 
-    it('throws for exit codes that were not expected', async () => {
+    it('throws for exit codes that were not expected', async t => {
+      const repoPath = await setupFixtureRepository(t, 'test-repo')
       const args = ['rev-list', '--left-right', '--count', 'some-ref', '--']
-
-      let threw = false
-      try {
-        await git(args, repository.path, 'test', {
-          successExitCodes: new Set([2]),
-        })
-      } catch (e) {
-        threw = true
-      }
-
-      expect(threw).toBe(true)
+      await assert.rejects(
+        git(args, repoPath, 'test', { successExitCodes: new Set([2]) })
+      )
     })
   })
 
   describe('config lock file error handling', () => {
-    it('can parse lock file path from stderr', async () => {
-      const configFilePath = join(repository.path, '.git', 'config')
+    it('can parse lock file path from stderr', async t => {
+      const repoPath = await setupFixtureRepository(t, 'test-repo')
+
+      const configFilePath = join(repoPath, '.git', 'config')
       const configLockFilePath = `${configFilePath}.lock`
 
-      await copy(configFilePath, configLockFilePath)
+      await cp(configFilePath, configLockFilePath)
 
       const args = ['config', '--local', 'user.name', 'niik']
-      const result = await git(args, repository.path, 'test', {
+      const result = await git(args, repoPath, 'test', {
         expectedErrors: new Set([GitError.ConfigLockFileAlreadyExists]),
       })
 
-      expect(result.exitCode).toBe(255)
-      expect(result.gitError).toBe(GitError.ConfigLockFileAlreadyExists)
+      assert.equal(result.exitCode, 255)
+      assert.equal(result.gitError, GitError.ConfigLockFileAlreadyExists)
       const parsedPath = parseConfigLockFilePathFromError(result)
-      expect(parsedPath).not.toBeNull()
-      const absolutePath = resolve(result.path, parsedPath!)
-      expect(absolutePath).toBe(configLockFilePath)
+      assert(parsedPath !== null)
+      const absolutePath = resolve(result.path, parsedPath)
+      assert.equal(absolutePath, configLockFilePath)
     })
 
     it('normalizes paths', () => {
@@ -112,34 +84,36 @@ describe('git/core', () => {
           gitErrorDescription: null,
           stderr,
           stdout: '',
-          combinedOutput: stderr,
         }
       }
 
       if (__WIN32__) {
-        expect(
+        assert.equal(
           parseConfigLockFilePathFromError(
             createGitResult(
               'error: could not lock config file C:/Users/markus/.gitconfig: File exists'
             )
-          )
-        ).toBe('C:\\Users\\markus\\.gitconfig.lock')
+          ),
+          'C:\\Users\\markus\\.gitconfig.lock'
+        )
 
-        expect(
+        assert.equal(
           parseConfigLockFilePathFromError(
             createGitResult(
               'error: could not lock config file C:\\Users\\markus\\.gitconfig: File exists'
             )
-          )
-        ).toBe('C:\\Users\\markus\\.gitconfig.lock')
+          ),
+          'C:\\Users\\markus\\.gitconfig.lock'
+        )
       } else {
-        expect(
+        assert.equal(
           parseConfigLockFilePathFromError(
             createGitResult(
               'error: could not lock config file /Users/markus/.gitconfig: File exists'
             )
-          )
-        ).toBe('/Users/markus/.gitconfig.lock')
+          ),
+          '/Users/markus/.gitconfig.lock'
+        )
       }
     })
   })

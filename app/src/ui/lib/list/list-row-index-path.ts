@@ -9,6 +9,13 @@ export function rowIndexPathEquals(a: RowIndexPath, b: RowIndexPath): boolean {
   return a.section === b.section && a.row === b.row
 }
 
+export function rowListIncludesIndexPath(
+  list: ReadonlyArray<RowIndexPath>,
+  indexPath: RowIndexPath
+) {
+  return list.some(item => rowIndexPathEquals(item, indexPath))
+}
+
 export function getTotalRowCount(rowCount: ReadonlyArray<number>) {
   return rowCount.reduce((sum, count) => sum + count, 0)
 }

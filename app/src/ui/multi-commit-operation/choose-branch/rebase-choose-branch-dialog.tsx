@@ -50,7 +50,7 @@ export class RebaseChooseBranchDialog extends React.Component<
       repository,
       selectedBranch,
       currentBranch,
-      rebasePreview.commits
+      rebasePreview.commitsAhead
     )
   }
 
@@ -59,7 +59,7 @@ export class RebaseChooseBranchDialog extends React.Component<
     const { selectedBranch, rebasePreview } = this.state
     const commitCount =
       rebasePreview?.kind === ComputedAction.Clean
-        ? rebasePreview.commits.length
+        ? rebasePreview.commitsBehind.length
         : undefined
     return canStartOperation(
       selectedBranch,
@@ -89,15 +89,15 @@ export class RebaseChooseBranchDialog extends React.Component<
       currentBranch !== null &&
       selectedBranch.name === currentBranch.name
 
-    const areCommitsToRebase =
+    const currentBranchIsBehindSelectedBranch =
       rebasePreview?.kind === ComputedAction.Clean
-        ? rebasePreview.commits.length > 0
+        ? rebasePreview.commitsBehind.length > 0
         : false
 
     return selectedBranchIsCurrentBranch
       ? 'You are not able to rebase this branch onto itself.'
-      : !areCommitsToRebase
-      ? 'There are no commits on the current branch to rebase.'
+      : !currentBranchIsBehindSelectedBranch
+      ? 'The current branch is already up to date with the selected branch.'
       : undefined
   }
 
@@ -135,7 +135,8 @@ export class RebaseChooseBranchDialog extends React.Component<
       return this.renderCleanRebaseMessage(
         currentBranch,
         baseBranch,
-        rebasePreview.commits.length
+        rebasePreview.commitsAhead.length,
+        rebasePreview.commitsBehind.length
       )
     }
 
@@ -157,25 +158,43 @@ export class RebaseChooseBranchDialog extends React.Component<
   private renderCleanRebaseMessage(
     currentBranch: Branch,
     baseBranch: Branch,
-    commitsToRebase: number
+    commitsAheadCount: number,
+    commitsBehindCount: number
   ) {
-    if (commitsToRebase <= 0) {
+    // The current branch is behind the base branch
+    if (commitsBehindCount > 0 && commitsAheadCount <= 0) {
+      const pluralized = commitsBehindCount === 1 ? 'commit' : 'commits'
       return (
         <>
-          This branch is up to date with{` `}
-          <strong>{currentBranch.name}</strong>
+          This will fast-forward <strong>{currentBranch.name}</strong> by
+          <strong>{` ${commitsBehindCount} ${pluralized}`}</strong>
+          {` to match `}
+          <strong>{baseBranch.name}</strong>
         </>
       )
     }
 
-    const pluralized = commitsToRebase === 1 ? 'commit' : 'commits'
+    // The current branch is behind and ahead of the base branch
+    if (commitsBehindCount > 0 && commitsAheadCount > 0) {
+      const pluralized = commitsAheadCount === 1 ? 'commit' : 'commits'
+      return (
+        <>
+          This will update <strong>{currentBranch.name}</strong>
+          {` by applying its `}
+          <strong>{` ${commitsAheadCount} ${pluralized}`}</strong>
+          {` on top of `}
+          <strong>{baseBranch.name}</strong>
+        </>
+      )
+    }
+
+    // The current branch is a direct child of the base branch
+    // Condition: commitsBehindCount <= 0 && commitsAheadCount >= 0
     return (
       <>
-        This will update <strong>{currentBranch.name}</strong>
-        {` by applying its `}
-        <strong>{` ${commitsToRebase} ${pluralized}`}</strong>
-        {` on top of `}
-        <strong>{baseBranch.name}</strong>
+        <strong>{currentBranch.name}</strong>
+        {` `}
+        is already up to date with <strong>{baseBranch.name}</strong>
       </>
     )
   }

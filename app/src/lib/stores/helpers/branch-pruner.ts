@@ -69,6 +69,10 @@ export class BranchPruner {
     private readonly onPruneCompleted: (repository: Repository) => Promise<void>
   ) {}
 
+  public runOnce() {
+    return this.pruneLocalBranches(DefaultPruneOptions)
+  }
+
   public async start() {
     if (this.timer !== null) {
       fatalError(

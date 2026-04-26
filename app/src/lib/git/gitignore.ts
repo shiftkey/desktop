@@ -133,11 +133,11 @@ async function formatGitIgnoreContents(
     if (autocrlf === 'true' && safecrlf === 'true') {
       // based off https://stackoverflow.com/a/141069/1363815
       const normalizedText = text.replace(/\r\n|\n\r|\n|\r/g, '\r\n')
-      resolve(normalizedText)
+      resolve(normalizedText + '\r\n')
       return
     }
 
-    if (text.endsWith('\n')) {
+    if (text === '' || text.endsWith('\n')) {
       resolve(text)
       return
     }

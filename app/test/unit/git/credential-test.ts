@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import {
   formatCredential,
   parseCredential,
@@ -6,25 +8,27 @@ import {
 describe('git/credential', () => {
   describe('parseCredential', () => {
     it('expands arrays into numeric entries', async () => {
-      expect([
-        ...parseCredential('wwwauth[]=foo\nwwwauth[]=bar').entries(),
-      ]).toEqual([
-        ['wwwauth[0]', 'foo'],
-        ['wwwauth[1]', 'bar'],
-      ])
+      assert.deepStrictEqual(
+        [...parseCredential('wwwauth[]=foo\nwwwauth[]=bar').entries()],
+        [
+          ['wwwauth[0]', 'foo'],
+          ['wwwauth[1]', 'bar'],
+        ]
+      )
     })
   })
 
   describe('formatCredential', () => {
     it('transforms numbered array entries into unnumbered', async () => {
-      expect(
+      assert.deepStrictEqual(
         formatCredential(
           new Map([
             ['wwwauth[0]', 'foo'],
             ['wwwauth[1]', 'bar'],
           ])
-        )
-      ).toBe('wwwauth[]=foo\nwwwauth[]=bar\n')
+        ),
+        'wwwauth[]=foo\nwwwauth[]=bar\n'
+      )
     })
   })
 })

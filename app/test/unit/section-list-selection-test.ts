@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import {
   InvalidRowIndexPath,
   rowIndexPathEquals,
@@ -13,7 +15,7 @@ describe('section-list-selection', () => {
         direction: 'down',
         row: InvalidRowIndexPath,
       })
-      expect(selectedRow?.row).toBe(0)
+      assert.equal(selectedRow?.row, 0)
     })
 
     it('returns first selectable row when header is first', () => {
@@ -31,7 +33,7 @@ describe('section-list-selection', () => {
           }
         }
       )
-      expect(selectedRow?.row).toBe(1)
+      assert.equal(selectedRow?.row, 1)
     })
 
     it('returns first row when selecting down from last row', () => {
@@ -43,7 +45,7 @@ describe('section-list-selection', () => {
           row: lastRow,
         },
       })
-      expect(selectedRow?.row).toBe(0)
+      assert.equal(selectedRow?.row, 0)
     })
 
     it('returns last row when selecting up from top row', () => {
@@ -54,9 +56,11 @@ describe('section-list-selection', () => {
           row: 0,
         },
       })
-      expect(
-        rowIndexPathEquals(selectedRow!, { section: 2, row: 7 })
-      ).toBeTrue()
+      assert(selectedRow !== null)
+      assert.equal(
+        rowIndexPathEquals(selectedRow, { section: 2, row: 7 }),
+        true
+      )
     })
 
     it('returns first row of next section when selecting down from last row of a section', () => {
@@ -67,9 +71,11 @@ describe('section-list-selection', () => {
           row: 4,
         },
       })
-      expect(
-        rowIndexPathEquals(selectedRow!, { section: 1, row: 0 })
-      ).toBeTrue()
+      assert(selectedRow !== null)
+      assert.equal(
+        rowIndexPathEquals(selectedRow, { section: 1, row: 0 }),
+        true
+      )
     })
 
     it('returns last row of previous section when selecting up from first row of a section', () => {
@@ -80,9 +86,11 @@ describe('section-list-selection', () => {
           row: 0,
         },
       })
-      expect(
-        rowIndexPathEquals(selectedRow!, { section: 1, row: 2 })
-      ).toBeTrue()
+      assert(selectedRow !== null)
+      assert.equal(
+        rowIndexPathEquals(selectedRow, { section: 1, row: 2 }),
+        true
+      )
     })
   })
 })

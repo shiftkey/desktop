@@ -123,7 +123,7 @@ const editors: ILinuxExternalEditor[] = [
     ],
   },
   {
-    name: 'IntelliJ Goland',
+    name: 'JetBrains Goland',
     paths: [
       '/snap/bin/goland',
       '.local/share/JetBrains/Toolbox/scripts/goland',
@@ -153,7 +153,7 @@ const editors: ILinuxExternalEditor[] = [
     ],
   },
   {
-    name: 'JetBrains JetBrains RustRover',
+    name: 'JetBrains RustRover',
     paths: [
       '/snap/bin/rustrover',
       '.local/share/JetBrains/Toolbox/scripts/rustrover',

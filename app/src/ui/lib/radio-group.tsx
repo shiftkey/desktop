@@ -27,6 +27,12 @@ interface IRadioGroupProps<T> {
    */
   readonly onSelectionChanged: (key: T) => void
 
+  /** Optional: The onDoubleClick event handler for radio button */
+  readonly onRadioButtonDoubleClick?: (
+    key: T,
+    event: React.MouseEvent<HTMLLabelElement>
+  ) => void
+
   /** Render radio button label contents */
   readonly renderRadioButtonLabelContents: (key: T) => JSX.Element | string
 }
@@ -34,11 +40,18 @@ interface IRadioGroupProps<T> {
 /**
  * A component for presenting a small number of choices to the user.
  */
-export class RadioGroup<T extends string> extends React.Component<
+export class RadioGroup<T extends React.Key> extends React.Component<
   IRadioGroupProps<T>
 > {
   private onSelectionChanged = (key: T) => {
     this.props.onSelectionChanged(key)
+  }
+
+  private onRadioButtonDoubleClick = (
+    key: T,
+    event: React.MouseEvent<HTMLLabelElement>
+  ) => {
+    this.props.onRadioButtonDoubleClick?.(key, event)
   }
 
   private renderRadioButtons() {
@@ -53,6 +66,7 @@ export class RadioGroup<T extends string> extends React.Component<
           value={key}
           onSelected={this.onSelectionChanged}
           tabIndex={checked ? 0 : -1}
+          onDoubleClick={this.onRadioButtonDoubleClick}
         >
           {this.props.renderRadioButtonLabelContents(key)}
         </RadioButton>

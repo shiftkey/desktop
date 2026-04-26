@@ -77,4 +77,29 @@ findYarnVersion(path => {
       process.exit(result.status || 1)
     }
   }
+
+  // Capture output here so CI failures include the Playwright-specific error.
+  result = spawnSync(
+    process.execPath,
+    [playwrightCliPath, 'install', 'ffmpeg'],
+    captureOutputOptions
+  )
+
+  if (result.status !== 0) {
+    console.error(
+      'Error: failed to install Playwright ffmpeg (video recording may not work)',
+      '\nplatform:',
+      process.platform,
+      '\nstatus:',
+      result.status,
+      '\nsignal:',
+      result.signal,
+      '\nerror:',
+      result.error,
+      '\nstdout:',
+      result.stdout,
+      '\nstderr:',
+      result.stderr
+    )
+  }
 })

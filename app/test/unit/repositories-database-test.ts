@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import {
   RepositoriesDatabase,
   IDatabaseGitHubRepository,
@@ -31,10 +33,10 @@ describe('RepositoriesDatabase', () => {
     await db.open()
 
     const original = await db.gitHubRepositories.get(originalId)
-    expect(original).not.toBeUndefined()
+    assert(original !== undefined)
 
     const dupe = await db.gitHubRepositories.get(duplicateId)
-    expect(dupe).toBeUndefined()
+    assert(dupe === undefined)
 
     await db.delete()
   })
@@ -86,29 +88,29 @@ describe('RepositoriesDatabase', () => {
     const repoAId = await db.gitHubRepositories.add(originalRepoA)
     const repoBId = await db.gitHubRepositories.add(originalRepoB)
 
-    expect(await db.gitHubRepositories.count()).toEqual(2)
-    expect(await db.owners.count()).toEqual(2)
+    assert.equal(await db.gitHubRepositories.count(), 2)
+    assert.equal(await db.owners.count(), 2)
 
     db.close()
 
     db = new RepositoriesDatabase(dbName, 9)
     await db.open()
 
-    expect(await db.gitHubRepositories.count()).toEqual(2)
-    expect(await db.owners.count()).toEqual(1)
+    assert.equal(await db.gitHubRepositories.count(), 2)
+    assert.equal(await db.owners.count(), 1)
 
     const migratedRepoA = await db.gitHubRepositories.get(repoAId)
-    expect(migratedRepoA).toEqual(originalRepoA)
+    assert.deepStrictEqual(migratedRepoA, originalRepoA)
 
     const migratedRepoB = await db.gitHubRepositories.get(repoBId)
-    expect(migratedRepoB).not.toEqual(originalRepoB)
+    assert.notDeepStrictEqual(migratedRepoB, originalRepoB)
 
     const migratedOwner = await db.owners.toCollection().first()
 
-    expect(migratedOwner).not.toBeUndefined()
-    expect(migratedRepoA?.ownerID).toEqual(migratedOwner?.id)
-    expect(migratedOwner?.endpoint).toEqual(endpoint)
-    expect(migratedOwner?.key).toEqual(getOwnerKey(endpoint, 'DeskTop'))
+    assert(migratedOwner !== undefined)
+    assert.deepStrictEqual(migratedRepoA?.ownerID, migratedOwner?.id)
+    assert.deepStrictEqual(migratedOwner?.endpoint, endpoint)
+    assert.deepStrictEqual(migratedOwner?.key, getOwnerKey(endpoint, 'DeskTop'))
 
     await db.delete()
   })

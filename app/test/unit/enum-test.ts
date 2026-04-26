@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { parseEnumValue } from '../../src/lib/enum'
 
 enum TestEnum {
@@ -7,14 +9,14 @@ enum TestEnum {
 
 describe('parseEnumValue', () => {
   it('parses an enum type from a string', () => {
-    expect(parseEnumValue(TestEnum, 'foo')).toBe(TestEnum.Foo)
-    expect(parseEnumValue(TestEnum, TestEnum.Foo)).toBe(TestEnum.Foo)
-    expect(parseEnumValue(TestEnum, 'bar is the thing')).toBe(TestEnum.Bar)
-    expect(parseEnumValue(TestEnum, TestEnum.Bar)).toBe(TestEnum.Bar)
+    assert.equal(parseEnumValue(TestEnum, 'foo'), TestEnum.Foo)
+    assert.equal(parseEnumValue(TestEnum, TestEnum.Foo), TestEnum.Foo)
+    assert.equal(parseEnumValue(TestEnum, 'bar is the thing'), TestEnum.Bar)
+    assert.equal(parseEnumValue(TestEnum, TestEnum.Bar), TestEnum.Bar)
   })
 
   it("returns undefined when enum value doesn't exist", () => {
-    expect(parseEnumValue(TestEnum, 'baz')).toBe(undefined)
+    assert.equal(parseEnumValue(TestEnum, 'baz'), undefined)
   })
 
   it('ignores inherited values', () => {
@@ -26,8 +28,8 @@ describe('parseEnumValue', () => {
 
     const child = Object.create(parent)
 
-    expect('foo' in child).toBeTrue()
-    expect(child.foo).toBe('bar')
-    expect(parseEnumValue(child, 'bar')).toBe(undefined)
+    assert('foo' in child)
+    assert.equal(child.foo, 'bar')
+    assert.equal(parseEnumValue(child, 'bar'), undefined)
   })
 })

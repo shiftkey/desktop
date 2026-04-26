@@ -1,3 +1,4 @@
+const { describe, it } = require('node:test')
 // @ts-check
 
 const RuleTester = require('eslint').RuleTester
@@ -8,32 +9,36 @@ const parserOptions = {
   sourceType: 'module',
 }
 
-const ruleTester = new RuleTester({ parserOptions })
-ruleTester.run('react-no-unbound-dispatcher-props', rule, {
-  valid: [
-    'const b = crypto.randomBytes();',
-    'const b = window.crypto.getRandomValues();',
-  ],
-  invalid: [
-    {
-      code: 'const b = Math.random();',
-      errors: [{ messageId: 'mathRandomInsecure' }],
-    },
-    {
-      code: `
+describe('insecure-random', () => {
+  it('should complain about Math.random()', () => {
+    const ruleTester = new RuleTester({ parserOptions })
+    ruleTester.run('react-no-unbound-dispatcher-props', rule, {
+      valid: [
+        'const b = crypto.randomBytes();',
+        'const b = window.crypto.getRandomValues();',
+      ],
+      invalid: [
+        {
+          code: 'const b = Math.random();',
+          errors: [{ messageId: 'mathRandomInsecure' }],
+        },
+        {
+          code: `
       const crypto = require('crypto');
 
       const b = crypto.pseudoRandomBytes();`,
-      errors: [{ messageId: 'pseudoRandomBytesInsecure' }],
-    },
-    {
-      code: `
+          errors: [{ messageId: 'pseudoRandomBytesInsecure' }],
+        },
+        {
+          code: `
       const { pseudoRandomBytes } = require('crypto');
       
       const b = pseudoRandomBytes();
       
       `,
-      errors: [{ messageId: 'pseudoRandomBytesInsecure' }],
-    },
-  ],
+          errors: [{ messageId: 'pseudoRandomBytesInsecure' }],
+        },
+      ],
+    })
+  })
 })

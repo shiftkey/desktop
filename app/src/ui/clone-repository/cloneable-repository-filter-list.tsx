@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { Account } from '../../models/account'
 import { IFilterListGroup } from '../lib/filter-list'
-import { IAPIRepository, getDotComAPIEndpoint, getHTMLURL } from '../../lib/api'
+import { IAPIRepository } from '../../lib/api'
 import {
   ICloneableRepositoryListItem,
   groupRepositories,
@@ -76,6 +76,8 @@ interface ICloneableRepositoryFilterListProps {
     repository: IAPIRepository,
     source: ClickSource
   ) => void
+
+  readonly renderPreFilter?: () => JSX.Element | null
 }
 
 const RowHeight = 31
@@ -184,6 +186,7 @@ export class CloneableRepositoryFilterList extends React.PureComponent<ICloneabl
         onFilterTextChanged={this.props.onFilterTextChanged}
         renderNoItems={this.renderNoItems}
         renderPostFilter={this.renderPostFilter}
+        renderPreFilter={this.props.renderPreFilter}
         onItemClick={this.props.onItemClicked ? this.onItemClick : undefined}
         placeholderText={'Filter your repositories'}
         getGroupAriaLabel={this.getGroupAriaLabelGetter(groups)}
@@ -273,15 +276,11 @@ export class CloneableRepositoryFilterList extends React.PureComponent<ICloneabl
   }
 
   private renderNoItems = () => {
-    const { loading, repositories } = this.props
-    const endpointName =
-      this.props.account.endpoint === getDotComAPIEndpoint()
-        ? 'GitHub.com'
-        : getHTMLURL(this.props.account.endpoint)
+    const { loading, repositories, account } = this.props
 
     if (loading && (repositories === null || repositories.length === 0)) {
       return (
-        <div className="no-items loading">{`Loading repositories from ${endpointName}…`}</div>
+        <div className="no-items loading">{`Loading repositories from ${account.friendlyEndpoint}…`}</div>
       )
     }
 
@@ -300,7 +299,7 @@ export class CloneableRepositoryFilterList extends React.PureComponent<ICloneabl
       <div className="no-items empty-repository-list">
         <div>
           Looks like there are no repositories for{' '}
-          <Ref>{this.props.account.login}</Ref> on {endpointName}.{' '}
+          <Ref>{this.props.account.login}</Ref> on {account.friendlyEndpoint}.{' '}
           <LinkButton onClick={this.refreshRepositories}>
             Refresh this list
           </LinkButton>{' '}

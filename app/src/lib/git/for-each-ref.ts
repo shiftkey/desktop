@@ -7,7 +7,6 @@ import {
   IBranchTip,
   ITrackingBranch,
 } from '../../models/branch'
-import { CommitIdentity } from '../../models/commit-identity'
 import { createForEachRefParser } from './git-delimiter-parser'
 
 /** Get all the branches. */
@@ -20,7 +19,6 @@ export async function getBranches(
     shortName: '%(refname:short)',
     upstreamShortName: '%(upstream:short)',
     sha: '%(objectname)',
-    author: '%(author)',
     symRef: '%(symref)',
   })
 
@@ -50,8 +48,7 @@ export async function getBranches(
       continue
     }
 
-    const author = CommitIdentity.parseIdentity(ref.author)
-    const tip: IBranchTip = { sha: ref.sha, author }
+    const tip: IBranchTip = { sha: ref.sha }
 
     const type = ref.fullName.startsWith('refs/heads')
       ? BranchType.Local

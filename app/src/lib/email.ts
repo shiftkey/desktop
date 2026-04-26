@@ -74,6 +74,16 @@ export function getLegacyStealthEmailForUser(login: string, endpoint: string) {
 }
 
 /**
+ * Generate a stealth email address for the account. Convenience method
+ * for getStealthEmailForUser that takes an Account object instead of
+ * individual parameters.
+ *
+ * Ex: 123456+desktop@users.noreply.github.com
+ */
+export const getStealthEmailForAccount = (account: Account) =>
+  getStealthEmailForUser(account.id, account.login, account.endpoint)
+
+/**
  * Generate a stealth email address for the user on the given
  * server.
  *
@@ -115,7 +125,7 @@ export const isAttributableEmailFor = (account: Account, email: string) => {
   const needle = email.toLowerCase()
 
   return (
-    emails.some(({ email }) => email.toLowerCase() === needle) ||
+    emails.some(e => e.verified && e.email.toLowerCase() === needle) ||
     getStealthEmailForUser(id, login, endpoint).toLowerCase() === needle ||
     getLegacyStealthEmailForUser(login, endpoint).toLowerCase() === needle
   )

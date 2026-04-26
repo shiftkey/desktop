@@ -6,11 +6,7 @@ import {
   DiscardChangesError,
   ErrorWithMetadata,
 } from '../../lib/error-with-metadata'
-import {
-  coerceToString,
-  GitError,
-  isAuthFailureError,
-} from '../../lib/git/core'
+import { GitError, isAuthFailureError } from '../../lib/git/core'
 import { ShellError } from '../../lib/shells'
 import { UpstreamAlreadyExistsError } from '../../lib/stores/upstream-already-exists-error'
 
@@ -23,6 +19,11 @@ import { hasWritePermission } from '../../models/github-repository'
 import { RetryActionType } from '../../models/retry-actions'
 import { parseFilesToBeOverwritten } from '../lib/parse-files-to-be-overwritten'
 import { pathExists } from '../lib/path-exists'
+import {
+  ISecretLocation,
+  ISecretScanResult,
+} from '../secret-scanning/push-protection-error-dialog'
+import { coerceToString } from '../../lib/git/coerce-to-string'
 
 /** An error which also has a code property. */
 interface IErrorWithCode extends Error {
@@ -599,6 +600,96 @@ export async function discardChangesHandler(
   dispatcher.showPopup({
     type: PopupType.DiscardChangesRetry,
     retryAction,
+  })
+
+  return null
+}
+
+/**
+ * Extracts secret scanning results from the provided `remoteMessage` string
+ * from the git error provided when GitHub Secret Scanning detects a secret on
+ * push..
+ *
+ * This function parses the output of a secret scanning tool to identify
+ * secrets, their descriptions, locations in the codebase, and bypass URLs.
+ */
+function extractSecretScanningResults(
+  remoteMessage: string
+): ReadonlyArray<ISecretScanResult> {
+  const secretsRegex =
+    /—— (?<description>.*?) —+[\s\S]*?locations:(?<locationsGroup>(?:\s+- commit: [a-f0-9]{40}\s+path: [\s\S]*?)+).*?(?<bypassURL>https[\s\S]*?) /g
+
+  const matches = [...remoteMessage.matchAll(secretsRegex)]
+
+  const secrets: Array<ISecretScanResult> = []
+  if (matches.length === 0) {
+    return secrets
+  }
+
+  for (const match of matches) {
+    if (match.groups === undefined || match.index === undefined) {
+      continue
+    }
+
+    const { bypassURL, description, locationsGroup } = match.groups
+
+    const locationsRegex =
+      /- commit: (?<commitSha>[a-f0-9]{40})\s+path: (?<path>.*?):(?<lineNumber>\d+)/g
+    const locationMatches = [...locationsGroup.matchAll(locationsRegex)]
+
+    const locations: ISecretLocation[] = []
+
+    locationMatches.forEach(locationMatch => {
+      if (locationMatch.groups === undefined) {
+        return
+      }
+      const { commitSha, path, lineNumber } = locationMatch.groups
+      locations.push({
+        commitSha,
+        path,
+        lineNumber: parseInt(lineNumber, 10),
+      })
+    })
+
+    secrets.push({
+      id: bypassURL.split('/').pop() || '',
+      description,
+      bypassURL,
+      locations,
+      requiresApproval: !!match.at(0)?.includes('request an exemption'),
+    })
+  }
+
+  return secrets
+}
+
+/**
+ * Handler for when a push is denied by GitHub's push protection feature of
+ * secret scanning.
+ */
+export async function secretScanningPushProtectionErrorHandler(
+  error: Error,
+  dispatcher: Dispatcher
+) {
+  const e = asErrorWithMetadata(error)
+  if (!e) {
+    return error
+  }
+
+  const gitError = asGitError(e.underlyingError)
+  if (gitError?.result.gitError !== DugiteError.PushWithSecretDetected) {
+    return error
+  }
+
+  const remoteMessage = getRemoteMessage(coerceToString(gitError.result.stderr))
+  const secrets = extractSecretScanningResults(remoteMessage)
+
+  dispatcher.incrementMetric('pushBlockedBySecretScanningCount')
+  dispatcher.incrementMetric('secretsDetectedOnPushCount', secrets.length)
+
+  dispatcher.showPopup({
+    type: PopupType.PushProtectionError,
+    secrets,
   })
 
   return null

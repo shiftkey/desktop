@@ -19,20 +19,16 @@ export class OSVersionNoLongerSupportedBanner extends React.Component<{
   public render() {
     return (
       <Banner
-        id="conflicts-found-banner"
+        id="os-not-supported-banner"
         dismissable={true}
         onDismissed={this.onDismissed}
       >
         <Octicon className="alert-icon" symbol={octicons.alert} />
-        <div className="banner-message">
-          <span>
-            This operating system is no longer supported. Software updates have
-            been disabled.
-          </span>
-          <LinkButton uri="https://docs.github.com/en/desktop/installing-and-configuring-github-desktop/overview/supported-operating-systems">
-            Support details
-          </LinkButton>
-        </div>
+        This operating system is no longer supported. Software updates have been
+        disabled.
+        <LinkButton uri="https://docs.github.com/en/desktop/installing-and-configuring-github-desktop/overview/supported-operating-systems">
+          Support details
+        </LinkButton>
       </Banner>
     )
   }

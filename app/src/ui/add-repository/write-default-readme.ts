@@ -5,7 +5,7 @@ const DefaultReadmeName = 'README.md'
 
 function defaultReadmeContents(name: string, description?: string): string {
   return description !== undefined
-    ? `# ${name}\n ${description}\n`
+    ? `# ${name}\n${description}\n`
     : `# ${name}\n`
 }
 

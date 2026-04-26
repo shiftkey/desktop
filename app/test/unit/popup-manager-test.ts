@@ -1,167 +1,143 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { PopupManager } from '../../src/lib/popup-manager'
 import { Account } from '../../src/models/account'
 import { Popup, PopupType } from '../../src/models/popup'
 
-let mockId = 0
-jest.mock('../../src/lib/uuid', () => {
-  return { uuid: () => mockId++ }
-})
-
 describe('PopupManager', () => {
-  let popupManager = new PopupManager()
-
-  beforeEach(() => {
-    popupManager = new PopupManager()
-    mockId = 0
-  })
-
   describe('currentPopup', () => {
     it('returns null when no popups added', () => {
-      const currentPopup = popupManager.currentPopup
-      expect(currentPopup).toBeNull()
+      const popupManager = new PopupManager()
+      assert(popupManager.currentPopup === null)
     })
 
     it('returns last added non-error popup', () => {
-      const popupAbout: Popup = { type: PopupType.About }
-      const popupSignIn: Popup = { type: PopupType.SignIn }
-      popupManager.addPopup(popupAbout)
-      popupManager.addPopup(popupSignIn)
+      const popupManager = new PopupManager()
+      popupManager.addPopup({ type: PopupType.About })
+      popupManager.addPopup({ type: PopupType.SignIn })
 
       const currentPopup = popupManager.currentPopup
-      expect(currentPopup).not.toBeNull()
-      expect(currentPopup?.type).toBe(PopupType.SignIn)
+      assert(currentPopup !== null)
+      assert.equal(currentPopup?.type, PopupType.SignIn)
     })
 
     it('returns last added error popup', () => {
-      const popupAbout: Popup = { type: PopupType.About }
-      const popupSignIn: Popup = { type: PopupType.SignIn }
-      popupManager.addPopup(popupAbout)
+      const popupManager = new PopupManager()
+      popupManager.addPopup({ type: PopupType.About })
       popupManager.addErrorPopup(new Error('an error'))
-      popupManager.addPopup(popupSignIn)
+      popupManager.addPopup({ type: PopupType.SignIn })
 
       const currentPopup = popupManager.currentPopup
-      expect(currentPopup).not.toBeNull()
-      expect(currentPopup?.type).toBe(PopupType.Error)
+      assert(currentPopup !== null)
+      assert.equal(currentPopup?.type, PopupType.Error)
     })
   })
 
   describe('isAPopupOpen', () => {
     it('returns false when no popups added', () => {
-      const isAPopupOpen = popupManager.isAPopupOpen
-      expect(isAPopupOpen).toBeFalse()
+      const popupManager = new PopupManager()
+      assert(!popupManager.isAPopupOpen)
     })
 
     it('returns last added popup', () => {
-      const popupAbout: Popup = { type: PopupType.About }
-      popupManager.addPopup(popupAbout)
+      const popupManager = new PopupManager()
+      popupManager.addPopup({ type: PopupType.About })
 
       const isAPopupOpen = popupManager.isAPopupOpen
-      expect(isAPopupOpen).toBeTrue()
+      assert(isAPopupOpen)
     })
   })
 
   describe('getPopupsOfType', () => {
     it('returns popups of a given type', () => {
-      const popupAbout: Popup = { type: PopupType.About }
-      const popupSignIn: Popup = { type: PopupType.SignIn }
-      popupManager.addPopup(popupAbout)
-      popupManager.addPopup(popupSignIn)
+      const popupManager = new PopupManager()
+      popupManager.addPopup({ type: PopupType.About })
+      popupManager.addPopup({ type: PopupType.SignIn })
 
       const aboutPopups = popupManager.getPopupsOfType(PopupType.About)
-      expect(aboutPopups).toBeArrayOfSize(1)
-      expect(aboutPopups.at(0)?.type).toBe(PopupType.About)
+      assert.equal(aboutPopups.length, 1)
+      assert.equal(aboutPopups.at(0)?.type, PopupType.About)
     })
 
     it('returns empty array if none exist of given type', () => {
-      const popupAbout: Popup = { type: PopupType.About }
-      popupManager.addPopup(popupAbout)
+      const popupManager = new PopupManager()
+      popupManager.addPopup({ type: PopupType.About })
 
       const signInPopups = popupManager.getPopupsOfType(PopupType.SignIn)
-      expect(signInPopups).toBeArrayOfSize(0)
+      assert.equal(signInPopups.length, 0)
     })
   })
 
   describe('areTherePopupsOfType', () => {
     it('returns true if popup of type exists', () => {
-      const popupAbout: Popup = { type: PopupType.About }
-      popupManager.addPopup(popupAbout)
+      const popupManager = new PopupManager()
+      popupManager.addPopup({ type: PopupType.About })
 
-      const areThereAboutPopups = popupManager.areTherePopupsOfType(
-        PopupType.About
-      )
-      expect(areThereAboutPopups).toBeTrue()
+      assert(popupManager.areTherePopupsOfType(PopupType.About))
     })
 
     it('returns false if there are no popups of that type', () => {
-      const popupAbout: Popup = { type: PopupType.About }
-      popupManager.addPopup(popupAbout)
+      const popupManager = new PopupManager()
+      popupManager.addPopup({ type: PopupType.About })
 
-      const areThereSignInPopups = popupManager.areTherePopupsOfType(
-        PopupType.SignIn
-      )
-      expect(areThereSignInPopups).toBeFalse()
+      assert(!popupManager.areTherePopupsOfType(PopupType.SignIn))
     })
   })
 
   describe('addPopup', () => {
     it('adds a popup to the stack', () => {
-      const popup: Popup = { type: PopupType.About }
-      popupManager.addPopup(popup)
+      const popupManager = new PopupManager()
+      popupManager.addPopup({ type: PopupType.About })
 
       const popupsOfType = popupManager.getPopupsOfType(PopupType.About)
       const currentPopup = popupManager.currentPopup
-      expect(popupsOfType).toBeArrayOfSize(1)
-      expect(currentPopup).not.toBeNull()
-      expect(currentPopup?.type).toBe(PopupType.About)
-      expect(currentPopup?.id).toBe(0)
+      assert.equal(popupsOfType.length, 1)
+      assert(currentPopup !== null)
+      assert.equal(currentPopup.type, PopupType.About)
     })
 
     it('does not add multiple popups of the same kind to the stack', () => {
+      const popupManager = new PopupManager()
       const popup: Popup = { type: PopupType.About }
       popupManager.addPopup(popup)
       popupManager.addPopup(popup)
 
       const popupsOfType = popupManager.getPopupsOfType(PopupType.About)
-      expect(popupsOfType).toBeArrayOfSize(1)
+      assert.equal(popupsOfType.length, 1)
     })
 
     it('adds multiple popups of different types', () => {
-      const popupAbout: Popup = { type: PopupType.About }
-      const popupSignIn: Popup = { type: PopupType.SignIn }
-      popupManager.addPopup(popupAbout)
-      popupManager.addPopup(popupSignIn)
+      const popupManager = new PopupManager()
+      popupManager.addPopup({ type: PopupType.About })
+      popupManager.addPopup({ type: PopupType.SignIn })
 
       const aboutPopups = popupManager.getPopupsOfType(PopupType.About)
       const signInPoups = popupManager.getPopupsOfType(PopupType.SignIn)
-      expect(aboutPopups).toBeArrayOfSize(1)
-      expect(signInPoups).toBeArrayOfSize(1)
+      assert.equal(aboutPopups.length, 1)
+      assert.equal(signInPoups.length, 1)
 
-      expect(aboutPopups.at(0)?.type).toBe(PopupType.About)
-      expect(signInPoups.at(0)?.type).toBe(PopupType.SignIn)
+      assert.equal(aboutPopups.at(0)?.type, PopupType.About)
+      assert.equal(signInPoups.at(0)?.type, PopupType.SignIn)
     })
 
     it('trims oldest popup when limit is reached', () => {
-      popupManager = new PopupManager(2)
-      const popupAbout: Popup = { type: PopupType.About }
-      const popupSignIn: Popup = { type: PopupType.SignIn }
-      const popupTermsAndConditions: Popup = {
-        type: PopupType.TermsAndConditions,
-      }
-      popupManager.addPopup(popupAbout)
-      popupManager.addPopup(popupSignIn)
-      popupManager.addPopup(popupTermsAndConditions)
+      const popupManager = new PopupManager(2)
+      popupManager.addPopup({ type: PopupType.About })
+      popupManager.addPopup({ type: PopupType.SignIn })
+      popupManager.addPopup({ type: PopupType.TermsAndConditions })
 
       const aboutPopups = popupManager.getPopupsOfType(PopupType.About)
       const signInPoups = popupManager.getPopupsOfType(PopupType.SignIn)
       const termsAndConditionsPoups = popupManager.getPopupsOfType(
         PopupType.TermsAndConditions
       )
-      expect(aboutPopups).toBeArrayOfSize(0)
-      expect(signInPoups).toBeArrayOfSize(1)
-      expect(termsAndConditionsPoups).toBeArrayOfSize(1)
+      assert.equal(aboutPopups.length, 0)
+      assert.equal(signInPoups.length, 1)
+      assert.equal(termsAndConditionsPoups.length, 1)
 
-      expect(signInPoups.at(0)?.type).toBe(PopupType.SignIn)
-      expect(termsAndConditionsPoups.at(0)?.type).toBe(
+      assert.equal(signInPoups.at(0)?.type, PopupType.SignIn)
+      assert.equal(
+        termsAndConditionsPoups.at(0)?.type,
         PopupType.TermsAndConditions
       )
     })
@@ -169,34 +145,35 @@ describe('PopupManager', () => {
 
   describe('addErrorPopup', () => {
     it('adds a popup of type error to the stack', () => {
+      const popupManager = new PopupManager()
       popupManager.addErrorPopup(new Error('an error'))
 
       const popupsOfType = popupManager.getPopupsOfType(PopupType.Error)
       const currentPopup = popupManager.currentPopup
-      expect(popupsOfType).toBeArrayOfSize(1)
-      expect(currentPopup).not.toBeNull()
-      expect(currentPopup?.type).toBe(PopupType.Error)
-      expect(currentPopup?.id).toBe(0)
+      assert.equal(popupsOfType.length, 1)
+      assert(currentPopup !== null)
+      assert.equal(currentPopup?.type, PopupType.Error)
     })
 
     it('adds multiple popups of type error to the stack', () => {
+      const popupManager = new PopupManager()
       popupManager.addErrorPopup(new Error('an error'))
       popupManager.addErrorPopup(new Error('an error'))
 
       const popupsOfType = popupManager.getPopupsOfType(PopupType.Error)
-      expect(popupsOfType).toBeArrayOfSize(2)
+      assert.equal(popupsOfType.length, 2)
     })
 
     it('trims oldest popup when limit is reached', () => {
       const limit = 2
-      popupManager = new PopupManager(limit)
+      const popupManager = new PopupManager(limit)
       popupManager.addErrorPopup(new Error('an error'))
       popupManager.addErrorPopup(new Error('an error'))
       popupManager.addErrorPopup(new Error('an error'))
       popupManager.addErrorPopup(new Error('an error'))
 
       const errorPopups = popupManager.getPopupsOfType(PopupType.Error)
-      expect(errorPopups).toBeArrayOfSize(limit)
+      assert.equal(errorPopups.length, limit)
     })
   })
 
@@ -217,6 +194,7 @@ describe('PopupManager', () => {
         account: mockAccount,
       }
 
+      const popupManager = new PopupManager()
       const tutorialPopup = popupManager.addPopup(popupTutorial)
 
       // Just so update spreader notation will work
@@ -236,81 +214,77 @@ describe('PopupManager', () => {
       const result = popupManager.getPopupsOfType(
         PopupType.CreateTutorialRepository
       )
-      expect(result).toBeArrayOfSize(1)
+      assert.equal(result.length, 1)
       const resultingPopup = result.at(0)
       // Would fail first expect if not
       if (resultingPopup === undefined) {
         return
       }
 
-      expect(resultingPopup.type).toBe(PopupType.CreateTutorialRepository)
+      assert.equal(resultingPopup.type, PopupType.CreateTutorialRepository)
       if (resultingPopup.type !== PopupType.CreateTutorialRepository) {
         return
       }
 
-      expect(resultingPopup.progress).toBeDefined()
-      expect(resultingPopup.progress?.kind).toBe('generic')
-      expect(resultingPopup.progress?.value).toBe(5)
+      assert.notEqual(resultingPopup.progress, undefined)
+      assert.equal(resultingPopup.progress?.kind, 'generic')
+      assert.equal(resultingPopup.progress?.value, 5)
     })
   })
 
   describe('removePopup', () => {
     it('deletes popup when give a popup with an id', () => {
+      const popupManager = new PopupManager()
       const popupAbout: Popup = popupManager.addPopup({ type: PopupType.About })
-      popupManager.addPopup({
-        type: PopupType.SignIn,
-      })
+      popupManager.addPopup({ type: PopupType.SignIn })
 
       popupManager.removePopup(popupAbout)
 
       const aboutPopups = popupManager.getPopupsOfType(PopupType.About)
-      expect(aboutPopups).toBeArrayOfSize(0)
+      assert.equal(aboutPopups.length, 0)
 
       const signInPopups = popupManager.getPopupsOfType(PopupType.SignIn)
-      expect(signInPopups).toBeArrayOfSize(1)
+      assert.equal(signInPopups.length, 1)
     })
 
     it('does not remove popups by type', () => {
+      const popupManager = new PopupManager()
       popupManager.addPopup({ type: PopupType.About })
-      popupManager.addPopup({
-        type: PopupType.SignIn,
-      })
+      popupManager.addPopup({ type: PopupType.SignIn })
 
       popupManager.removePopup({ type: PopupType.About })
 
       const aboutPopups = popupManager.getPopupsOfType(PopupType.About)
-      expect(aboutPopups).toBeArrayOfSize(1)
+      assert.equal(aboutPopups.length, 1)
 
       const signInPopups = popupManager.getPopupsOfType(PopupType.SignIn)
-      expect(signInPopups).toBeArrayOfSize(1)
+      assert.equal(signInPopups.length, 1)
     })
   })
 
   describe('removePopupByType', () => {
     it('removes the popups of a given type', () => {
+      const popupManager = new PopupManager()
       popupManager.addPopup({ type: PopupType.About })
-      popupManager.addPopup({
-        type: PopupType.SignIn,
-      })
+      popupManager.addPopup({ type: PopupType.SignIn })
 
       popupManager.removePopupByType(PopupType.About)
 
       const aboutPopups = popupManager.getPopupsOfType(PopupType.About)
-      expect(aboutPopups).toBeArrayOfSize(0)
+      assert.equal(aboutPopups.length, 0)
 
       const signInPopups = popupManager.getPopupsOfType(PopupType.SignIn)
-      expect(signInPopups).toBeArrayOfSize(1)
+      assert.equal(signInPopups.length, 1)
     })
   })
 
   describe('removePopupById', () => {
     it('removes the popup by its id', () => {
+      const popupManager = new PopupManager()
       const popupAbout: Popup = popupManager.addPopup({ type: PopupType.About })
-      popupManager.addPopup({
-        type: PopupType.SignIn,
-      })
+      popupManager.addPopup({ type: PopupType.SignIn })
 
-      expect(popupAbout.id).toBeDefined()
+      assert.notEqual(popupAbout.id, undefined)
       if (popupAbout.id === undefined) {
         return
       }
@@ -318,10 +292,50 @@ describe('PopupManager', () => {
       popupManager.removePopupById(popupAbout.id)
 
       const aboutPopups = popupManager.getPopupsOfType(PopupType.About)
-      expect(aboutPopups).toBeArrayOfSize(0)
+      assert.equal(aboutPopups.length, 0)
 
       const signInPopups = popupManager.getPopupsOfType(PopupType.SignIn)
-      expect(signInPopups).toBeArrayOfSize(1)
+      assert.equal(signInPopups.length, 1)
+    })
+  })
+
+  describe('popup id increment', () => {
+    it('assigns id starting at 1 for first popup', () => {
+      const popupManager = new PopupManager()
+      const popup = popupManager.addPopup({ type: PopupType.About })
+      assert.equal(popup.id, 1)
+    })
+
+    it('increments ids sequentially for multiple popups', () => {
+      const popupManager = new PopupManager()
+      const popup1 = popupManager.addPopup({ type: PopupType.About })
+      const popup2 = popupManager.addPopup({ type: PopupType.SignIn })
+      const popup3 = popupManager.addPopup({
+        type: PopupType.TermsAndConditions,
+      })
+
+      assert.equal(popup1.id, 1)
+      assert.equal(popup2.id, 2)
+      assert.equal(popup3.id, 3)
+    })
+
+    it('increments ids for error popups', () => {
+      const popupManager = new PopupManager()
+      const popup1 = popupManager.addPopup({ type: PopupType.About })
+      const errorPopup = popupManager.addErrorPopup(new Error('test error'))
+
+      assert.equal(popup1.id, 1)
+      assert.equal(errorPopup.id, 2)
+    })
+
+    it('continues incrementing after popups are removed', () => {
+      const popupManager = new PopupManager()
+      const popup1 = popupManager.addPopup({ type: PopupType.About })
+      popupManager.removePopup(popup1)
+      const popup2 = popupManager.addPopup({ type: PopupType.SignIn })
+
+      assert.equal(popup1.id, 1)
+      assert.equal(popup2.id, 2)
     })
   })
 })

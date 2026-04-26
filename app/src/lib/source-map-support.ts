@@ -105,11 +105,46 @@ export function enableSourceMaps() {
  * Make a copy of the error with a source-mapped stack trace. If it couldn't
  * perform the source mapping, it'll use the original error stack.
  */
-export function withSourceMappedStack(error: Error): Error {
+export function withSourceMappedStack(error: unknown): Error {
+  // Guard against `throw "Foo"` which is totally a thing that can happen
+  if (typeof error === 'string') {
+    return {
+      name: 'StringError',
+      message: error,
+    }
+  }
+
+  let message
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    if (error.message === null) {
+      message = 'null'
+    } else if (error.message === undefined) {
+      message = 'undefined'
+    } else if (typeof error.message === 'string') {
+      message = error.message
+    } else if (typeof error.message === 'object') {
+      message = JSON.stringify(
+        error.message,
+        Object.getOwnPropertyNames(error.message)
+      )
+    } else {
+      message = `${error.message}`
+    }
+  } else {
+    message = '[Unknown]'
+  }
+
   return {
-    name: error.name,
-    message: error.message,
-    stack: sourceMappedStackTrace(error),
+    name:
+      error &&
+      typeof error === 'object' &&
+      'name' in error &&
+      typeof error.name === 'string'
+        ? error.name
+        : '[Unknown]',
+    message,
+    stack: error instanceof Error ? sourceMappedStackTrace(error) : undefined,
   }
 }
 

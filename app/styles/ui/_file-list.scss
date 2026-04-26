@@ -44,5 +44,10 @@
     .octicon {
       vertical-align: text-bottom;
     }
+    mark {
+      font-weight: bold;
+      background-color: inherit;
+      color: var(--text-color);
+    }
   }
 }

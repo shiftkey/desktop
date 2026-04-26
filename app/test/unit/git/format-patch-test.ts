@@ -1,3 +1,5 @@
+import { describe, it, TestContext } from 'node:test'
+import assert from 'node:assert'
 import {
   setupTwoCommitRepo,
   setupFixtureRepository,
@@ -12,61 +14,65 @@ import { exec } from 'dugite'
 
 describe('formatPatch', () => {
   describe('in a repo with commits', () => {
-    let repository: Repository
-    beforeEach(async () => {
-      repository = await setupTwoCommitRepo()
+    const setup = async (t: TestContext) => {
+      const repository = await setupTwoCommitRepo(t)
       await makeCommit(repository, {
         entries: [{ path: 'another-one', contents: 'dusty' }],
       })
-    })
-    it('returns a string for a single commit range', async () => {
+      return repository
+    }
+
+    it('returns a string for a single commit range', async t => {
+      const repository = await setup(t)
       const patch = await formatPatch(repository, 'HEAD~', 'HEAD')
-      expect(patch).toBeString()
-      expect(patch).not.toBeEmpty()
+      assert.equal(typeof patch, 'string')
+      assert.notEqual(patch.length, 0, 'Expected patch to be empty')
     })
-    it('returns a string for a multi commit range', async () => {
+    it('returns a string for a multi commit range', async t => {
+      const repository = await setup(t)
       const patch = await formatPatch(repository, 'HEAD~2', 'HEAD')
-      expect(patch).toBeString()
-      expect(patch).not.toBeEmpty()
+      assert.equal(typeof patch, 'string')
+      assert.notEqual(patch.length, 0, 'Expected patch to be empty')
     })
-    it('returns empty string for no range', async () => {
+    it('returns empty string for no range', async t => {
+      const repository = await setup(t)
       const patch = await formatPatch(repository, 'HEAD', 'HEAD')
-      expect(patch).toBeString()
-      expect(patch).toBeEmpty()
+      assert.equal(typeof patch, 'string')
+      assert.equal(patch.length, 0, 'Expected patch to be empty')
     })
     describe('applied in a related repo', () => {
-      let clonedRepository: Repository
-      beforeEach(async () => {
-        clonedRepository = await cloneLocalRepository(repository)
+      it('will be applied cleanly', async t => {
+        const repository = await setup(t)
+        const clonedRepository = await cloneLocalRepository(t, repository)
         await makeCommit(clonedRepository, {
           entries: [{ path: 'okay-file', contents: 'okay' }],
         })
-      })
-      it('will be applied cleanly', async () => {
+
         const patch = await formatPatch(repository, 'HEAD~', 'HEAD')
         const result = await exec(['apply'], clonedRepository.path, {
           stdin: patch,
         })
-        expect(result).toBeTruthy()
+        assert(result)
       })
     })
   })
   describe('in a repo with 105 commits', () => {
-    let repository: Repository
-    let firstCommit: string
-    beforeEach(async () => {
-      const path = await setupFixtureRepository('repository-with-105-commits')
-      repository = new Repository(path, -1, null, false)
+    it('can create a series of commits from start to HEAD', async t => {
+      const path = await setupFixtureRepository(
+        t,
+        'repository-with-105-commits'
+      )
+      const repository = new Repository(path, -1, null, false)
       const { stdout } = await exec(
         ['rev-list', '--max-parents=0', 'HEAD'],
         path
       )
-      firstCommit = stdout.trim()
-    })
-    it('can create a series of commits from start to HEAD', async () => {
-      await expect(
-        formatPatch(repository, firstCommit, 'HEAD')
-      ).resolves.toBeString()
+      const firstCommit = stdout.trim()
+
+      assert.equal(
+        typeof (await formatPatch(repository, firstCommit, 'HEAD')),
+        'string'
+      )
     })
   })
 })

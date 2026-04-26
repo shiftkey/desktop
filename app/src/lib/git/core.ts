@@ -12,20 +12,11 @@ import { assertNever } from '../fatal-error'
 import * as GitPerf from '../../ui/lib/git-perf'
 import * as Path from 'path'
 import { isErrnoException } from '../errno-exception'
-import { getFileFromExceedsError } from '../helpers/regex'
-import { merge } from '../merge'
 import { withTrampolineEnv } from '../trampoline/trampoline-environment'
-import { createTailStream } from './create-tail-stream'
-
-export const coerceToString = (
-  value: string | Buffer,
-  encoding: BufferEncoding = 'utf8'
-) => (Buffer.isBuffer(value) ? value.toString(encoding) : value)
-
-export const coerceToBuffer = (
-  value: string | Buffer,
-  encoding: BufferEncoding = 'utf8'
-) => (Buffer.isBuffer(value) ? value : Buffer.from(value, encoding))
+import { kStringMaxLength } from 'buffer'
+import { withHooksEnv } from '../hooks/with-hooks-env'
+import { coerceToString } from './coerce-to-string'
+import { pushTerminalChunk } from './push-terminal-chunk'
 
 export const isMaxBufferExceededError = (
   error: unknown
@@ -36,12 +27,43 @@ export const isMaxBufferExceededError = (
   )
 }
 
+export type TerminalOutput = string | Buffer | Buffer[]
+
+export type TerminalOutputListener = (cb: (chunk: TerminalOutput) => void) => {
+  unsubscribe: () => void
+}
+
+export type TerminalOutputCallback = (subscribe: TerminalOutputListener) => void
+
+export type HookProgress = {
+  readonly hookName: string
+} & (
+  | {
+      readonly status: 'started'
+      readonly abort: () => void
+    }
+  | {
+      readonly status: 'finished' | 'failed'
+    }
+)
+
+export type HookCallbackOptions = {
+  readonly onHookProgress?: (progress: HookProgress) => void
+  readonly onHookFailure?: (
+    hookName: string,
+    terminalOutput: TerminalOutput
+  ) => Promise<'abort' | 'ignore'>
+  readonly onTerminalOutputAvailable?: TerminalOutputCallback
+}
+
 /**
  * An extension of the execution options in dugite that
  * allows us to piggy-back our own configuration options in the
  * same object.
  */
-export interface IGitExecutionOptions extends DugiteExecutionOptions {
+export interface IGitExecutionOptions
+  extends HookCallbackOptions,
+    DugiteExecutionOptions {
   /**
    * The exit codes which indicate success to the
    * caller. Unexpected exit codes will be logged and an
@@ -63,6 +85,8 @@ export interface IGitExecutionOptions extends DugiteExecutionOptions {
    * This affects error handling and UI such as credential prompts.
    */
   readonly isBackgroundTask?: boolean
+
+  readonly interceptHooks?: string[]
 }
 
 /**
@@ -79,9 +103,6 @@ export interface IGitResult extends DugiteResult {
 
   /** The human-readable error description, based on `gitError`. */
   readonly gitErrorDescription: string | null
-
-  /** Both stdout and stderr combined. */
-  readonly combinedOutput: string
 
   /**
    * The path that the Git command was executed from, i.e. the
@@ -129,15 +150,19 @@ export class GitError extends Error {
    */
   public readonly isRawMessage: boolean
 
-  public constructor(result: IGitResult, args: ReadonlyArray<string>) {
+  public constructor(
+    result: IGitResult,
+    args: ReadonlyArray<string>,
+    terminalOutput: string
+  ) {
     let rawMessage = true
     let message
 
     if (result.gitErrorDescription) {
       message = result.gitErrorDescription
       rawMessage = false
-    } else if (result.combinedOutput.length > 0) {
-      message = result.combinedOutput
+    } else if (terminalOutput.length > 0) {
+      message = terminalOutput
     } else if (result.stderr.length) {
       message = coerceToString(result.stderr)
     } else if (result.stdout.length) {
@@ -154,6 +179,16 @@ export class GitError extends Error {
     this.args = args
     this.isRawMessage = rawMessage
   }
+}
+
+export const isGitError = (
+  e: unknown,
+  parsedError?: DugiteError
+): e is GitError => {
+  return (
+    e instanceof GitError &&
+    (parsedError === undefined || e.result.gitError === parsedError)
+  )
 }
 
 /**
@@ -196,118 +231,158 @@ export async function git(
   const defaultOptions: IGitExecutionOptions = {
     successExitCodes: new Set([0]),
     expectedErrors: new Set(),
+    maxBuffer: options?.encoding === 'buffer' ? Infinity : kStringMaxLength,
   }
 
   const opts = { ...defaultOptions, ...options }
 
-  let combinedOutput = ''
+  // The combined contents of stdout and stderr with some light processing
+  // applied to remove redundant lines caused by Git's use of `\r` to "erase"
+  // the current line while writing progress output. See createTerminalOutput.
+  //
+  // Note: The output is capped at a maximum of 256kb and the sole intent of
+  // this property is to provide "terminal-like" output to the user when a Git
+  // command fails.
+  const terminalChunks: string[] = []
+  const terminalCapacity = 256 * 1024
 
   // Keep at most 256kb of combined stderr and stdout output. This is used
   // to provide more context in error messages.
   opts.processCallback = process => {
-    const ts = createTailStream(256 * 1024, { encoding: 'utf8' }).on(
-      'data',
-      data => (combinedOutput = data)
-    )
-    process.stdout?.pipe(ts, { end: false })
-    process.stderr?.pipe(ts, { end: false })
-    process.on('close', () => ts.end())
+    options?.onTerminalOutputAvailable?.(function (cb) {
+      terminalChunks.forEach(chunk => cb(chunk))
+
+      process.stdout?.on('data', cb)
+      process.stderr?.on('data', cb)
+
+      return {
+        unsubscribe: () => {
+          process.stdout?.off('data', cb)
+          process.stderr?.off('data', cb)
+        },
+      }
+    })
+
+    const push = (chunk: Buffer | string) => {
+      pushTerminalChunk(terminalChunks, terminalCapacity, chunk)
+    }
+
+    process.stdout?.on('data', push)
+    process.stderr?.on('data', push)
+
     options?.processCallback?.(process)
   }
 
-  return withTrampolineEnv(
-    async env => {
-      const combinedEnv = merge(opts.env, env)
+  return withHooksEnv(
+    hooksEnv =>
+      withTrampolineEnv(
+        async env => {
+          const commandName = `${name}: git ${args.join(' ')}`
 
-      // Explicitly set TERM to 'dumb' so that if Desktop was launched
-      // from a terminal or if the system environment variables
-      // have TERM set Git won't consider us as a smart terminal.
-      // See https://github.com/git/git/blob/a7312d1a2/editor.c#L11-L15
-      opts.env = { TERM: 'dumb', ...combinedEnv }
+          const result = await GitPerf.measure(commandName, () =>
+            exec(args, path, {
+              ...opts,
+              env: {
+                // Explicitly set TERM to 'dumb' so that if Desktop was launched
+                // from a terminal or if the system environment variables
+                // have TERM set Git won't consider us as a smart terminal.
+                // See https://github.com/git/git/blob/a7312d1a2/editor.c#L11-L15
+                TERM: 'dumb',
+                ...opts.env,
+                ...hooksEnv,
+                ...env,
+              },
+            })
+          ).catch(err => {
+            // If this is an exception thrown by Node.js (as opposed to
+            // dugite) let's keep the salient details but include the name of
+            // the operation.
+            if (isErrnoException(err)) {
+              throw new Error(`Failed to execute ${name}: ${err.code}`)
+            }
 
-      const commandName = `${name}: git ${args.join(' ')}`
+            if (isMaxBufferExceededError(err)) {
+              throw new ExecError(
+                `${err.message} for ${name}`,
+                err.stdout,
+                err.stderr,
+                // Dugite stores the original Node error in the cause property, by
+                // passing that along we ensure that all we're doing here is
+                // changing the error message (and capping the stack but that's
+                // okay since we know exactly where this error is coming from).
+                // The null coalescing here is a safety net in case dugite's
+                // behavior changes from underneath us.
+                err.cause ?? err
+              )
+            }
 
-      const result = await GitPerf.measure(commandName, () =>
-        exec(args, path, opts)
-      ).catch(err => {
-        // If this is an exception thrown by Node.js (as opposed to
-        // dugite) let's keep the salient details but include the name of
-        // the operation.
-        if (isErrnoException(err)) {
-          throw new Error(`Failed to execute ${name}: ${err.code}`)
-        }
+            throw err
+          })
 
-        throw err
-      })
+          const exitCode = result.exitCode
 
-      const exitCode = result.exitCode
+          let gitError: DugiteError | null = null
+          const acceptableExitCode = opts.successExitCodes
+            ? opts.successExitCodes.has(exitCode)
+            : false
+          if (!acceptableExitCode) {
+            gitError = parseError(coerceToString(result.stderr))
+            if (gitError === null) {
+              gitError = parseError(coerceToString(result.stdout))
+            }
+          }
 
-      let gitError: DugiteError | null = null
-      const acceptableExitCode = opts.successExitCodes
-        ? opts.successExitCodes.has(exitCode)
-        : false
-      if (!acceptableExitCode) {
-        gitError = parseError(coerceToString(result.stderr))
-        if (gitError === null) {
-          gitError = parseError(coerceToString(result.stdout))
-        }
-      }
+          const gitErrorDescription =
+            gitError !== null
+              ? getDescriptionForError(gitError, coerceToString(result.stderr))
+              : null
+          const gitResult = {
+            ...result,
+            gitError,
+            gitErrorDescription,
+            path,
+          }
 
-      const gitErrorDescription =
-        gitError !== null
-          ? getDescriptionForError(gitError, coerceToString(result.stderr))
-          : null
-      const gitResult = {
-        ...result,
-        gitError,
-        gitErrorDescription,
-        combinedOutput,
+          let acceptableError = true
+          if (gitError !== null && opts.expectedErrors) {
+            acceptableError = opts.expectedErrors.has(gitError)
+          }
+
+          if ((gitError !== null && acceptableError) || acceptableExitCode) {
+            return gitResult
+          }
+
+          // The caller should either handle this error, or expect that exit code.
+          const errorMessage = new Array<string>()
+          errorMessage.push(
+            `\`git ${args.join(
+              ' '
+            )}\` exited with an unexpected code: ${exitCode}.`
+          )
+
+          const terminalOutput = terminalChunks.join('')
+
+          if (terminalOutput.length > 0) {
+            // Leave even less of the combined output in the log
+            errorMessage.push(terminalOutput.slice(-1024))
+          }
+
+          if (gitError !== null) {
+            errorMessage.push(
+              `(The error was parsed as ${gitError}: ${gitErrorDescription})`
+            )
+          }
+
+          log.error(errorMessage.join('\n'))
+
+          throw new GitError(gitResult, args, terminalOutput)
+        },
         path,
-      }
-
-      let acceptableError = true
-      if (gitError !== null && opts.expectedErrors) {
-        acceptableError = opts.expectedErrors.has(gitError)
-      }
-
-      if ((gitError !== null && acceptableError) || acceptableExitCode) {
-        return gitResult
-      }
-
-      // The caller should either handle this error, or expect that exit code.
-      const errorMessage = new Array<string>()
-      errorMessage.push(
-        `\`git ${args.join(' ')}\` exited with an unexpected code: ${exitCode}.`
-      )
-
-      if (combinedOutput.length > 0) {
-        // Leave even less of the combined output in the log
-        errorMessage.push(combinedOutput.slice(10240))
-      }
-
-      if (gitError !== null) {
-        errorMessage.push(
-          `(The error was parsed as ${gitError}: ${gitErrorDescription})`
-        )
-      }
-
-      log.error(errorMessage.join('\n'))
-
-      if (gitError === DugiteError.PushWithFileSizeExceedingLimit) {
-        const files = getFileFromExceedsError(
-          coerceToString(result.stderr)
-        ).join('\n')
-
-        if (files !== '') {
-          gitResult.gitErrorDescription += '\n\nFile causing error:\n\n' + files
-        }
-      }
-
-      throw new GitError(gitResult, args)
-    },
+        options?.isBackgroundTask ?? false,
+        hooksEnv
+      ),
     path,
-    options?.isBackgroundTask ?? false,
-    options?.env
+    options
   )
 }
 
@@ -503,6 +578,7 @@ export function getDescriptionForError(
     case DugiteError.MergeCommitNoMainlineOption:
     case DugiteError.UnsafeDirectory:
     case DugiteError.PathExistsButNotInRef:
+    case DugiteError.PushWithSecretDetected:
       return null
     default:
       return assertNever(error, `Unknown error: ${error}`)

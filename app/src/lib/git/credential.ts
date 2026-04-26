@@ -8,7 +8,15 @@ export const parseCredential = (value: string) => {
   // Since we're currently storing credentials as a Map we need to handle this
   // and expand multiple key[] entries into a key[0], key[1]... key[n] sequence.
   // We then remove the number from the key when we're formatting the credential
-  for (const [, k, v] of value.matchAll(/^(.*?)=(.*)$/gm)) {
+  for (const line of value.split(/\r?\n/)) {
+    const eqIx = line.indexOf('=')
+    if (eqIx === -1) {
+      continue
+    }
+
+    const k = line.slice(0, eqIx)
+    const v = line.slice(eqIx + 1)
+
     if (k.endsWith('[]')) {
       let i = 0
       let newKey
@@ -27,10 +35,17 @@ export const parseCredential = (value: string) => {
   return cred
 }
 
-export const formatCredential = (credential: Map<string, string>) =>
-  [...credential]
-    .map(([k, v]) => `${k.replace(/\[\d+\]$/, '[]')}=${v}\n`)
-    .join('')
+export const formatCredential = (credential: Map<string, string>) => {
+  const lines = []
+  for (const [k, v] of credential) {
+    if (v.includes('\n') || v.includes('\0')) {
+      throw new Error(`forbidden characters in credential value: ${k}`)
+    }
+    lines.push(`${k.replace(/\[\d+\]$/, '[]')}=${v}\n`)
+  }
+
+  return lines.join('')
+}
 
 // Can't use git() as that will call withTrampolineEnv which calls this method
 const exec = (

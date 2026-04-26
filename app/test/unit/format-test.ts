@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { formatRebaseValue } from '../../src/lib/rebase'
 
 describe('format', () => {
@@ -7,7 +9,7 @@ describe('format', () => {
 
       const result = formatRebaseValue(value)
 
-      expect(result).toEqual(0)
+      assert.equal(result, 0)
     })
 
     it('clamps a positive value', () => {
@@ -15,7 +17,7 @@ describe('format', () => {
 
       const result = formatRebaseValue(value)
 
-      expect(result).toEqual(1)
+      assert.equal(result, 1)
     })
 
     it('formats to two significant figures', () => {
@@ -23,7 +25,7 @@ describe('format', () => {
 
       const result = formatRebaseValue(value)
 
-      expect(result).toEqual(0.11)
+      assert.equal(result, 0.11)
     })
 
     it('handles infinity', () => {
@@ -31,8 +33,8 @@ describe('format', () => {
 
       const result = formatRebaseValue(value)
 
-      expect(result).toBeGreaterThanOrEqual(0)
-      expect(result).toBeLessThanOrEqual(1)
+      assert(result >= 0)
+      assert(result <= 1)
     })
   })
 })

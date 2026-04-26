@@ -1,3 +1,4 @@
+import { TestContext } from 'node:test'
 import { Repository } from '../../src/models/repository'
 import { setupEmptyRepository } from './repositories'
 import { makeCommit, switchTo } from './repository-scaffolding'
@@ -10,9 +11,10 @@ import { makeCommit, switchTo } from './repository-scaffolding'
  * @param branchName name to use for new branch
  */
 export async function createRepository(
+  t: TestContext,
   branchName: string
 ): Promise<Repository> {
-  const repository = await setupEmptyRepository()
+  const repository = await setupEmptyRepository(t)
 
   // make two commits on `master` to setup the README
 

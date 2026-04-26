@@ -131,7 +131,7 @@ export function request(
   }
 
   if (token) {
-    headers['Authorization'] = `token ${token}`
+    headers['Authorization'] = `Bearer ${token}`
   }
 
   headers = {

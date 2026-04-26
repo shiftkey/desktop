@@ -22,6 +22,14 @@ export function createState<K extends keyof IChangesState>(
     stashEntry: null,
     currentBranchProtected: false,
     currentRepoRulesInfo: new RepoRulesInfo(),
+    fileListFilter: {
+      filterText: '',
+      isIncludedInCommit: false,
+      isNewFile: false,
+      isModifiedFile: false,
+      isDeletedFile: false,
+      isExcludedFromCommit: false,
+    },
   }
 
   return merge(baseChangesState, pick)

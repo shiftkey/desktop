@@ -148,8 +148,6 @@ export class ModifiedImageDiff extends React.Component<
   public render() {
     return (
       <div className="panel image" id="diff">
-        {this.renderCurrentDiffType()}
-
         <TabBar
           selectedIndex={this.props.diffType}
           onTabClicked={this.props.onChangeDiffType}
@@ -160,6 +158,8 @@ export class ModifiedImageDiff extends React.Component<
           <span>Onion Skin</span>
           <span>Difference</span>
         </TabBar>
+
+        {this.renderCurrentDiffType()}
       </div>
     )
   }

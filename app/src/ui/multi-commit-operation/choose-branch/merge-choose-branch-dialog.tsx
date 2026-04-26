@@ -1,7 +1,6 @@
 import React from 'react'
 import { getAheadBehind, revSymmetricDifference } from '../../../lib/git'
 import { determineMergeability } from '../../../lib/git/merge-tree'
-import { promiseWithMinimumTimeout } from '../../../lib/promise'
 import { Branch } from '../../../models/branch'
 import { ComputedAction } from '../../../models/computed-action'
 import { MergeTreeResult } from '../../../models/merge'
@@ -14,6 +13,7 @@ import {
   canStartOperation,
 } from './base-choose-branch-dialog'
 import { truncateWithEllipsis } from '../../../lib/truncate-with-ellipsis'
+import { formatNumber } from '../../../lib/format-number'
 
 interface IMergeChooseBranchDialogState {
   readonly commitCount: number
@@ -69,14 +69,18 @@ export class MergeChooseBranchDialog extends React.Component<
   }
 
   private onSelectionChanged = (selectedBranch: Branch | null) => {
-    this.setState({ selectedBranch })
-
     if (selectedBranch === null) {
-      this.setState({ commitCount: 0, mergeStatus: null })
-      return
+      this.setState({ selectedBranch, commitCount: 0, mergeStatus: null })
+    } else {
+      this.setState(
+        {
+          selectedBranch,
+          commitCount: 0,
+          mergeStatus: { kind: ComputedAction.Loading },
+        },
+        () => this.updateStatus(selectedBranch)
+      )
     }
-
-    this.updateStatus(selectedBranch)
   }
 
   private getDialogTitle = () => {
@@ -97,22 +101,23 @@ export class MergeChooseBranchDialog extends React.Component<
 
   private updateStatus = async (branch: Branch) => {
     const { currentBranch, repository } = this.props
-    this.setState({
-      commitCount: 0,
-      mergeStatus: { kind: ComputedAction.Loading },
-    })
 
-    const mergeStatus = await promiseWithMinimumTimeout(
-      () => determineMergeability(repository, currentBranch, branch),
-      500
+    const mergeStatus = await determineMergeability(
+      repository,
+      currentBranch,
+      branch
     ).catch<MergeTreeResult>(e => {
       log.error('Failed determining mergeability', e)
       return { kind: ComputedAction.Clean }
     })
 
-    // The user has selected a different branch since we started, so don't
-    // update the preview with stale data.
-    if (this.state.selectedBranch !== branch) {
+    // The user has selected a different branch since we started or the branch
+    // has changed, so don't update the preview with stale data.
+    //
+    // We don't have to check if the state changed from underneath us if we
+    // loaded the status from cache, because that means we never kicked off an
+    // async operation.
+    if (this.state.selectedBranch?.tip.sha !== branch.tip.sha) {
       return
     }
 
@@ -125,10 +130,10 @@ export class MergeChooseBranchDialog extends React.Component<
     // Commit count is used in the UI output as well as determining whether the
     // submit button is enabled
     const range = revSymmetricDifference('', branch.name)
-    const aheadBehind = await getAheadBehind(this.props.repository, range)
+    const aheadBehind = await getAheadBehind(repository, range)
     const commitCount = aheadBehind ? aheadBehind.behind : 0
 
-    if (this.state.selectedBranch !== branch) {
+    if (this.state.selectedBranch.tip.sha !== branch.tip.sha) {
       return
     }
 
@@ -178,8 +183,9 @@ export class MergeChooseBranchDialog extends React.Component<
     if (commitCount === 0) {
       return (
         <React.Fragment>
-          {`This branch is up to date with `}
-          <strong>{branch.name}</strong>
+          <strong>{currentBranch.name}</strong>
+          {` `}
+          is already up to date with <strong>{branch.name}</strong>
         </React.Fragment>
       )
     }
@@ -188,7 +194,7 @@ export class MergeChooseBranchDialog extends React.Component<
     return (
       <React.Fragment>
         This will merge
-        <strong>{` ${commitCount} ${pluralized}`}</strong>
+        <strong>{` ${formatNumber(commitCount)} ${pluralized}`}</strong>
         {` from `}
         <strong>{branch.name}</strong>
         {` into `}
@@ -214,7 +220,7 @@ export class MergeChooseBranchDialog extends React.Component<
     return (
       <React.Fragment>
         There will be
-        <strong>{` ${count} conflicted ${pluralized}`}</strong>
+        <strong>{` ${formatNumber(count)} conflicted ${pluralized}`}</strong>
         {` when merging `}
         <strong>{branch.name}</strong>
         {` into `}

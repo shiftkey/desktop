@@ -77,6 +77,12 @@ export class AppMenu extends React.Component<IAppMenuProps, {}> {
    */
   private expandCollapseTimer: number | null = null
 
+  /**
+   * Refs to the menu pane elements, indexed by depth. Used to restore
+   * focus when navigating back from a submenu with the left arrow key.
+   */
+  private menuPaneRefs: Map<number, HTMLDivElement | null> = new Map()
+
   private onItemClicked = (
     depth: number,
     item: MenuItem,
@@ -126,6 +132,13 @@ export class AppMenu extends React.Component<IAppMenuProps, {}> {
         this.props.dispatcher.setAppMenuState(menu =>
           menu.withClosedMenu(this.props.state[depth])
         )
+
+        // Restore focus to the parent menu pane to prevent the menu bar
+        // from detecting focus loss and closing the entire menu
+        const parentPane = this.menuPaneRefs.get(depth - 1)
+        if (parentPane) {
+          parentPane.focus()
+        }
 
         event.preventDefault()
       }
@@ -211,11 +224,8 @@ export class AppMenu extends React.Component<IAppMenuProps, {}> {
     }
   }
 
-  private onKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
-    if (!event.defaultPrevented && event.key === 'Escape') {
-      event.preventDefault()
-      this.props.onClose({ type: 'keyboard', event })
-    }
+  private onMenuPaneRef = (depth: number, element: HTMLDivElement | null) => {
+    this.menuPaneRefs.set(depth, element)
   }
 
   private renderMenuPane(depth: number, menu: IMenu): JSX.Element {
@@ -237,6 +247,7 @@ export class AppMenu extends React.Component<IAppMenuProps, {}> {
         enableAccessKeyNavigation={this.props.enableAccessKeyNavigation}
         onClearSelection={this.onClearSelection}
         ariaLabelledby={this.props.ariaLabelledby}
+        onRef={this.onMenuPaneRef}
       />
     )
   }
@@ -245,12 +256,7 @@ export class AppMenu extends React.Component<IAppMenuProps, {}> {
     const menus = this.props.state
     const panes = menus.map((m, depth) => this.renderMenuPane(depth, m))
 
-    return (
-      // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-      <div id="app-menu-foldout" onKeyDown={this.onKeyDown}>
-        {panes}
-      </div>
-    )
+    return <div id="app-menu-foldout">{panes}</div>
   }
 
   public componentWillUnmount() {

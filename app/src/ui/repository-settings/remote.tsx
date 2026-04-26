@@ -17,9 +17,13 @@ export class Remote extends React.Component<IRemoteProps, {}> {
     const remote = this.props.remote
     return (
       <DialogContent>
-        <p>Primary remote repository ({remote.name})</p>
         <TextBox
           placeholder="Remote URL"
+          label={
+            __DARWIN__
+              ? `Primary Remote Repository (${remote.name}) URL`
+              : `Primary remote repository (${remote.name}) URL`
+          }
           value={remote.url}
           onValueChanged={this.props.onRemoteUrlChanged}
         />

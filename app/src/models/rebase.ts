@@ -32,7 +32,10 @@ export type RebaseProgressOptions = {
 
 export type CleanRebase = {
   readonly kind: ComputedAction.Clean
-  readonly commits: ReadonlyArray<CommitOneLine>
+  /** The commits present in the base branch but not in the target branch */
+  readonly commitsAhead: ReadonlyArray<CommitOneLine>
+  /** The commits present in the target branch but not in the base branch */
+  readonly commitsBehind: ReadonlyArray<CommitOneLine>
 }
 
 export type RebaseWithConflicts = {

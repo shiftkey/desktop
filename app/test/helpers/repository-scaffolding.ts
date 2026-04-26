@@ -1,9 +1,10 @@
 import { exec } from 'dugite'
-import * as FSE from 'fs-extra'
+import { writeFile } from 'fs/promises'
 import * as Path from 'path'
+import { TestContext } from 'node:test'
 
 import { Repository } from '../../src/models/repository'
-import { mkdirSync } from './temp'
+import { createTempDirectory } from './temp'
 
 type TreeEntry = {
   /** The relative path of the file in the repository */
@@ -31,9 +32,10 @@ type Tree = {
  * push/pull/fetch operations can be tested without requiring the network.
  */
 export async function cloneRepository(
+  t: TestContext,
   repository: Repository
 ): Promise<Repository> {
-  const newDirectory = mkdirSync('desktop-git-clone-')
+  const newDirectory = await createTempDirectory(t)
 
   await exec(['clone', repository.path, '--', newDirectory], __dirname)
 
@@ -51,7 +53,7 @@ export async function makeCommit(repository: Repository, tree: Tree) {
     if (entry.contents === null) {
       await exec(['rm', entry.path], repository.path)
     } else {
-      await FSE.writeFile(fullPath, entry.contents)
+      await writeFile(fullPath, entry.contents)
       await exec(['add', entry.path], repository.path)
     }
   }
@@ -90,9 +92,10 @@ export async function switchTo(repository: Repository, branch: string) {
 }
 
 export async function cloneLocalRepository(
+  t: TestContext,
   repository: Repository
 ): Promise<Repository> {
-  const repoPath = mkdirSync('blank-folder')
+  const repoPath = await createTempDirectory(t)
   const args = ['clone', '--', repository.path, repoPath]
   const result = await exec(args, repository.path)
 

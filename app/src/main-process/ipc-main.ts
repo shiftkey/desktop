@@ -56,7 +56,7 @@ function safeListener<E extends IpcMainEvent | IpcMainInvokeEvent, R>(
   return (event: E, ...args: any) => {
     if (!isTrustedIPCSender(event.sender)) {
       log.error(
-        `IPC message received from invalid sender: ${event.senderFrame.url}`
+        `IPC message received from invalid sender: ${event.senderFrame?.url}`
       )
       return
     }

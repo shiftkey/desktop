@@ -46,6 +46,13 @@ interface ITextAreaProps {
 
   /** A callback to receive the underlying `textarea` instance. */
   readonly onTextAreaRef?: (instance: HTMLTextAreaElement | null) => void
+
+  /** Optional aria-label attribute */
+  readonly ariaLabel?: string
+
+  /** Optional aria-describedby attribute - usually for associating a descriptive
+   * message to the input such as a validation error, warning, or caption */
+  readonly ariaDescribedBy?: string
 }
 
 /** A textarea element with app-standard styles. */
@@ -84,6 +91,8 @@ export class TextArea extends React.Component<ITextAreaProps, {}> {
           onKeyDown={this.props.onKeyDown}
           ref={this.props.onTextAreaRef}
           onContextMenu={this.onContextMenu}
+          aria-label={this.props.ariaLabel}
+          aria-describedby={this.props.ariaDescribedBy}
         />
       </label>
     )

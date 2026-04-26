@@ -1,3 +1,7 @@
+/**
+ * These a11y linter are false-positive as the element is facilitating our
+ * ability mouse and keyboard events for closing the dropdown.
+ */
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import * as React from 'react'

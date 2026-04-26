@@ -1,7 +1,6 @@
-import {
-  groupRepositories,
-  KnownRepositoryGroup,
-} from '../../src/ui/repositories-list/group-repositories'
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
+import { groupRepositories } from '../../src/ui/repositories-list/group-repositories'
 import { Repository, ILocalRepositoryState } from '../../src/models/repository'
 import { CloningRepository } from '../../src/models/cloning-repository'
 import { gitHubRepoFixture } from '../helpers/github-repo-builder'
@@ -21,7 +20,7 @@ describe('repository list grouping', () => {
       gitHubRepoFixture({
         owner: '',
         name: 'my-repo3',
-        endpoint: 'github.big-corp.com',
+        endpoint: 'https://github.big-corp.com/api/v3',
       }),
       false
     ),
@@ -30,26 +29,27 @@ describe('repository list grouping', () => {
   const cache = new Map<number, ILocalRepositoryState>()
 
   it('groups repositories by owners/Enterprise/Other', () => {
-    const grouped = groupRepositories(repositories, cache)
-    expect(grouped).toHaveLength(3)
+    const grouped = groupRepositories(repositories, cache, [])
+    assert.equal(grouped.length, 3)
 
-    expect(grouped[0].identifier).toBe('me')
-    expect(grouped[0].items).toHaveLength(1)
+    assert.equal(grouped[0].identifier.kind, 'dotcom')
+    assert.equal((grouped[0].identifier as any).owner.login, 'me')
+    assert.equal(grouped[0].items.length, 1)
 
     let item = grouped[0].items[0]
-    expect(item.repository.path).toBe('repo2')
+    assert.equal(item.repository.path, 'repo2')
 
-    expect(grouped[1].identifier).toBe(KnownRepositoryGroup.Enterprise)
-    expect(grouped[1].items).toHaveLength(1)
+    assert.equal(grouped[1].identifier.kind, 'enterprise')
+    assert.equal(grouped[1].items.length, 1)
 
     item = grouped[1].items[0]
-    expect(item.repository.path).toBe('repo3')
+    assert.equal(item.repository.path, 'repo3')
 
-    expect(grouped[2].identifier).toBe(KnownRepositoryGroup.NonGitHub)
-    expect(grouped[2].items).toHaveLength(1)
+    assert.equal(grouped[2].identifier.kind, 'other')
+    assert.equal(grouped[2].items.length, 1)
 
     item = grouped[2].items[0]
-    expect(item.repository.path).toBe('repo1')
+    assert.equal(item.repository.path, 'repo1')
   })
 
   it('sorts repositories alphabetically within each group', () => {
@@ -71,24 +71,26 @@ describe('repository list grouping', () => {
 
     const grouped = groupRepositories(
       [repoC, repoB, repoZ, repoD, repoA],
-      cache
+      cache,
+      []
     )
-    expect(grouped).toHaveLength(2)
+    assert.equal(grouped.length, 2)
 
-    expect(grouped[0].identifier).toBe('me')
-    expect(grouped[0].items).toHaveLength(2)
+    assert.equal(grouped[0].identifier.kind, 'dotcom')
+    assert.equal((grouped[0].identifier as any).owner.login, 'me')
+    assert.equal(grouped[0].items.length, 2)
 
     let items = grouped[0].items
-    expect(items[0].repository.path).toBe('b')
-    expect(items[1].repository.path).toBe('d')
+    assert.equal(items[0].repository.path, 'b')
+    assert.equal(items[1].repository.path, 'd')
 
-    expect(grouped[1].identifier).toBe(KnownRepositoryGroup.NonGitHub)
-    expect(grouped[1].items).toHaveLength(3)
+    assert.equal(grouped[1].identifier.kind, 'other')
+    assert.equal(grouped[1].items.length, 3)
 
     items = grouped[1].items
-    expect(items[0].repository.path).toBe('a')
-    expect(items[1].repository.path).toBe('c')
-    expect(items[2].repository.path).toBe('z')
+    assert.equal(items[0].repository.path, 'a')
+    assert.equal(items[1].repository.path, 'c')
+    assert.equal(items[2].repository.path, 'z')
   })
 
   it('only disambiguates Enterprise repositories', () => {
@@ -110,7 +112,7 @@ describe('repository list grouping', () => {
       gitHubRepoFixture({
         owner: 'business',
         name: 'enterprise-repo',
-        endpoint: '',
+        endpoint: 'https://ghe.io/api/v3',
       }),
       false
     )
@@ -120,33 +122,35 @@ describe('repository list grouping', () => {
       gitHubRepoFixture({
         owner: 'silliness',
         name: 'enterprise-repo',
-        endpoint: '',
+        endpoint: 'https://ghe.io/api/v3',
       }),
       false
     )
 
-    const grouped = groupRepositories([repoA, repoB, repoC, repoD], cache)
-    expect(grouped).toHaveLength(3)
+    const grouped = groupRepositories([repoA, repoB, repoC, repoD], cache, [])
+    assert.equal(grouped.length, 3)
 
-    expect(grouped[0].identifier).toBe('user1')
-    expect(grouped[0].items).toHaveLength(1)
+    assert.equal(grouped[0].identifier.kind, 'dotcom')
+    assert.equal((grouped[0].identifier as any).owner.login, 'user1')
+    assert.equal(grouped[0].items.length, 1)
 
-    expect(grouped[1].identifier).toBe('user2')
-    expect(grouped[1].items).toHaveLength(1)
+    assert.equal(grouped[1].identifier.kind, 'dotcom')
+    assert.equal((grouped[1].identifier as any).owner.login, 'user2')
+    assert.equal(grouped[1].items.length, 1)
 
-    expect(grouped[2].identifier).toBe(KnownRepositoryGroup.Enterprise)
-    expect(grouped[2].items).toHaveLength(2)
+    assert.equal(grouped[2].identifier.kind, 'enterprise')
+    assert.equal(grouped[2].items.length, 2)
 
-    expect(grouped[0].items[0].text[0]).toBe('repo')
-    expect(grouped[0].items[0].needsDisambiguation).toBe(false)
+    assert.equal(grouped[0].items[0].text[0], 'repo')
+    assert(!grouped[0].items[0].needsDisambiguation)
 
-    expect(grouped[1].items[0].text[0]).toBe('repo')
-    expect(grouped[1].items[0].needsDisambiguation).toBe(false)
+    assert.equal(grouped[1].items[0].text[0], 'repo')
+    assert(!grouped[1].items[0].needsDisambiguation)
 
-    expect(grouped[2].items[0].text[0]).toBe('enterprise-repo')
-    expect(grouped[2].items[0].needsDisambiguation).toBe(true)
+    assert.equal(grouped[2].items[0].text[0], 'enterprise-repo')
+    assert(grouped[2].items[0].needsDisambiguation)
 
-    expect(grouped[2].items[1].text[0]).toBe('enterprise-repo')
-    expect(grouped[2].items[1].needsDisambiguation).toBe(true)
+    assert.equal(grouped[2].items[1].text[0], 'enterprise-repo')
+    assert(grouped[2].items[1].needsDisambiguation)
   })
 })

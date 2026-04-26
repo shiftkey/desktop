@@ -1,11 +1,11 @@
-import { ChildProcess, SpawnOptions, spawn } from 'child_process'
+import { parseCommandLineArgv } from 'windows-argv-parser'
 import stringArgv from 'string-argv'
 import { promisify } from 'util'
-import { exec } from 'child_process'
+import { execFile, spawn, SpawnOptions } from 'child_process'
 import { access, lstat } from 'fs/promises'
 import * as fs from 'fs'
 
-const execAsync = promisify(exec)
+const execFileAsync = promisify(execFile)
 
 /** The string that will be replaced by the target path in the custom integration arguments */
 export const TargetPathArgument = '%TARGET_PATH%'
@@ -42,9 +42,12 @@ async function getAppBundleID(path: string) {
     }
 
     // Use mdls to query the kMDItemCFBundleIdentifier attribute
-    const { stdout } = await execAsync(
-      `mdls -name kMDItemCFBundleIdentifier -raw "${path}"`
-    )
+    const { stdout } = await execFileAsync('mdls', [
+      '-name',
+      'kMDItemCFBundleIdentifier',
+      '-raw',
+      path,
+    ])
     const bundleId = stdout.trim()
 
     // Check for valid output
@@ -70,7 +73,14 @@ export function expandTargetPathArgument(
   args: ReadonlyArray<string>,
   repoPath: string
 ): ReadonlyArray<string> {
-  return args.map(arg => arg.replaceAll(TargetPathArgument, repoPath))
+  return args.map(arg =>
+    arg
+      // If the placeholder is already quoted (e.g. "%TARGET_PATH%"), replace
+      // it including the surrounding quotes to avoid double-quoting the path.
+      .replaceAll(`"${TargetPathArgument}"`, `"${repoPath}"`)
+      // For unquoted occurrences, wrap the path in quotes.
+      .replaceAll(TargetPathArgument, `"${repoPath}"`)
+  )
 }
 
 /**
@@ -117,7 +127,9 @@ export async function validateCustomIntegrationPath(
 
     return { isValid: isExecutableFile || !!bundleID, bundleID }
   } catch (e) {
-    log.error(`Failed to validate path: ${path}`, e)
+    if (e.code !== 'ENOENT') {
+      log.error(`Failed to validate path: ${path}`, e)
+    }
     return { isValid: false }
   }
 }
@@ -182,22 +194,13 @@ export function migratedCustomIntegration(
  * on Windows, where we need to wrap the command and arguments in quotes when
  * the shell option is enabled.
  *
- * @param command Command to spawn
+ * @param cmd Command to spawn
  * @param args Arguments to pass to the command
  * @param options Options to pass to spawn (optional)
  * @returns The ChildProcess object returned by spawn
  */
-export function spawnCustomIntegration(
-  command: string,
+export const spawnCustomIntegration = (
+  cmd: string,
   args: readonly string[],
-  options?: SpawnOptions
-): ChildProcess {
-  // On Windows, we need to wrap the arguments and the command in quotes,
-  // otherwise the shell will split them by spaces again after invoking spawn.
-  if (__WIN32__ && options?.shell) {
-    command = `"${command}"`
-    args = args.map(a => `"${a}"`)
-  }
-
-  return options ? spawn(command, args, options) : spawn(command, args)
-}
+  opts?: SpawnOptions
+) => spawn(cmd, args, { stdio: 'ignore', detached: true, ...opts })

@@ -401,7 +401,7 @@ export async function continueCherryPick(
   const otherFiles = trackedFiles.filter(f => !manualResolutions.has(f.path))
   await stageFiles(repository, otherFiles)
 
-  const status = await getStatus(repository)
+  const status = await getStatus(repository, false)
   if (status == null) {
     log.warn(
       `[continueCherryPick] unable to get status after staging changes,

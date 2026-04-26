@@ -21,7 +21,7 @@ export class OpenThankYouCard extends React.Component<
   public render() {
     return (
       <Banner id="open-thank-you-card" onDismissed={this.props.onDismissed}>
-        <span onSubmit={this.props.onOpenCard}>
+        <form onSubmit={this.props.onOpenCard}>
           The Desktop team would like to thank you for your contributions.{' '}
           <LinkButton onClick={this.props.onOpenCard}>
             Open Your Card
@@ -40,7 +40,7 @@ export class OpenThankYouCard extends React.Component<
             emoji={this.props.emoji}
             renderUrlsAsLinks={true}
           />
-        </span>
+        </form>
       </Banner>
     )
   }

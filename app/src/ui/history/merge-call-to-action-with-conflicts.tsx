@@ -58,7 +58,7 @@ export class MergeCallToActionWithConflicts extends React.Component<
     if (selectedOperation === MultiCommitOperationKind.Rebase) {
       return rebasePreview !== null &&
         rebasePreview.kind === ComputedAction.Clean
-        ? rebasePreview.commits.length
+        ? rebasePreview.commitsAhead.length
         : 0
     }
 
@@ -148,7 +148,7 @@ export class MergeCallToActionWithConflicts extends React.Component<
       const commits =
         this.state.rebasePreview !== null &&
         this.state.rebasePreview.kind === ComputedAction.Clean
-          ? this.state.rebasePreview.commits
+          ? this.state.rebasePreview.commitsAhead
           : []
       return dispatcher.startRebase(
         repository,

@@ -1,10 +1,25 @@
 import { IDataStore, ISecureStore } from './stores'
 import { getKeyForAccount } from '../auth'
-import { Account } from '../../models/account'
+import { Account, isDotComAccount } from '../../models/account'
 import { fetchUser, EmailVisibility, getEnterpriseAPIURL } from '../api'
 import { fatalError } from '../fatal-error'
 import { TypedBaseStore } from './base-store'
 import { isGHE } from '../endpoint-capabilities'
+import { compare, compareDescending } from '../compare'
+
+// Ensure that GitHub.com accounts appear first followed by Enterprise
+// accounts, sorted by the order in which they were added.
+const sortAccounts = (accounts: ReadonlyArray<Account>) =>
+  accounts
+    .map((account, ix) => [account, ix] as const)
+    .sort(
+      ([xAccount, xIx], [yAccount, yIx]) =>
+        compareDescending(
+          isDotComAccount(xAccount),
+          isDotComAccount(yAccount)
+        ) || compare(xIx, yIx)
+    )
+    .map(([account]) => account)
 
 /** The data-only interface for storage. */
 interface IEmail {
@@ -104,7 +119,7 @@ export class AccountsStore extends TypedBaseStore<ReadonlyArray<Account>> {
     )
     accountsByEndpoint.set(account.endpoint, account)
 
-    this.accounts = [...accountsByEndpoint.values()]
+    this.accounts = sortAccounts([...accountsByEndpoint.values()])
 
     this.save()
     return account
@@ -224,7 +239,7 @@ export class AccountsStore extends TypedBaseStore<ReadonlyArray<Account>> {
       }
     }
 
-    this.accounts = accountsWithTokens
+    this.accounts = sortAccounts(accountsWithTokens)
     // If any account was migrated, make sure to persist the new value
     if (migratedAccounts !== null) {
       this.save() // Save already emits an update

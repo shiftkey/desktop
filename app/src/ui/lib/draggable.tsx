@@ -192,6 +192,11 @@ export class Draggable extends React.Component<IDraggableProps> {
 
   public render() {
     return (
+      /**
+       * This a11y linter is a false-positive as the element is facilitating our
+       * drag and drop functionality for reordering, squashing, and
+       * cherry-picking.
+       */
       // eslint-disable-next-line jsx-a11y/no-static-element-interactions
       <div className="draggable" onMouseDown={this.onMouseDown}>
         {this.props.children}

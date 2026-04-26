@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { createUniqueId, releaseUniqueId } from './id-pool'
-import uuid from 'uuid'
+import classNames from 'classnames'
 
 /** The possible values for a Checkbox component. */
 export enum CheckboxValue {
@@ -25,9 +25,14 @@ interface ICheckboxProps {
   /** The label for the checkbox. */
   readonly label?: string | JSX.Element
 
+  /** An id of label of a checkbox (when built in label won't work) */
+  readonly ariaLabelledBy?: string
+
   /** An aria description of a checkbox - intended to provide more verbose
    * information than a label that a the user might need */
   readonly ariaDescribedBy?: string
+
+  readonly className?: string
 }
 
 interface ICheckboxState {
@@ -54,10 +59,14 @@ export class Checkbox extends React.Component<ICheckboxProps, ICheckboxState> {
   }
 
   public componentWillMount() {
+    // TODO: I don't understand why we need this here, it was added in
+    // https://github.com/desktop/desktop/pull/17839 and I replaced uuid
+    // with crypto.randomUUID but like the whole point of createUniqueId
+    // is to create unique ids so this shouldn't be necessary.
     const friendlyName =
       this.props.label && typeof this.props.label === 'string'
         ? this.props.label
-        : uuid()
+        : crypto.randomUUID()
     const inputId = createUniqueId(`Checkbox_${friendlyName}`)
 
     this.setState({ inputId })
@@ -107,7 +116,7 @@ export class Checkbox extends React.Component<ICheckboxProps, ICheckboxState> {
 
   public render() {
     return (
-      <div className="checkbox-component">
+      <div className={classNames('checkbox-component', this.props.className)}>
         <input
           id={this.state.inputId}
           tabIndex={this.props.tabIndex}
@@ -117,6 +126,7 @@ export class Checkbox extends React.Component<ICheckboxProps, ICheckboxState> {
           ref={this.onInputRef}
           disabled={this.props.disabled}
           aria-describedby={this.props.ariaDescribedBy}
+          aria-labelledby={this.props.ariaLabelledBy}
         />
         {this.renderLabel()}
       </div>

@@ -1,3 +1,5 @@
+import { describe, it, beforeEach } from 'node:test'
+import assert from 'node:assert'
 import { updateChangedFiles } from '../../../../src/lib/stores/updates/changes-state'
 import {
   WorkingDirectoryStatus,
@@ -75,7 +77,9 @@ describe('updateChangedFiles', () => {
         partiallySelectedFile.id
       )
 
-      expect(partialFile!.selection.getSelectionType()).toBe(
+      assert(partialFile !== null)
+      assert.equal(
+        partialFile.selection.getSelectionType(),
         DiffSelectionType.None
       )
     })
@@ -95,7 +99,9 @@ describe('updateChangedFiles', () => {
         partiallySelectedFile.id
       )
 
-      expect(partialFile!.selection.getSelectionType()).toBe(
+      assert(partialFile !== null)
+      assert.equal(
+        partialFile.selection.getSelectionType(),
         DiffSelectionType.Partial
       )
     })
@@ -112,7 +118,7 @@ describe('updateChangedFiles', () => {
 
       const { workingDirectory } = updateChangedFiles(prevState, status, false)
 
-      expect(workingDirectory).not.toBe(oldWorkingDirectory)
+      assert.notEqual(workingDirectory, oldWorkingDirectory)
     })
   })
 
@@ -125,14 +131,14 @@ describe('updateChangedFiles', () => {
       })
       const { selection } = updateChangedFiles(prevState, status, false)
 
-      expect(selection.kind).toBe(ChangesSelectionKind.WorkingDirectory)
+      assert.equal(selection.kind, ChangesSelectionKind.WorkingDirectory)
       const workingDirectorySelection =
         selection as ChangesWorkingDirectorySelection
       const { selectedFileIDs } = workingDirectorySelection
-      expect(selectedFileIDs).toHaveLength(1)
+      assert.equal(selectedFileIDs.length, 1)
       // NOTE: `updateChangedFiles` sorts the paths and `app/package.json` will
       // appear in list before `README.md`
-      expect(selectedFileIDs[0]).toBe(files[1].id)
+      assert.equal(selectedFileIDs[0], files[1].id)
     })
 
     it('remembers previous selection if file is found in status', () => {
@@ -150,12 +156,12 @@ describe('updateChangedFiles', () => {
       })
       const { selection } = updateChangedFiles(prevState, status, false)
 
-      expect(selection.kind).toBe(ChangesSelectionKind.WorkingDirectory)
+      assert.equal(selection.kind, ChangesSelectionKind.WorkingDirectory)
       const workingDirectorySelection =
         selection as ChangesWorkingDirectorySelection
       const { selectedFileIDs } = workingDirectorySelection
-      expect(selectedFileIDs).toHaveLength(1)
-      expect(selectedFileIDs[0]).toBe(firstFile)
+      assert.equal(selectedFileIDs.length, 1)
+      assert.equal(selectedFileIDs[0], firstFile)
     })
 
     it('clears selection if no files found in status', () => {
@@ -171,11 +177,11 @@ describe('updateChangedFiles', () => {
       const status = createStatus({})
       const { selection } = updateChangedFiles(prevState, status, false)
 
-      expect(selection.kind).toBe(ChangesSelectionKind.WorkingDirectory)
+      assert.equal(selection.kind, ChangesSelectionKind.WorkingDirectory)
       const workingDirectorySelection =
         selection as ChangesWorkingDirectorySelection
       const { selectedFileIDs } = workingDirectorySelection
-      expect(selectedFileIDs).toHaveLength(0)
+      assert.equal(selectedFileIDs.length, 0)
     })
   })
 
@@ -196,11 +202,11 @@ describe('updateChangedFiles', () => {
       const status = createStatus({ workingDirectory })
       const { selection } = updateChangedFiles(prevState, status, false)
 
-      expect(selection.kind).toBe(ChangesSelectionKind.WorkingDirectory)
+      assert.equal(selection.kind, ChangesSelectionKind.WorkingDirectory)
 
       const workingDirectorySelection =
         selection as ChangesWorkingDirectorySelection
-      expect(workingDirectorySelection.diff).toBeNull()
+      assert(workingDirectorySelection.diff === null)
     })
 
     it('returns same diff if selected file from previous state is found', () => {
@@ -223,10 +229,10 @@ describe('updateChangedFiles', () => {
       const status = createStatus({ workingDirectory })
 
       const { selection } = updateChangedFiles(prevState, status, false)
-      expect(selection.kind).toBe(ChangesSelectionKind.WorkingDirectory)
+      assert.equal(selection.kind, ChangesSelectionKind.WorkingDirectory)
       const workingDirectorySelection =
         selection as ChangesWorkingDirectorySelection
-      expect(workingDirectorySelection.diff).toBe(diff)
+      assert.equal(workingDirectorySelection.diff, diff)
     })
   })
 })

@@ -23,6 +23,7 @@ import { enableUpdateFromEmulatedX64ToARM64 } from '../../lib/feature-flag'
 import { offsetFromNow } from '../../lib/offset-from'
 import { gte, SemVer } from 'semver'
 import { getVersion } from './app-proxy'
+import { getUserAgent } from '../../lib/http'
 
 /** The last version a showcase was seen. */
 export const lastShowCaseVersionSeen = 'version-of-last-showcase'
@@ -50,6 +51,8 @@ export interface IUpdateState {
   lastSuccessfulCheck: Date | null
   isX64ToARM64ImmediateAutoUpdate: boolean
   newReleases: ReadonlyArray<ReleaseSummary> | null
+  prioritizeUpdate: boolean
+  prioritizeUpdateInfoUrl: string | undefined
 }
 
 /** A store which contains the current state of the auto updater. */
@@ -62,6 +65,16 @@ class UpdateStore {
 
   /** Is the most recent update check user initiated? */
   private userInitiatedUpdate = true
+  private _prioritizeUpdate = false
+  private _prioritizeUpdateInfoUrl: string | undefined = undefined
+
+  public get prioritizeUpdate() {
+    return this._prioritizeUpdate
+  }
+
+  public get prioritizeUpdateInfoUrl() {
+    return this._prioritizeUpdateInfoUrl
+  }
 
   public constructor() {
     const lastSuccessfulCheckTime = getNumber(lastSuccessfulCheckKey, 0)
@@ -127,6 +140,8 @@ class UpdateStore {
       (await isRunningUnderARM64Translation())
     this.status = UpdateStatus.UpdateReady
     this.emitDidChange()
+
+    this.updatePriorityUpdateStatus()
   }
 
   /**
@@ -168,6 +183,8 @@ class UpdateStore {
       lastSuccessfulCheck: this.lastSuccessfulCheck,
       newReleases: this.newReleases,
       isX64ToARM64ImmediateAutoUpdate: this.isX64ToARM64ImmediateAutoUpdate,
+      prioritizeUpdate: this.prioritizeUpdate,
+      prioritizeUpdateInfoUrl: this.prioritizeUpdateInfoUrl,
     }
   }
 
@@ -187,6 +204,7 @@ class UpdateStore {
     // button to crash the app if in the subsequent check, there is no update
     // available anymore due to a disabled update.
     if (this.status === UpdateStatus.UpdateReady) {
+      this.updatePriorityUpdateStatus()
       return
     }
 
@@ -252,6 +270,32 @@ class UpdateStore {
     quitAndInstallUpdate()
   }
 
+  private async updatePriorityUpdateStatus() {
+    try {
+      const response = await fetch(await this.getUpdatesUrl(false), {
+        method: 'HEAD',
+        headers: { 'user-agent': getUserAgent() },
+      })
+
+      const prioritizeUpdate =
+        response.headers.get('x-prioritize-update') === 'true'
+
+      const prioritizeUpdateInfoUrl =
+        response.headers.get('x-prioritize-update-info-url') ?? undefined
+
+      if (
+        this._prioritizeUpdate !== prioritizeUpdate ||
+        this._prioritizeUpdateInfoUrl !== prioritizeUpdateInfoUrl
+      ) {
+        this._prioritizeUpdate = prioritizeUpdate
+        this._prioritizeUpdateInfoUrl = prioritizeUpdateInfoUrl
+        this.emitDidChange()
+      }
+    } catch (e) {
+      log.error('Error updating priority update status', e)
+    }
+  }
+
   /**
    * Method to determine if we should show an update showcase call to action.
    *
@@ -301,6 +345,32 @@ class UpdateStore {
     }
 
     this.isX64ToARM64ImmediateAutoUpdate = value
+  }
+
+  /** This method has only been added for ease of testing the update banner in
+   * this state and as such is limite to dev and test environments */
+  public setPrioritizeUpdate(value: boolean) {
+    if (
+      __RELEASE_CHANNEL__ !== 'development' &&
+      __RELEASE_CHANNEL__ !== 'test'
+    ) {
+      return
+    }
+
+    this._prioritizeUpdate = value
+  }
+
+  /** This method has only been added for ease of testing the update banner in
+   * this state and as such is limite to dev and test environments */
+  public setPrioritizeUpdateInfoUrl(value: string | undefined) {
+    if (
+      __RELEASE_CHANNEL__ !== 'development' &&
+      __RELEASE_CHANNEL__ !== 'test'
+    ) {
+      return
+    }
+
+    this._prioritizeUpdateInfoUrl = value
   }
 }
 

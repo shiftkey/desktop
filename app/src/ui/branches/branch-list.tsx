@@ -4,7 +4,7 @@ import { Branch, BranchType } from '../../models/branch'
 
 import { assertNever } from '../../lib/fatal-error'
 
-import { IFilterListGroup, SelectionSource } from '../lib/filter-list'
+import { SelectionSource } from '../lib/filter-list'
 import { IMatches } from '../../lib/fuzzy-find'
 import { Button } from '../lib/button'
 import { TextBox } from '../lib/text-box'
@@ -19,10 +19,16 @@ import { SelectionDirection, ClickSource } from '../lib/list'
 import { generateBranchContextMenuItems } from './branch-list-item-context-menu'
 import { showContextualMenu } from '../../lib/menu-item'
 import { SectionFilterList } from '../lib/section-filter-list'
+import memoizeOne from 'memoize-one'
+import { getAuthors } from '../../lib/git/log'
+import { Repository } from '../../models/repository'
+import { formatDate } from '../../lib/format-date'
 
 const RowHeight = 30
 
 interface IBranchListProps {
+  readonly repository: Repository
+
   /**
    * See IBranchesState.defaultBranch
    */
@@ -92,14 +98,18 @@ interface IBranchListProps {
   readonly textbox?: TextBox
 
   /** Aria label for a specific row */
-  readonly getBranchAriaLabel: (item: IBranchListItem) => string | undefined
+  readonly getBranchAriaLabel: (
+    item: IBranchListItem,
+    authorDate: Date | undefined
+  ) => string | undefined
 
   /**
    * Render function to apply to each branch in the list
    */
   readonly renderBranch: (
     item: IBranchListItem,
-    matches: IMatches
+    matches: IMatches,
+    authorDate: Date | undefined
   ) => JSX.Element
 
   /**
@@ -124,49 +134,10 @@ interface IBranchListProps {
 }
 
 interface IBranchListState {
-  /**
-   * The grouped list of branches.
-   *
-   * Groups are currently defined as 'default branch', 'current branch',
-   * 'recent branches' and all branches.
-   */
-  readonly groups: ReadonlyArray<IFilterListGroup<IBranchListItem>>
-
-  /** The selected item in the filtered list */
-  readonly selectedItem: IBranchListItem | null
+  readonly commitAuthorDates: ReadonlyMap<string, Date>
 }
 
-function createState(
-  defaultBranch: Branch | null,
-  currentBranch: Branch | null,
-  allBranches: ReadonlyArray<Branch>,
-  recentBranches: ReadonlyArray<Branch>,
-  selectedBranch: Branch | null
-): IBranchListState {
-  const groups = groupBranches(
-    defaultBranch,
-    currentBranch,
-    allBranches,
-    recentBranches
-  )
-
-  let selectedItem: IBranchListItem | null = null
-  if (selectedBranch) {
-    for (const group of groups) {
-      selectedItem =
-        group.items.find(i => {
-          const branch = i.branch
-          return branch.name === selectedBranch.name
-        }) || null
-
-      if (selectedItem) {
-        break
-      }
-    }
-  }
-
-  return { groups, selectedItem }
-}
+const commitDateCache = new Map<string, Date>()
 
 /** The Branches list component. */
 export class BranchList extends React.Component<
@@ -175,33 +146,104 @@ export class BranchList extends React.Component<
 > {
   private branchFilterList: SectionFilterList<IBranchListItem> | null = null
 
-  public constructor(props: IBranchListProps) {
-    super(props)
-    this.state = createState(
-      props.defaultBranch,
-      props.currentBranch,
-      props.allBranches,
-      props.recentBranches,
-      props.selectedBranch
+  private getGroups = memoizeOne(groupBranches)
+  private getSelectedItem = memoizeOne(
+    (groups: ReturnType<typeof groupBranches>, selectedBranch: Branch | null) =>
+      groups
+        .flatMap(g => g.items)
+        .find(i => i.branch.name === selectedBranch?.name) ?? null
+  )
+
+  /**
+   * Generate a new object any time groups or commitAuthorDates changes
+   * in order to force the list to re-render.
+   *
+   * Note, change is determined by reference equality. This opaque object
+   * will be passed down to the react-virtualized List component as a prop
+   * causing it to re-render whenever either of these inputs change.
+   *
+   * Note that the return value here can be anything as long as it's not
+   * considered equal (reference equality) to the previously returned value.
+   * Using a guid which we used to do works but is overkill.
+   */
+  private getInvalidationProp = memoizeOne(
+    (
+      _groups: ReturnType<typeof groupBranches>,
+      _commitAuthorDates: IBranchListState['commitAuthorDates']
+    ) => ({})
+  )
+
+  private get invalidationProp() {
+    return this.getInvalidationProp(this.groups, this.state.commitAuthorDates)
+  }
+
+  private get groups() {
+    return this.getGroups(
+      this.props.defaultBranch,
+      this.props.currentBranch,
+      this.props.allBranches,
+      this.props.recentBranches
     )
   }
 
-  public componentWillReceiveProps(nextProps: IBranchListProps) {
-    this.setState(
-      createState(
-        nextProps.defaultBranch,
-        nextProps.currentBranch,
-        nextProps.allBranches,
-        nextProps.recentBranches,
-        nextProps.selectedBranch
-      )
-    )
+  private get selectedItem() {
+    return this.getSelectedItem(this.groups, this.props.selectedBranch)
+  }
+
+  public constructor(props: IBranchListProps) {
+    super(props)
+    this.state = {
+      commitAuthorDates: new Map<string, Date>(),
+    }
   }
 
   public selectNextItem(focus: boolean = false, direction: SelectionDirection) {
     if (this.branchFilterList !== null) {
       this.branchFilterList.selectNextItem(focus, direction)
     }
+  }
+
+  public componentDidUpdate(prevProps: IBranchListProps) {
+    if (prevProps.allBranches !== this.props.allBranches) {
+      this.populateCommitDates()
+    }
+  }
+
+  private populateCommitDates = () => {
+    const cached = new Map<string, Date>()
+    const missing = new Array<string>()
+    const uniqShas = new Set(this.props.allBranches.map(b => b.tip.sha))
+
+    for (const sha of uniqShas) {
+      const date = commitDateCache.get(sha)
+      if (date) {
+        cached.set(sha, date)
+      } else {
+        missing.push(sha)
+      }
+    }
+
+    // Clean up the cache
+    for (const sha of commitDateCache.keys()) {
+      if (!uniqShas.has(sha)) {
+        commitDateCache.delete(sha)
+      }
+    }
+
+    this.setState({ commitAuthorDates: cached })
+
+    if (missing.length > 0) {
+      getAuthors(this.props.repository, missing)
+        .then(x => {
+          x.forEach(({ date }, i) => commitDateCache.set(missing[i], date))
+          this.populateCommitDates()
+        })
+        .catch(e => log.error(`Failed to populate commit dates`, e))
+    }
+  }
+
+  public componentDidMount() {
+    this.populateCommitDates()
   }
 
   public render() {
@@ -213,14 +255,15 @@ export class BranchList extends React.Component<
         filterText={this.props.filterText}
         onFilterTextChanged={this.props.onFilterTextChanged}
         onFilterKeyDown={this.props.onFilterKeyDown}
-        selectedItem={this.state.selectedItem}
+        selectedItem={this.selectedItem}
         renderItem={this.renderItem}
+        renderRowFocusTooltip={this.renderRowFocusTooltip}
         renderGroupHeader={this.renderGroupHeader}
         onItemClick={this.onItemClick}
         onSelectionChanged={this.onSelectionChanged}
         onEnterPressedWithoutFilteredItems={this.onCreateNewBranch}
-        groups={this.state.groups}
-        invalidationProps={this.props.allBranches}
+        groups={this.groups}
+        invalidationProps={this.invalidationProp}
         renderPostFilter={this.onRenderNewButton}
         renderNoItems={this.onRenderNoItems}
         filterTextBox={this.props.textbox}
@@ -266,7 +309,40 @@ export class BranchList extends React.Component<
   }
 
   private renderItem = (item: IBranchListItem, matches: IMatches) => {
-    return this.props.renderBranch(item, matches)
+    return this.props.renderBranch(
+      item,
+      matches,
+      this.state.commitAuthorDates.get(item.branch.tip.sha)
+    )
+  }
+
+  private renderRowFocusTooltip = (
+    item: IBranchListItem
+  ): JSX.Element | string | null => {
+    const { tip, name } = item.branch
+    const authorDate = this.state.commitAuthorDates.get(tip.sha)
+
+    const absoluteDate = authorDate
+      ? formatDate(authorDate, {
+          dateStyle: 'full',
+          timeStyle: 'short',
+        })
+      : null
+
+    return (
+      <div className="branches-list-item-tooltip list-item-tooltip">
+        <div>
+          <div className="label">Full Name: </div>
+          {name}
+        </div>
+        {absoluteDate && (
+          <div>
+            <div className="label">Last Modified: </div>
+            {absoluteDate}
+          </div>
+        )}
+      </div>
+    )
   }
 
   private parseHeader(label: string): BranchGroupIdentifier | null {
@@ -281,12 +357,14 @@ export class BranchList extends React.Component<
   }
 
   private getItemAriaLabel = (item: IBranchListItem) => {
-    return this.props.getBranchAriaLabel?.(item)
+    return this.props.getBranchAriaLabel(
+      item,
+      this.state.commitAuthorDates.get(item.branch.tip.sha)
+    )
   }
 
   private getGroupAriaLabel = (group: number) => {
-    const identifier = this.state.groups[group]
-      .identifier as BranchGroupIdentifier
+    const identifier = this.groups[group].identifier as BranchGroupIdentifier
     return this.getGroupLabel(identifier)
   }
 

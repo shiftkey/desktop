@@ -29,6 +29,7 @@ import {
 } from './notifications'
 import { addTrustedIPCSender } from './trusted-ipc-sender'
 import { getUpdaterGUID } from '../lib/get-updater-guid'
+import { CLIAction } from '../lib/cli-action'
 
 export class AppWindow {
   private window: Electron.BrowserWindow
@@ -160,29 +161,6 @@ export class AppWindow {
       autoUpdater.removeAllListeners()
       terminateDesktopNotifications()
     })
-
-    if (__WIN32__) {
-      // workaround for known issue with fullscreen-ing the app and restoring
-      // is that some Chromium API reports the incorrect bounds, so that it
-      // will leave a small space at the top of the screen on every other
-      // maximize
-      //
-      // adapted from https://github.com/electron/electron/issues/12971#issuecomment-403956396
-      //
-      // can be tidied up once https://github.com/electron/electron/issues/12971
-      // has been confirmed as resolved
-      this.window.once('ready-to-show', () => {
-        this.window.on('unmaximize', () => {
-          setTimeout(() => {
-            const bounds = this.window.getBounds()
-            bounds.width += 1
-            this.window.setBounds(bounds)
-            bounds.width -= 1
-            this.window.setBounds(bounds)
-          }, 5)
-        })
-      })
-    }
   }
 
   public load() {
@@ -233,10 +211,23 @@ export class AppWindow {
     )
 
     registerWindowStateChangedEvents(this.window)
-    this.window.loadURL(encodePathAsUrl(__dirname, 'index.html'))
 
-    nativeTheme.addListener('updated', (event: string, userInfo: any) => {
+    // We want to have the locale country code available in the renderer on load
+    // so that it can be used to try to deduce some sane date/time/number
+    // formatting defaults. This is a bit of a hack but it avoids the need to
+    // have an IPC round trip to get that information from the main process.
+    const localeCountryCode = app.getLocaleCountryCode() ?? ''
+    this.window.loadURL(
+      encodePathAsUrl(__dirname, 'index.html') +
+        `#lc=${encodeURIComponent(localeCountryCode)}`
+    )
+
+    nativeTheme.addListener('updated', () => {
       ipcWebContents.send(this.window.webContents, 'native-theme-updated')
+    })
+
+    ipcMain.on('update-window-background-color', (_, color) => {
+      this.window.setBackgroundColor(color)
     })
 
     this.setupAutoUpdater()
@@ -322,6 +313,13 @@ export class AppWindow {
     ipcWebContents.send(this.window.webContents, 'url-action', action)
   }
 
+  /** Send the URL action to the renderer. */
+  public sendCLIAction(action: CLIAction) {
+    this.show()
+
+    ipcWebContents.send(this.window.webContents, 'cli-action', action)
+  }
+
   /** Send the app launch timing stats to the renderer. */
   public sendLaunchTimingStats(stats: ILaunchStats) {
     ipcWebContents.send(this.window.webContents, 'launch-timing-stats', stats)
@@ -351,7 +349,7 @@ export class AppWindow {
       // automatically. The modal panel is not brought to the front for an inactive app."
       // NOTE: flashFrame() uses the 'informational' level, so we need to explicitly bounce the dock
       // with the 'critical' level in order to that described behavior.
-      app.dock.bounce('critical')
+      app.dock?.bounce('critical')
     } else {
       // See https://learn.microsoft.com/en-us/windows/win32/uxguide/winenv-taskbar#taskbar-button-flashing
       // "If an inactive program requires immediate attention,

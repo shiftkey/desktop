@@ -3,13 +3,9 @@ import { Octicon, OcticonSymbol } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
 import classNames from 'classnames'
 import { GitHubRepository } from '../../models/github-repository'
-import { DisposableLike } from 'event-kit'
+import type { Disposable } from 'event-kit'
 import { Dispatcher } from '../dispatcher'
-import {
-  ICombinedRefCheck,
-  IRefCheck,
-  isSuccess,
-} from '../../lib/ci-checks/ci-checks'
+import { ICombinedRefCheck, IRefCheck } from '../../lib/ci-checks/ci-checks'
 import { IAPIWorkflowJobStep } from '../../lib/api'
 
 interface ICIStatusProps {
@@ -37,7 +33,7 @@ export class CIStatus extends React.PureComponent<
   ICIStatusProps,
   ICIStatusState
 > {
-  private statusSubscription: DisposableLike | null = null
+  private statusSubscription: Disposable | null = null
 
   public constructor(props: ICIStatusProps) {
     super(props)
@@ -115,7 +111,6 @@ export class CIStatus extends React.PureComponent<
           this.props.className
         )}
         symbol={getSymbolForCheck(check)}
-        title={getRefCheckSummary(check)}
       />
     )
   }
@@ -189,21 +184,4 @@ export function getClassNameForLogStep(logStep: IAPIWorkflowJobStep): string {
 
   // Pending
   return ''
-}
-
-/**
- * Convert the combined check to an app-friendly string.
- */
-export function getRefCheckSummary(check: ICombinedRefCheck): string {
-  if (check.checks.length === 1) {
-    const { name, description } = check.checks[0]
-    return `${name}: ${description}`
-  }
-
-  const successCount = check.checks.reduce(
-    (acc, cur) => acc + (isSuccess(cur) ? 1 : 0),
-    0
-  )
-
-  return `${successCount}/${check.checks.length} checks OK`
 }

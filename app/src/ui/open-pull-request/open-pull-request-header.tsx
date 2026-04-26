@@ -3,10 +3,14 @@ import { Branch } from '../../models/branch'
 import { BranchSelect } from '../branches/branch-select'
 import { DialogHeader } from '../dialog/header'
 import { Ref } from '../lib/ref'
+import { Repository } from '../../models/repository'
+import { IChangesetData } from '../../lib/git'
 
 export const OpenPullRequestDialogId = 'Dialog_Open_Pull_Request'
 
 interface IOpenPullRequestDialogHeaderProps {
+  readonly repository: Repository
+
   /** The base branch of the pull request */
   readonly baseBranch: Branch | null
 
@@ -37,6 +41,9 @@ interface IOpenPullRequestDialogHeaderProps {
   /** The count of commits of the pull request */
   readonly commitCount: number
 
+  /** The changeset data associated with the selected commit */
+  readonly changesetData: IChangesetData
+
   /** When the branch selection changes */
   readonly onBranchChange: (branch: Branch) => void
 
@@ -61,6 +68,7 @@ export class OpenPullRequestDialogHeader extends React.Component<IOpenPullReques
     const {
       baseBranch,
       currentBranch,
+      changesetData,
       defaultBranch,
       prBaseBranches,
       prRecentBaseBranches,
@@ -68,6 +76,7 @@ export class OpenPullRequestDialogHeader extends React.Component<IOpenPullReques
       onBranchChange,
       onDismissed,
     } = this.props
+    const { linesAdded, linesDeleted } = changesetData
     const commits = `${commitCount} commit${commitCount > 1 ? 's' : ''}`
 
     return (
@@ -80,6 +89,7 @@ export class OpenPullRequestDialogHeader extends React.Component<IOpenPullReques
         <div className="base-branch-details">
           Merge {commits} into{' '}
           <BranchSelect
+            repository={this.props.repository}
             branch={baseBranch}
             defaultBranch={defaultBranch}
             currentBranch={currentBranch}
@@ -94,6 +104,16 @@ export class OpenPullRequestDialogHeader extends React.Component<IOpenPullReques
             }
           />{' '}
           from <Ref>{currentBranch.name}</Ref>.
+        </div>
+        <div className="lines-added-deleted">
+          <div className="sr-only">Lines changed:</div>
+          <span aria-hidden="true" className="lines-added">
+            {linesAdded} added lines
+          </span>
+          <span>, </span>
+          <span aria-hidden="true" className="lines-deleted">
+            {linesDeleted} removed lines
+          </span>
         </div>
       </DialogHeader>
     )

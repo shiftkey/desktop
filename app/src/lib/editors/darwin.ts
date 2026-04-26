@@ -224,6 +224,10 @@ const editors: IDarwinExternalEditor[] = [
     name: 'Cursor',
     bundleIdentifiers: ['com.todesktop.230313mzl4w4u92'],
   },
+  {
+    name: 'Windsurf',
+    bundleIdentifiers: ['com.exafunction.windsurf'],
+  },
 ]
 
 async function findApplication(

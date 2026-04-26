@@ -42,7 +42,7 @@ const versionCache = new Map<string, semver.SemVer | null>()
 const endpointVersionKey = (ep: string) => `endpoint-version:${ep}`
 
 /**
- * Whether or not the given endpoint belong's to GitHub.com
+ * Whether or not the given endpoint belongs to GitHub.com
  */
 export const isDotCom = (ep: string) => {
   if (ep === getDotComAPIEndpoint()) {

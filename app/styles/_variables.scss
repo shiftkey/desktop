@@ -16,7 +16,7 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   --color-deleted: #{$red-600};
   --color-modified: #{darken($yellow-700, 10%)};
   --color-renamed: #{$blue};
-  --color-conflicted: #{$orange-600};
+  --color-conflicted: #{$orange-800};
 
   --text-color: #{$gray-900};
   --text-secondary-color: #{$gray-500};
@@ -58,6 +58,10 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   // Colors used for icons in the commit message warning/error area
   --commit-message-icon-warning-color: var(--input-icon-warning-color);
   --commit-message-icon-error-color: var(--input-icon-error-color);
+
+  // Colors used for the separator of commit message action buttons
+  // (e.g. co-authors and Copilot buttons)
+  --commit-message-action-button-separator-color: var(--box-border-color);
 
   // Typography
   //
@@ -363,6 +367,7 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
 
   /** The highlight color used for focus rings and focus box shadows */
   --focus-color: #{$blue};
+  --accent-color: #{$blue-400};
   --diff-linenumber-focus-color: #{$blue-600};
 
   /**
@@ -476,6 +481,12 @@ $overlay-background-color: rgba(0, 0, 0, 0.4);
   --dialog-warning-color: #{$yellow-800};
   --dialog-information-color: #{$blue-400};
   --dialog-error-color: #{$red};
+
+  /** Banner */
+  --banner-warning-background: #{$yellow-100};
+  --banner-warning-text-color: var(--text-color);
+  --banner-warning-link-color: #046ee7;
+  --banner-warning-icon-color: #{darken($yellow-700, 10%)};
 
   /** File warning */
   --file-warning-background-color: #{$yellow-100};

@@ -142,6 +142,7 @@ export class StashDiffViewer extends React.PureComponent<IStashDiffViewerProps> 
             maximumWidth={fileListWidth.max}
             onResize={this.onResize}
             onReset={this.onReset}
+            description="Stash file list"
           >
             <FileList
               files={files}

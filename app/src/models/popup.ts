@@ -23,6 +23,9 @@ import { GitHubRepository } from './github-repository'
 import { ValidNotificationPullRequestReview } from '../lib/valid-notification-pull-request-review'
 import { UnreachableCommitsTab } from '../ui/history/unreachable-commits-dialog'
 import { IAPIComment } from '../lib/api'
+import { ISecretScanResult } from '../ui/secret-scanning/push-protection-error-dialog'
+import { BypassReasonType } from '../ui/secret-scanning/bypass-push-protection-dialog'
+import { TerminalOutput, TerminalOutputListener } from '../lib/git'
 
 export enum PopupType {
   RenameBranch = 'RenameBranch',
@@ -47,6 +50,7 @@ export enum PopupType {
   CLIInstalled = 'CLIInstalled',
   GenericGitAuthentication = 'GenericGitAuthentication',
   ExternalEditorFailed = 'ExternalEditorFailed',
+  OpenWithExternalEditor = 'OpenWithExternalEditor',
   OpenShellFailed = 'OpenShellFailed',
   InitializeLFS = 'InitializeLFS',
   LFSAttributeMismatch = 'LFSAttributeMismatch',
@@ -95,14 +99,21 @@ export enum PopupType {
   PullRequestComment = 'PullRequestComment',
   UnknownAuthors = 'UnknownAuthors',
   TestIcons = 'TestIcons',
-  ConfirmRestart = 'ConfirmRestart',
+  ConfirmCommitFilteredChanges = 'ConfirmCommitFilteredChanges',
+  TestAbout = 'TestAbout',
+  PushProtectionError = 'PushProtectionError',
+  BypassPushProtection = 'BypassPushProtection',
+  GenerateCommitMessageOverrideWarning = 'GenerateCommitMessageOverrideWarning',
+  GenerateCommitMessageDisclaimer = 'GenerateCommitMessageDisclaimer',
+  HookFailed = 'HookFailed',
+  CommitProgress = 'CommitProgress',
 }
 
 interface IBasePopup {
   /**
    * Unique id of the popup that it receives upon adding to the stack.
    */
-  readonly id?: string
+  readonly id?: number
 }
 
 export type PopupDetail =
@@ -180,6 +191,7 @@ export type PopupDetail =
       onSubmit: (username: string, password: string) => void
       onDismiss: () => void
     }
+  | { type: PopupType.OpenWithExternalEditor }
   | {
       type: PopupType.ExternalEditorFailed
       message: string
@@ -424,6 +436,47 @@ export type PopupDetail =
   | {
       type: PopupType.TestIcons
     }
-  | { type: PopupType.ConfirmRestart }
-
+  | {
+      type: PopupType.ConfirmCommitFilteredChanges
+      onCommitAnyway: () => void
+      showFilesToBeCommitted: () => void
+    }
+  | {
+      type: PopupType.TestAbout
+    }
+  | {
+      type: PopupType.PushProtectionError
+      secrets: ReadonlyArray<ISecretScanResult>
+    }
+  | {
+      type: PopupType.BypassPushProtection
+      secret: ISecretScanResult
+      bypassPushProtection: (
+        secret: ISecretScanResult,
+        reason: BypassReasonType
+      ) => void
+      onDismissed: () => void
+    }
+  | {
+      type: PopupType.GenerateCommitMessageOverrideWarning
+      repository: Repository
+      filesSelected: ReadonlyArray<WorkingDirectoryFileChange>
+    }
+  | {
+      type: PopupType.GenerateCommitMessageDisclaimer
+      // Same parameters as PopupType.GenerateCommitMessageOverrideWarning because
+      // from this popup we will trigger the commit message generation too.
+      repository: Repository
+      filesSelected: ReadonlyArray<WorkingDirectoryFileChange>
+    }
+  | {
+      type: PopupType.HookFailed
+      hookName: string
+      terminalOutput: TerminalOutput
+      resolve: (value: 'abort' | 'ignore') => void
+    }
+  | {
+      type: PopupType.CommitProgress
+      subscribeToCommitOutput: TerminalOutputListener
+    }
 export type Popup = IBasePopup & PopupDetail

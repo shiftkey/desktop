@@ -1,11 +1,13 @@
 import * as React from 'react'
 import { Octicon } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
+import classNames from 'classnames'
 
 interface IBannerProps {
   readonly id?: string
   readonly timeout?: number
   readonly dismissable?: boolean
+  readonly className?: string
   readonly onDismissed: () => void
 }
 
@@ -19,8 +21,9 @@ export class Banner extends React.Component<IBannerProps, {}> {
   private dismissalTimeoutId: number | null = null
 
   public render() {
+    const cn = classNames('banner', this.props.className)
     return (
-      <div id={this.props.id} className="banner" ref={this.banner}>
+      <div id={this.props.id} className={cn} ref={this.banner}>
         <div className="contents">{this.props.children}</div>
         {this.renderCloseButton()}
       </div>

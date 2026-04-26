@@ -1,3 +1,7 @@
+/**
+ * This a11y linter is a false-positive as the element is a drop target
+ * facilitating our drag and drop functionality for reordering
+ */
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 import classNames from 'classnames'
 import { Disposable } from 'event-kit'

@@ -1,6 +1,9 @@
 import * as React from 'react'
 import classNames from 'classnames'
 import { RowIndexPath } from './list-row-index-path'
+import { Tooltip } from '../tooltip'
+import { createObservableRef, ObservableRef } from '../observable-ref'
+import { enableAccessibleListToolTips } from '../../../lib/feature-flag'
 
 interface IListRowProps {
   /** whether or not the section to which this row belongs has a header */
@@ -107,13 +110,29 @@ interface IListRowProps {
 
   /** Optional role setting.
    *
-   * By default our lists use the `list-box` role paired with list items of role
+   * By default our lists use the `listbox` role paired with list items of role
    * 'option' because that have selection capability. In that case, a
    * screenreader will only browse to the selected list option. If the list is
    * meant to be informational as opposed for selection, we should use `list`
    * with `listitem` as the role for the items so browse mode can navigate them.
    */
-  readonly role?: `option` | `listitem` | 'presentation'
+  readonly role?: 'option' | 'listitem' | 'presentation'
+
+  /**
+   * Optional render function for tooltip that appears on keyboard and mouse focus
+   *
+   * See other prop `hasKeyboardFocus` if using this method.
+   */
+  readonly renderRowFocusTooltip?: (
+    indexPath: RowIndexPath
+  ) => JSX.Element | string | null
+
+  /**
+   * Used in conjunction with the above renderRowFocus to communicate keyboard
+   * focus This must be provided if providing a tooltip on a the list row as it
+   * enables access to the tooltip for keyboard and screenreader users.
+   */
+  readonly hasKeyboardFocus: boolean
 }
 
 export class ListRow extends React.Component<IListRowProps, {}> {
@@ -124,8 +143,46 @@ export class ListRow extends React.Component<IListRowProps, {}> {
   // event, with no keyDown events (since that keyDown event should've happened
   // in the component that previously had focus).
   private keyboardFocusDetectionState: 'ready' | 'failed' | 'focused' = 'ready'
+  private listItemRef: ObservableRef<HTMLDivElement> | null = null
 
-  private onRef = (elem: HTMLDivElement | null) => {
+  private renderFocusTooltip() {
+    if (!enableAccessibleListToolTips()) {
+      return null
+    }
+
+    if (
+      !this.listItemRef ||
+      !this.props.renderRowFocusTooltip ||
+      !this.props.renderRowFocusTooltip(this.props.rowIndex)
+    ) {
+      return null
+    }
+
+    return (
+      <Tooltip
+        ancestorFocused={this.props.hasKeyboardFocus}
+        target={this.listItemRef}
+        openOnFocus={true}
+        positionRelativeToTarget={true}
+        delay={this.props.hasKeyboardFocus ? 1000 : undefined}
+        tooltipOffset={
+          new DOMRect(
+            this.listItemRef.current
+              ? this.listItemRef.current?.clientWidth / -2 + 20
+              : 0,
+            0
+          )
+        }
+      >
+        {this.props.renderRowFocusTooltip(this.props.rowIndex)}
+      </Tooltip>
+    )
+  }
+
+  private onRowRef = (elem: HTMLDivElement | null) => {
+    if (elem) {
+      this.listItemRef = createObservableRef(elem)
+    }
     this.props.onRowRef?.(this.props.rowIndex, elem)
   }
 
@@ -234,7 +291,7 @@ export class ListRow extends React.Component<IListRowProps, {}> {
         aria-label={this.props.ariaLabel}
         className={rowClassName}
         tabIndex={tabIndex}
-        ref={this.onRef}
+        ref={this.onRowRef}
         onMouseDown={this.onRowMouseDown}
         onMouseUp={this.onRowMouseUp}
         onClick={this.onRowClick}
@@ -246,6 +303,7 @@ export class ListRow extends React.Component<IListRowProps, {}> {
         onBlur={this.onBlur}
         onContextMenu={this.onContextMenu}
       >
+        {this.renderFocusTooltip()}
         {
           // HACK: When we have an ariaLabel we need to make sure that the
           // child elements are not exposed to the screen reader, otherwise

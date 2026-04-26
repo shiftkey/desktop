@@ -46,7 +46,6 @@ function getReplacements() {
     __RELEASE_CHANNEL__: s(channel),
     __UPDATES_URL__: s(distInfo.getUpdatesURL()),
     __SHA__: s(gitInfo.getSHA()),
-    __CLI_COMMANDS__: s(getCLICommands()),
     'process.platform': s(process.platform),
     'process.env.NODE_ENV': s(process.env.NODE_ENV || 'development'),
     'process.env.TEST_ENV': s(process.env.TEST_ENV),

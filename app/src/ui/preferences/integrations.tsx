@@ -81,10 +81,13 @@ export class Integrations extends React.Component<
         nextProps.onSelectedShellChanged(selectedShell)
       }
     }
-
     this.setState({
       selectedExternalEditor,
       selectedShell,
+      useCustomEditor: nextProps.useCustomEditor,
+      useCustomShell: nextProps.useCustomShell,
+      customShell: nextProps.customShell,
+      customEditor: nextProps.customEditor,
     })
   }
 

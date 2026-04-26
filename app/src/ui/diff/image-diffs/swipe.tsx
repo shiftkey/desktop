@@ -25,12 +25,27 @@ export class Swipe extends React.Component<
       width: this.props.maxSize.width,
     }
 
-    const swiperWidth = this.props.maxSize.width * (1 - this.state.percentage)
+    const swiperWidth =
+      this.props.maxSize.width * (1 - this.state.percentage / 100.0)
 
-    const currentStyle: React.CSSProperties = {
+    const previousStyle: React.CSSProperties = {
+      position: 'absolute',
+      top: 0,
+      left: 0,
       height: this.props.maxSize.height,
       width: this.props.maxSize.width,
-      left: -(this.props.maxSize.width - swiperWidth),
+      clipPath: `inset(0 ${Math.floor(swiperWidth)}px 0 0)`,
+    }
+
+    const currentStyle: React.CSSProperties = {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      height: this.props.maxSize.height,
+      width: this.props.maxSize.width,
+      clipPath: `inset(0 0 0 ${Math.floor(
+        this.props.maxSize.width - swiperWidth
+      )}px)`,
     }
 
     const maxSize: React.CSSProperties = {
@@ -40,44 +55,36 @@ export class Swipe extends React.Component<
 
     return (
       <div className="image-diff-swipe">
-        <div className="sizing-container" ref={this.props.onContainerRef}>
-          <div className="image-container" style={style}>
-            <div className="image-diff-previous" style={style}>
-              <ImageContainer
-                image={this.props.previous}
-                onElementLoad={this.props.onPreviousImageLoad}
-                style={maxSize}
-              />
-            </div>
-            <div
-              className="swiper"
-              style={{
-                width: swiperWidth,
-                height: this.props.maxSize.height,
-              }}
-            >
-              <div className="image-diff-current" style={currentStyle}>
-                <ImageContainer
-                  image={this.props.current}
-                  onElementLoad={this.props.onCurrentImageLoad}
-                  style={maxSize}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
         <input
           style={{
             width: this.props.maxSize.width + SliderOverflow,
           }}
           className="slider"
           type="range"
-          max={1}
+          max={100}
           min={0}
           value={this.state.percentage}
-          step={0.001}
+          step={0.1}
           onChange={this.onValueChange}
         />
+        <div className="sizing-container" ref={this.props.onContainerRef}>
+          <div className="image-container" style={style}>
+            <div className="image-diff-previous" style={previousStyle}>
+              <ImageContainer
+                image={this.props.previous}
+                onElementLoad={this.props.onPreviousImageLoad}
+                style={maxSize}
+              />
+            </div>
+            <div className="image-diff-current" style={currentStyle}>
+              <ImageContainer
+                image={this.props.current}
+                onElementLoad={this.props.onCurrentImageLoad}
+                style={maxSize}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     )
   }

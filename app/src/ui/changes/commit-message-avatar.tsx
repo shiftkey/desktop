@@ -54,7 +54,7 @@ interface ICommitMessageAvatarProps {
 
   /**
    * List of validations that failed for repo rules. Only used if
-   * {@link warningType} is 'disallowedEmail'.
+   * `warningType` is 'disallowedEmail'.
    */
   readonly emailRuleFailures?: RepoRulesMetadataFailures
 
@@ -122,6 +122,13 @@ export class CommitMessageAvatar extends React.Component<
       this.props.user?.email !== prevProps.user?.email
     ) {
       this.determineGitConfigLocation()
+    }
+
+    if (
+      this.props.preferredAccountEmail !== prevProps.preferredAccountEmail &&
+      this.state.accountEmail === prevProps.preferredAccountEmail
+    ) {
+      this.setState({ accountEmail: this.props.preferredAccountEmail })
     }
   }
 
@@ -279,24 +286,29 @@ export class CommitMessageAvatar extends React.Component<
       </>
     )
 
+    const hasEmails = this.props.accountEmails.length > 0
+
     const sharedFooter = (
       <>
-        <Row>
-          <Select
-            label="Your Account Emails"
-            value={this.state.accountEmail}
-            onChange={this.onSelectedGitHubEmailChange}
-          >
-            {this.props.accountEmails.map(n => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </Select>
-        </Row>
+        {hasEmails && (
+          <Row>
+            <Select
+              label="Your Account Emails"
+              value={this.state.accountEmail}
+              onChange={this.onSelectedGitHubEmailChange}
+            >
+              {this.props.accountEmails.map(n => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </Select>
+          </Row>
+        )}
         <Row>
           <div className="secondary-text">
-            You can also choose an email local to this repository from the{' '}
+            You can{hasEmails ? ' also' : ''} choose an email local to this
+            repository from the{' '}
             <LinkButton onClick={this.onRepositorySettingsClick}>
               repository settings
             </LinkButton>
@@ -307,9 +319,11 @@ export class CommitMessageAvatar extends React.Component<
           <Button onClick={this.onIgnoreClick} type="button">
             Ignore
           </Button>
-          <Button onClick={this.onUpdateEmailClick} type="submit">
-            {updateEmailTitle}
-          </Button>
+          {hasEmails && (
+            <Button onClick={this.onUpdateEmailClick} type="submit">
+              {updateEmailTitle}
+            </Button>
+          )}
         </Row>
       </>
     )
@@ -410,6 +424,7 @@ export class CommitMessageAvatar extends React.Component<
         }
         anchorPosition={PopoverAnchorPosition.RightBottom}
         decoration={PopoverDecoration.Balloon}
+        onMousedownOutside={this.closePopover}
         onClickOutside={this.closePopover}
         ariaLabelledby="commit-avatar-popover-header"
       >

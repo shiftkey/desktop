@@ -40,6 +40,16 @@ export class CICheckReRunButton extends React.PureComponent<ICICheckReRunButtonP
     showContextualMenu(items)
   }
 
+  private onRerunKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (!this.props.canReRunFailed || !this.failedChecksExist) {
+      return
+    }
+
+    if (event.key === 'ArrowDown') {
+      this.onRerunChecks()
+    }
+  }
+
   public render() {
     const text =
       this.props.canReRunFailed && this.failedChecksExist ? (
@@ -50,7 +60,11 @@ export class CICheckReRunButton extends React.PureComponent<ICICheckReRunButtonP
         'Re-run Checks'
       )
     return (
-      <Button onClick={this.onRerunChecks} disabled={this.props.disabled}>
+      <Button
+        onClick={this.onRerunChecks}
+        onKeyDown={this.onRerunKeyDown}
+        disabled={this.props.disabled}
+      >
         <Octicon symbol={syncClockwise} /> {text}
       </Button>
     )

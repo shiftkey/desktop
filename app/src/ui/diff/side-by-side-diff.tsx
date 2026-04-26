@@ -602,6 +602,11 @@ export class SideBySideDiff extends React.Component<
     })
 
     return (
+      /**
+       * This a11y linter is a false-positive as the mousedown facilitates our
+       * drag selection functionality and the keydown facilitates our select all
+       * keyboard shortcut.
+       */
       // eslint-disable-next-line jsx-a11y/no-static-element-interactions
       <div
         className={containerClassName}
@@ -1214,8 +1219,13 @@ export class SideBySideDiff extends React.Component<
 
   private onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const modifiers = event.altKey || event.metaKey || event.shiftKey
+    const { ctrlKey, key } = event
+    const { isSearching } = this.state
 
-    if (!__DARWIN__ && event.key === 'a' && event.ctrlKey && !modifiers) {
+    // On macOS the Cmd+A works only selects the text in the diff but on Windows
+    // it selects text outside of the diff as well so we capture it here and
+    // explicitly only select the contents of the diff.
+    if (!__DARWIN__ && key === 'a' && ctrlKey && !modifiers && !isSearching) {
       this.onSelectAll(event)
     }
   }
@@ -2082,8 +2092,7 @@ function* enumerateColumnContents(
   if (row.type === DiffRowType.Hunk) {
     yield { type: DiffColumn.Before, content: row.content }
   } else if (row.type === DiffRowType.Added) {
-    const type = showSideBySideDiffs ? DiffColumn.After : DiffColumn.Before
-    yield { type, content: row.data.content }
+    yield { type: DiffColumn.After, content: row.data.content }
   } else if (row.type === DiffRowType.Deleted) {
     yield { type: DiffColumn.Before, content: row.data.content }
   } else if (row.type === DiffRowType.Context) {

@@ -13,8 +13,8 @@ import { Commit } from '../../models/commit'
 import { CommitIdentity } from '../../models/commit-identity'
 import { parseRawUnfoldedTrailers } from './interpret-trailers'
 import { createLogParser } from './git-delimiter-parser'
-import { revRange } from '.'
 import { forceUnwrap } from '../fatal-error'
+import assert from 'assert'
 
 // File mode 160000 is used by git specifically for submodules:
 // https://github.com/git/git/blob/v2.37.3/cache.h#L62-L69
@@ -69,20 +69,40 @@ function mapStatus(
     return { kind: AppFileStatusKind.Deleted, submoduleStatus }
   } // deleted
   if (status === 'R' && oldPath != null) {
-    return { kind: AppFileStatusKind.Renamed, oldPath, submoduleStatus }
+    return {
+      kind: AppFileStatusKind.Renamed,
+      oldPath,
+      submoduleStatus,
+      renameIncludesModifications: false,
+    }
   } // renamed
   if (status === 'C' && oldPath != null) {
-    return { kind: AppFileStatusKind.Copied, oldPath, submoduleStatus }
+    return {
+      kind: AppFileStatusKind.Copied,
+      oldPath,
+      submoduleStatus,
+      renameIncludesModifications: false,
+    }
   } // copied
 
   // git log -M --name-status will return a RXXX - where XXX is a percentage
   if (status.match(/R[0-9]+/) && oldPath != null) {
-    return { kind: AppFileStatusKind.Renamed, oldPath, submoduleStatus }
+    return {
+      kind: AppFileStatusKind.Renamed,
+      oldPath,
+      submoduleStatus,
+      renameIncludesModifications: status !== 'R100',
+    }
   }
 
   // git log -C --name-status will return a CXXX - where XXX is a percentage
   if (status.match(/C[0-9]+/) && oldPath != null) {
-    return { kind: AppFileStatusKind.Copied, oldPath, submoduleStatus }
+    return {
+      kind: AppFileStatusKind.Copied,
+      oldPath,
+      submoduleStatus,
+      renameIncludesModifications: false,
+    }
   }
 
   return { kind: AppFileStatusKind.Modified, submoduleStatus }
@@ -144,6 +164,7 @@ export async function getCommits(
   )
   const result = await git(args, repository.path, 'getCommits', {
     successExitCodes: new Set([0, 128]),
+    encoding: 'buffer',
   })
 
   // if the repository has an unborn HEAD, return an empty history of commits
@@ -158,17 +179,18 @@ export async function getCommits(
     // Refs are comma separated, but some like tags can also contain commas in the name, so we split on the pattern ", " and then
     // check each ref for the tag prefix. We used to use the regex /tag: ([^\s,]+)/g)`, but will clip a tag with a comma short.
     const tags = commit.refs
+      .toString()
       .split(', ')
       .flatMap(ref => (ref.startsWith('tag: ') ? ref.substring(5) : []))
 
     return new Commit(
-      commit.sha,
-      commit.shortSha,
-      commit.summary,
-      commit.body,
-      CommitIdentity.parseIdentity(commit.author),
-      CommitIdentity.parseIdentity(commit.committer),
-      commit.parents.length > 0 ? commit.parents.split(' ') : [],
+      commit.sha.toString(),
+      commit.shortSha.toString(),
+      commit.summary.subarray(0, 100 * 1024).toString(),
+      commit.body.subarray(0, 100 * 1024).toString(),
+      CommitIdentity.parseIdentity(commit.author.toString()),
+      CommitIdentity.parseIdentity(commit.committer.toString()),
+      commit.parents.length > 0 ? commit.parents.toString().split(' ') : [],
       // We know for sure that the trailer separator will be ':' since we got
       // them from %(trailers:unfold) above, see `git help log`:
       //
@@ -176,7 +198,7 @@ export async function getCommits(
       //    trailer lines. When this option is not given each trailer key-value
       //    pair is separated by ": ". Otherwise it shares the same semantics as
       //    separator=<SEP> above."
-      parseRawUnfoldedTrailers(commit.trailers, ':'),
+      parseRawUnfoldedTrailers(commit.trailers.toString(), ':'),
       tags
     )
   })
@@ -324,24 +346,31 @@ export async function getCommit(
   return commits[0]
 }
 
-/**
- * Determine if merge commits exist in history after given commit
- * If no commitRef is null, goes back to HEAD of branch.
- */
-export async function doMergeCommitsExistAfterCommit(
-  repository: Repository,
-  commitRef: string | null
-): Promise<boolean> {
-  const commitRevRange =
-    commitRef === null ? undefined : revRange(commitRef, 'HEAD')
+/** Get the author identity for the given shas */
+export async function getAuthors(repository: Repository, shas: string[]) {
+  if (shas.length === 0) {
+    return []
+  }
 
-  const mergeCommits = await getCommits(
-    repository,
-    commitRevRange,
-    undefined,
-    undefined,
-    ['--merges']
+  const { stdout } = await git(
+    [
+      'log',
+      '--format=format:%an <%ae> %ad',
+      '--no-walk=unsorted',
+      '--date=raw',
+      '-z',
+      '--stdin',
+    ],
+    repository.path,
+    'getAuthors',
+    { stdin: shas.join('\n') }
   )
 
-  return mergeCommits.length > 0
+  const authors = stdout.split('\0').map(CommitIdentity.parseIdentity)
+
+  // This can happen if there are duplicate shas in the input, git log will only
+  // return the author once for each sha.
+  assert.equal(authors.length, shas.length, 'Commit to author mismatch')
+
+  return authors
 }

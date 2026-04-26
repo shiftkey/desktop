@@ -1,5 +1,5 @@
 // @ts-check
-
+const { describe, it } = require('node:test')
 const { ESLintUtils } = require('@typescript-eslint/experimental-utils')
 
 const RuleTester = ESLintUtils.RuleTester
@@ -16,12 +16,15 @@ const ruleTester = new RuleTester({
     sourceType: 'module',
   },
 })
-ruleTester.run('react-proper-lifecycle-methods', rule, {
-  valid: [
-    // component without lifecycle methods passes without errors
-    {
-      filename: 'app/src/component-no-state.tsx',
-      code: `
+
+describe('react-proper-lifecycle-methods', () => {
+  it('should complain about incorrect lifecycle methods', () => {
+    ruleTester.run('react-proper-lifecycle-methods', rule, {
+      valid: [
+        // component without lifecycle methods passes without errors
+        {
+          filename: 'app/src/component-no-state.tsx',
+          code: `
 import * as React from 'react'
 
 interface ICloningRepositoryProps {}
@@ -32,10 +35,10 @@ export class CloningRepositoryView extends React.Component<ICloningRepositoryPro
     }
 }
 `,
-    },
-    {
-      filename: 'app/src/component-lifecycle-events-no-state.tsx',
-      code: `
+        },
+        {
+          filename: 'app/src/component-lifecycle-events-no-state.tsx',
+          code: `
 import * as React from 'react'
 
 interface ICloningRepositoryProps {}
@@ -56,10 +59,10 @@ export class CloningRepositoryView extends React.Component<ICloningRepositoryPro
     }
 }
 `,
-    },
-    {
-      filename: 'app/src/component-lifecycle-events-with-state.tsx',
-      code: `
+        },
+        {
+          filename: 'app/src/component-lifecycle-events-with-state.tsx',
+          code: `
 import * as React from 'react'
 
 interface ICloningRepositoryProps {}
@@ -82,10 +85,10 @@ export class CloningRepositoryView extends React.Component<ICloningRepositoryPro
     }
 }
 `,
-    },
-    {
-      filename: 'app/src/pure-component-lifecycle-events-with-state.tsx',
-      code: `
+        },
+        {
+          filename: 'app/src/pure-component-lifecycle-events-with-state.tsx',
+          code: `
 import * as React from 'react'
 
 interface ICloningRepositoryProps {}
@@ -108,10 +111,10 @@ export class CloningRepositoryView extends React.PureComponent<ICloningRepositor
     }
 }
 `,
-    },
-    {
-      filename: 'app/src/component-lifecycle-events-with-type-literal.tsx',
-      code: `
+        },
+        {
+          filename: 'app/src/component-lifecycle-events-with-type-literal.tsx',
+          code: `
 import * as React from 'react'
 
 interface IWindowControlState {}
@@ -129,10 +132,10 @@ export class WindowControls extends React.Component<{}, IWindowControlState> {
   }
 }
 `,
-    },
-    {
-      filename: 'app/src/component-lifecycle-events-with-type-literal.tsx',
-      code: `
+        },
+        {
+          filename: 'app/src/component-lifecycle-events-with-type-literal.tsx',
+          code: `
 import * as React from 'react'
 
 interface IWindowControlState {}
@@ -150,26 +153,26 @@ export class WindowControls extends React.Component {
     }
 }
 `,
-    },
-    // a regular class with the same method name is ignored
-    {
-      filename: 'app/src/ui/other.tsx',
-      code: `
+        },
+        // a regular class with the same method name is ignored
+        {
+          filename: 'app/src/ui/other.tsx',
+          code: `
   class Something {
     public componentWillUpdate(foo: string) {
       
     }
   }
   `,
-    },
-  ],
-  invalid: [
-    //
-    // shouldComponentUpdate expects the first parameter to be nextProps and match the component's prop type
-    //
-    {
-      filename: 'app/src/component.tsx',
-      code: `
+        },
+      ],
+      invalid: [
+        //
+        // shouldComponentUpdate expects the first parameter to be nextProps and match the component's prop type
+        //
+        {
+          filename: 'app/src/component.tsx',
+          code: `
 import * as React from 'react'
 
 interface ICloningRepositoryProps {}
@@ -182,31 +185,31 @@ export class CloningRepositoryView extends React.Component<ICloningRepositoryPro
     }
 }
 `,
-      errors: [
-        {
-          messageId: 'nameMismatch',
-          data: {
-            methodName: 'shouldComponentUpdate',
-            parameterName: 'foo',
-            expectedName: 'nextProps',
-          },
+          errors: [
+            {
+              messageId: 'nameMismatch',
+              data: {
+                methodName: 'shouldComponentUpdate',
+                parameterName: 'foo',
+                expectedName: 'nextProps',
+              },
+            },
+            {
+              messageId: 'typeMismatch',
+              data: {
+                methodName: 'shouldComponentUpdate',
+                parameterName: 'foo',
+                expectedType: 'ICloningRepositoryProps',
+              },
+            },
+          ],
         },
+        //
+        // shouldComponentUpdate expects the second parameter to be nextState and match the component's state type
+        //
         {
-          messageId: 'typeMismatch',
-          data: {
-            methodName: 'shouldComponentUpdate',
-            parameterName: 'foo',
-            expectedType: 'ICloningRepositoryProps',
-          },
-        },
-      ],
-    },
-    //
-    // shouldComponentUpdate expects the second parameter to be nextState and match the component's state type
-    //
-    {
-      filename: 'app/src/component.tsx',
-      code: `
+          filename: 'app/src/component.tsx',
+          code: `
 import * as React from 'react'
 
 interface ICloningRepositoryProps {}
@@ -221,31 +224,31 @@ export class CloningRepositoryView extends React.Component<ICloningRepositoryPro
     }
 }
 `,
-      errors: [
-        {
-          messageId: 'nameMismatch',
-          data: {
-            methodName: 'shouldComponentUpdate',
-            parameterName: 'foo',
-            expectedName: 'nextState',
-          },
+          errors: [
+            {
+              messageId: 'nameMismatch',
+              data: {
+                methodName: 'shouldComponentUpdate',
+                parameterName: 'foo',
+                expectedName: 'nextState',
+              },
+            },
+            {
+              messageId: 'typeMismatch',
+              data: {
+                methodName: 'shouldComponentUpdate',
+                parameterName: 'foo',
+                expectedType: 'ICloningRepositoryState',
+              },
+            },
+          ],
         },
+        //
+        // shouldComponentUpdate is not permitted to have any additional parameters
+        //
         {
-          messageId: 'typeMismatch',
-          data: {
-            methodName: 'shouldComponentUpdate',
-            parameterName: 'foo',
-            expectedType: 'ICloningRepositoryState',
-          },
-        },
-      ],
-    },
-    //
-    // shouldComponentUpdate is not permitted to have any additional parameters
-    //
-    {
-      filename: 'app/src/component.tsx',
-      code: `
+          filename: 'app/src/component.tsx',
+          code: `
 import * as React from 'react'
 
 interface ICloningRepositoryProps {}
@@ -260,23 +263,23 @@ export class CloningRepositoryView extends React.Component<ICloningRepositoryPro
     }
 }
 `,
-      errors: [
-        {
-          messageId: 'unknownParameter',
-          data: {
-            methodName: 'shouldComponentUpdate',
-            parameterName: 'additionalParam',
-          },
+          errors: [
+            {
+              messageId: 'unknownParameter',
+              data: {
+                methodName: 'shouldComponentUpdate',
+                parameterName: 'additionalParam',
+              },
+            },
+          ],
         },
-      ],
-    },
 
-    //
-    // componentWillUpdate expects the first parameter to be nextProps and match the component's prop type
-    //
-    {
-      filename: 'app/src/component.tsx',
-      code: `
+        //
+        // componentWillUpdate expects the first parameter to be nextProps and match the component's prop type
+        //
+        {
+          filename: 'app/src/component.tsx',
+          code: `
 import * as React from 'react'
 
 interface ICloningRepositoryProps {}
@@ -289,32 +292,32 @@ export class CloningRepositoryView extends React.Component<ICloningRepositoryPro
     }
 }
 `,
-      errors: [
-        {
-          messageId: 'nameMismatch',
-          data: {
-            methodName: 'componentWillUpdate',
-            parameterName: 'bar',
-            expectedName: 'nextProps',
-          },
+          errors: [
+            {
+              messageId: 'nameMismatch',
+              data: {
+                methodName: 'componentWillUpdate',
+                parameterName: 'bar',
+                expectedName: 'nextProps',
+              },
+            },
+            {
+              messageId: 'typeMismatch',
+              data: {
+                methodName: 'componentWillUpdate',
+                parameterName: 'bar',
+                expectedType: 'ICloningRepositoryProps',
+              },
+            },
+          ],
         },
-        {
-          messageId: 'typeMismatch',
-          data: {
-            methodName: 'componentWillUpdate',
-            parameterName: 'bar',
-            expectedType: 'ICloningRepositoryProps',
-          },
-        },
-      ],
-    },
 
-    //
-    // componentWillUpdate expects the first parameter to be nextProps and match the component's type literal
-    //
-    {
-      filename: 'app/src/component.tsx',
-      code: `
+        //
+        // componentWillUpdate expects the first parameter to be nextProps and match the component's type literal
+        //
+        {
+          filename: 'app/src/component.tsx',
+          code: `
 import * as React from 'react'
 
 interface IWindowControlState {}
@@ -327,32 +330,32 @@ export class CloningRepositoryView extends React.Component<{}, IWindowControlSta
     }
 }
 `,
-      errors: [
-        {
-          messageId: 'nameMismatch',
-          data: {
-            methodName: 'componentWillUpdate',
-            parameterName: 'bar',
-            expectedName: 'nextProps',
-          },
+          errors: [
+            {
+              messageId: 'nameMismatch',
+              data: {
+                methodName: 'componentWillUpdate',
+                parameterName: 'bar',
+                expectedName: 'nextProps',
+              },
+            },
+            {
+              messageId: 'typeMismatch',
+              data: {
+                methodName: 'componentWillUpdate',
+                parameterName: 'bar',
+                expectedType: '{}',
+              },
+            },
+          ],
         },
-        {
-          messageId: 'typeMismatch',
-          data: {
-            methodName: 'componentWillUpdate',
-            parameterName: 'bar',
-            expectedType: '{}',
-          },
-        },
-      ],
-    },
 
-    //
-    // componentWillUpdate expects the second parameter to be nextState and match the component's state type
-    //
-    {
-      filename: 'app/src/component.tsx',
-      code: `
+        //
+        // componentWillUpdate expects the second parameter to be nextState and match the component's state type
+        //
+        {
+          filename: 'app/src/component.tsx',
+          code: `
 import * as React from 'react'
 
 interface ICloningRepositoryProps {}
@@ -367,32 +370,32 @@ export class CloningRepositoryView extends React.Component<ICloningRepositoryPro
     }
 }
 `,
-      errors: [
-        {
-          messageId: 'nameMismatch',
-          data: {
-            methodName: 'componentWillUpdate',
-            parameterName: 'foo',
-            expectedName: 'nextState',
-          },
+          errors: [
+            {
+              messageId: 'nameMismatch',
+              data: {
+                methodName: 'componentWillUpdate',
+                parameterName: 'foo',
+                expectedName: 'nextState',
+              },
+            },
+            {
+              messageId: 'typeMismatch',
+              data: {
+                methodName: 'componentWillUpdate',
+                parameterName: 'foo',
+                expectedType: 'ICloningRepositoryState',
+              },
+            },
+          ],
         },
-        {
-          messageId: 'typeMismatch',
-          data: {
-            methodName: 'componentWillUpdate',
-            parameterName: 'foo',
-            expectedType: 'ICloningRepositoryState',
-          },
-        },
-      ],
-    },
 
-    //
-    // componentWillUpdate expects the first parameter to be nextProps and match the component's type
-    //
-    {
-      filename: 'app/src/component.tsx',
-      code: `
+        //
+        // componentWillUpdate expects the first parameter to be nextProps and match the component's type
+        //
+        {
+          filename: 'app/src/component.tsx',
+          code: `
 import * as React from 'react'
 
 interface IWindowControlProps {}
@@ -407,32 +410,32 @@ export class CloningRepositoryView extends React.Component<IWindowControlProps, 
     }
 }
 `,
-      errors: [
-        {
-          messageId: 'nameMismatch',
-          data: {
-            methodName: 'componentDidUpdate',
-            parameterName: 'bar',
-            expectedName: 'prevProps',
-          },
+          errors: [
+            {
+              messageId: 'nameMismatch',
+              data: {
+                methodName: 'componentDidUpdate',
+                parameterName: 'bar',
+                expectedName: 'prevProps',
+              },
+            },
+            {
+              messageId: 'typeMismatch',
+              data: {
+                methodName: 'componentDidUpdate',
+                parameterName: 'bar',
+                expectedType: 'IWindowControlProps',
+              },
+            },
+          ],
         },
-        {
-          messageId: 'typeMismatch',
-          data: {
-            methodName: 'componentDidUpdate',
-            parameterName: 'bar',
-            expectedType: 'IWindowControlProps',
-          },
-        },
-      ],
-    },
 
-    //
-    // componentDidUpdate expects the second parameter to be nextState and match the component's state type
-    //
-    {
-      filename: 'app/src/component.tsx',
-      code: `
+        //
+        // componentDidUpdate expects the second parameter to be nextState and match the component's state type
+        //
+        {
+          filename: 'app/src/component.tsx',
+          code: `
 import * as React from 'react'
 
 interface ICloningRepositoryProps {}
@@ -447,32 +450,32 @@ export class CloningRepositoryView extends React.Component<ICloningRepositoryPro
     }
 }
 `,
-      errors: [
-        {
-          messageId: 'nameMismatch',
-          data: {
-            methodName: 'componentDidUpdate',
-            parameterName: 'foo',
-            expectedName: 'prevState',
-          },
+          errors: [
+            {
+              messageId: 'nameMismatch',
+              data: {
+                methodName: 'componentDidUpdate',
+                parameterName: 'foo',
+                expectedName: 'prevState',
+              },
+            },
+            {
+              messageId: 'typeMismatch',
+              data: {
+                methodName: 'componentDidUpdate',
+                parameterName: 'foo',
+                expectedType: 'ICloningRepositoryState',
+              },
+            },
+          ],
         },
-        {
-          messageId: 'typeMismatch',
-          data: {
-            methodName: 'componentDidUpdate',
-            parameterName: 'foo',
-            expectedType: 'ICloningRepositoryState',
-          },
-        },
-      ],
-    },
 
-    //
-    // Methods inside a component following the `component*` or `shouldComponent*` pattern should be rejected
-    //
-    {
-      filename: 'app/src/component.tsx',
-      code: `
+        //
+        // Methods inside a component following the `component*` or `shouldComponent*` pattern should be rejected
+        //
+        {
+          filename: 'app/src/component.tsx',
+          code: `
 import * as React from 'react'
 
 interface ICloningRepositoryProps {}
@@ -489,28 +492,28 @@ export class CloningRepositoryView extends React.Component<ICloningRepositoryPro
     }
 }
 `,
-      errors: [
-        {
-          messageId: 'reservedMethodName',
-          data: {
-            methodName: 'componentWillDoSomething',
-          },
+          errors: [
+            {
+              messageId: 'reservedMethodName',
+              data: {
+                methodName: 'componentWillDoSomething',
+              },
+            },
+            {
+              messageId: 'reservedMethodName',
+              data: {
+                methodName: 'shouldComponentFoo',
+              },
+            },
+          ],
         },
-        {
-          messageId: 'reservedMethodName',
-          data: {
-            methodName: 'shouldComponentFoo',
-          },
-        },
-      ],
-    },
 
-    //
-    // Methods inside a non-generic component following the `component*` or `shouldComponent*` pattern should be rejected
-    //
-    {
-      filename: 'app/src/component.tsx',
-      code: `
+        //
+        // Methods inside a non-generic component following the `component*` or `shouldComponent*` pattern should be rejected
+        //
+        {
+          filename: 'app/src/component.tsx',
+          code: `
 import * as React from 'react'
 
 export class CloningRepositoryView extends React.Component {
@@ -523,20 +526,22 @@ export class CloningRepositoryView extends React.Component {
     }
 }
 `,
-      errors: [
-        {
-          messageId: 'reservedMethodName',
-          data: {
-            methodName: 'componentWillDoSomething',
-          },
-        },
-        {
-          messageId: 'reservedMethodName',
-          data: {
-            methodName: 'shouldComponentFoo',
-          },
+          errors: [
+            {
+              messageId: 'reservedMethodName',
+              data: {
+                methodName: 'componentWillDoSomething',
+              },
+            },
+            {
+              messageId: 'reservedMethodName',
+              data: {
+                methodName: 'shouldComponentFoo',
+              },
+            },
+          ],
         },
       ],
-    },
-  ],
+    })
+  })
 })

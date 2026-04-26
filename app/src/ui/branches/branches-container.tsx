@@ -217,18 +217,26 @@ export class BranchesContainer extends React.Component<
     )
   }
 
-  private renderBranch = (item: IBranchListItem, matches: IMatches) => {
+  private renderBranch = (
+    item: IBranchListItem,
+    matches: IMatches,
+    authorDate: Date | undefined
+  ) => {
     return renderDefaultBranch(
       item,
       matches,
       this.props.currentBranch,
+      authorDate,
       this.onDropOntoBranch,
       this.onDropOntoCurrentBranch
     )
   }
 
-  private getBranchAriaLabel = (item: IBranchListItem): string => {
-    return getDefaultAriaLabelForBranch(item)
+  private getBranchAriaLabel = (
+    item: IBranchListItem,
+    authorDate: Date | undefined
+  ): string => {
+    return getDefaultAriaLabelForBranch(item, authorDate)
   }
 
   private renderSelectedTab() {
@@ -261,6 +269,7 @@ export class BranchesContainer extends React.Component<
       case BranchesTab.Branches:
         return (
           <BranchList
+            repository={this.props.repository}
             defaultBranch={this.props.defaultBranch}
             currentBranch={this.props.currentBranch}
             allBranches={this.props.allBranches}
@@ -298,6 +307,10 @@ export class BranchesContainer extends React.Component<
     const label = __DARWIN__ ? 'New Branch' : 'New branch'
 
     return (
+      /**
+       * This a11y linter is a false-positive as the element is a drop target
+       * facilitating our drag and drop functionality for cherry-picking.
+       */
       // eslint-disable-next-line jsx-a11y/no-static-element-interactions
       <div
         className="branches-list-item new-branch-drop"

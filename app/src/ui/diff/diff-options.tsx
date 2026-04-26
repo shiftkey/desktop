@@ -116,6 +116,7 @@ export class DiffOptions extends React.Component<
         anchor={this.gearIconRef.current}
         anchorPosition={PopoverAnchorPosition.BottomRight}
         decoration={PopoverDecoration.Balloon}
+        onMousedownOutside={this.closePopover}
         onClickOutside={this.closePopover}
       >
         <h3 id="diff-options-popover-header">{header}</h3>

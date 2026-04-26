@@ -1,4 +1,5 @@
-import { Repository } from '../../../src/models/repository'
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import {
   setupConflictedRepo,
   setupConflictedRepoWithMultipleFiles,
@@ -8,26 +9,22 @@ import {
 import { getFilesWithConflictMarkers } from '../../../src/lib/git/diff-check'
 
 describe('getFilesWithConflictMarkers', () => {
-  let repository: Repository
-
   describe('with one conflicted file', () => {
-    beforeEach(async () => {
-      repository = await setupConflictedRepo()
-    })
+    it('finds one conflicted file', async t => {
+      const repository = await setupConflictedRepo(t)
 
-    it('finds one conflicted file', async () => {
-      expect(await getFilesWithConflictMarkers(repository.path)).toEqual(
+      assert.deepStrictEqual(
+        await getFilesWithConflictMarkers(repository.path),
         new Map([['foo', 3]])
       )
     })
   })
 
   describe('with one conflicted file', () => {
-    beforeEach(async () => {
-      repository = await setupConflictedRepoWithMultipleFiles()
-    })
-    it('finds multiple conflicted files', async () => {
-      expect(await getFilesWithConflictMarkers(repository.path)).toEqual(
+    it('finds multiple conflicted files', async t => {
+      const repository = await setupConflictedRepoWithMultipleFiles(t)
+      assert.deepStrictEqual(
+        await getFilesWithConflictMarkers(repository.path),
         new Map([
           ['baz', 3],
           ['cat', 3],
@@ -38,14 +35,9 @@ describe('getFilesWithConflictMarkers', () => {
   })
 
   describe('with no conflicted files', () => {
-    beforeEach(async () => {
-      repository = await setupEmptyRepository()
-    })
-
-    it('finds one conflicted file', async () => {
-      expect(await getFilesWithConflictMarkers(repository.path)).toEqual(
-        new Map()
-      )
+    it('finds no conflicted files', async t => {
+      const repository = await setupEmptyRepository(t)
+      assert((await getFilesWithConflictMarkers(repository.path)).size === 0)
     })
   })
 })

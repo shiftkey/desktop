@@ -300,13 +300,13 @@ interface IListProps {
 
   /** Optional role setting.
    *
-   * By default our lists use the `list-box` role paired with list items of role
+   * By default our lists use the `listbox` role paired with list items of role
    * 'option' because that have selection capability. In that case, a
    * screenreader will only browse to the selected list option. If the list is
    * meant to be a read only list, we should use `list` with `listitem` as the
    * role for the items so browse mode can navigate them.
    */
-  readonly role?: `list-box` | `list`
+  readonly role?: 'listbox' | 'list'
 
   /**
    * Optional callback for providing an aria label for screen readers for each
@@ -341,6 +341,13 @@ interface IListProps {
     indexPath: RowIndexPath,
     data: KeyboardInsertionData
   ) => void
+
+  /**
+   * Optional render function for the keyboard focus tooltip
+   */
+  readonly renderRowFocusTooltip?: (
+    indexPath: RowIndexPath
+  ) => JSX.Element | string | null
 }
 
 interface IListState {
@@ -1188,7 +1195,7 @@ export class List extends React.Component<IListProps, IListState> {
         <ListRow
           key={params.key}
           id={id}
-          role={this.props.role === undefined ? undefined : 'listitem'}
+          role={this.props.role === 'list' ? 'listitem' : undefined}
           onRowRef={this.onRowRef}
           rowCount={this.props.rowCount}
           rowIndex={{ section: 0, row: rowIndex }}
@@ -1214,6 +1221,8 @@ export class List extends React.Component<IListProps, IListState> {
           children={element}
           selectable={selectable}
           className={customClasses}
+          hasKeyboardFocus={this.focusRow === rowIndex}
+          renderRowFocusTooltip={this.props.renderRowFocusTooltip}
         />
       )
     }
@@ -1389,7 +1398,7 @@ export class List extends React.Component<IListProps, IListState> {
           id={this.props.accessibleListId}
           aria-labelledby={this.props.ariaLabelledBy}
           aria-label={this.props.ariaLabel}
-          role={this.props.role ?? 'list-box'}
+          role={this.props.role ?? 'listbox'}
           ref={this.onGridRef}
           autoContainerWidth={true}
           containerRole="presentation"
@@ -1467,12 +1476,15 @@ export class List extends React.Component<IListProps, IListState> {
 
     this.lastScroll = 'fake'
 
-    if (this.grid) {
-      const element = ReactDOM.findDOMNode(this.grid)
-      if (element instanceof Element) {
-        element.scrollTop = e.currentTarget.scrollTop
-      }
-    }
+    // Use scrollToPosition instead of directly setting element.scrollTop.
+    // Direct DOM mutation doesn't properly update react-virtualized's internal
+    // state, which can cause rows to not render correctly after keyboard
+    // navigation followed by scrollbar dragging.
+    // See https://github.com/desktop/desktop/issues/21940
+    this.grid?.scrollToPosition({
+      scrollLeft: 0,
+      scrollTop: e.currentTarget.scrollTop,
+    })
   }
 
   private onRowMouseDown = (

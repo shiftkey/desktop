@@ -8,6 +8,7 @@ import { WorkingDirectoryFileChange } from '../../models/status'
 import { TooltipDirection } from '../lib/tooltip'
 import { TooltippedContent } from '../lib/tooltipped-content'
 import { AriaLiveContainer } from '../accessibility/aria-live-container'
+import { IMatches } from '../../lib/fuzzy-find'
 
 interface IChangedFileProps {
   readonly file: WorkingDirectoryFileChange
@@ -16,14 +17,19 @@ interface IChangedFileProps {
   readonly disableSelection: boolean
   readonly checkboxTooltip?: string
   readonly focused: boolean
-  readonly onIncludeChanged: (path: string, include: boolean) => void
+  /** The characters in the file path to highlight */
+  readonly matches?: IMatches
+  readonly onIncludeChanged: (
+    file: WorkingDirectoryFileChange,
+    include: boolean
+  ) => void
 }
 
 /** a changed file in the working directory for a given repository */
 export class ChangedFile extends React.Component<IChangedFileProps, {}> {
   private handleCheckboxChange = (event: React.FormEvent<HTMLInputElement>) => {
     const include = event.currentTarget.checked
-    this.props.onIncludeChanged(this.props.file.path, include)
+    this.props.onIncludeChanged(this.props.file, include)
   }
 
   private get checkboxValue(): CheckboxValue {
@@ -37,8 +43,14 @@ export class ChangedFile extends React.Component<IChangedFileProps, {}> {
   }
 
   public render() {
-    const { file, availableWidth, disableSelection, checkboxTooltip, focused } =
-      this.props
+    const {
+      file,
+      availableWidth,
+      disableSelection,
+      checkboxTooltip,
+      focused,
+      matches,
+    } = this.props
     const { status, path } = file
     const fileStatus = mapStatus(status)
 
@@ -88,6 +100,7 @@ export class ChangedFile extends React.Component<IChangedFileProps, {}> {
           status={status}
           availableWidth={availablePathWidth}
           ariaHidden={true}
+          matches={matches}
         />
 
         <AriaLiveContainer message={pathScreenReaderMessage} />

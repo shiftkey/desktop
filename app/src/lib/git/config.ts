@@ -122,34 +122,21 @@ async function getConfigValueInPath(
   return pieces[0]
 }
 
-/** Get the path to the global git config. */
-export async function getGlobalConfigPath(env?: {
-  HOME: string
-}): Promise<string | null> {
-  const options = env ? { env } : undefined
-  const result = await git(
-    ['config', '--global', '--list', '--show-origin', '--name-only', '-z'],
-    __dirname,
-    'getGlobalConfigPath',
-    options
-  )
-  const segments = result.stdout.split('\0')
-  if (segments.length < 1) {
-    return null
-  }
-
-  const pathSegment = segments[0]
-  if (!pathSegment.length) {
-    return null
-  }
-
-  const path = pathSegment.match(/file:(.+)/i)
-  if (!path || path.length < 2) {
-    return null
-  }
-
-  return normalize(path[1])
-}
+/**
+ * Get the path to the global git config
+ *
+ * Note: this uses git config --edit which will automatically create the global
+ * config file if it doesn't exist yet. The primary purpose behind this method
+ * is to support opening the global git config for editing.
+ */
+export const getGlobalConfigPath = (env?: { HOME: string }) =>
+  git(['config', '--edit', '--global'], __dirname, 'getGlobalConfigPath', {
+    // We're using printf instead of echo because echo could attempt to decode
+    // escape sequences like \n which would be bad in a case like
+    // c:\Users\niik\.gitconfig
+    //         ^^
+    env: { ...env, GIT_EDITOR: 'printf %s' },
+  }).then(x => normalize(x.stdout))
 
 /** Set the local config value by name. */
 export async function setConfigValue(

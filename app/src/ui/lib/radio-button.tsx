@@ -33,13 +33,19 @@ interface IRadioButtonProps<T> {
 
   /** Whether the textarea field should auto focus when mounted. */
   readonly autoFocus?: boolean
+
+  /** Optional: The onDoubleClick event handler for radio button */
+  readonly onDoubleClick?: (
+    key: T,
+    event: React.MouseEvent<HTMLLabelElement>
+  ) => void
 }
 
 interface IRadioButtonState {
   readonly inputId: string
 }
 
-export class RadioButton<T extends string> extends React.Component<
+export class RadioButton<T extends React.Key> extends React.Component<
   IRadioButtonProps<T>,
   IRadioButtonState
 > {
@@ -58,17 +64,17 @@ export class RadioButton<T extends string> extends React.Component<
   public render() {
     return (
       <div className="radio-button-component">
-        <input
-          type="radio"
-          id={this.state.inputId}
-          value={this.props.value}
-          checked={this.props.checked}
-          onChange={this.onSelected}
-          tabIndex={this.props.tabIndex}
-          autoFocus={this.props.autoFocus}
-        />
-        <label htmlFor={this.state.inputId}>
-          {this.props.label ?? this.props.children}
+        <label htmlFor={this.state.inputId} onDoubleClick={this.onDoubleClick}>
+          <input
+            type="radio"
+            id={this.state.inputId}
+            value={this.props.value}
+            checked={this.props.checked}
+            onChange={this.onSelected}
+            tabIndex={this.props.tabIndex}
+            autoFocus={this.props.autoFocus}
+          />
+          <span>{this.props.label ?? this.props.children}</span>
         </label>
       </div>
     )
@@ -76,5 +82,9 @@ export class RadioButton<T extends string> extends React.Component<
 
   private onSelected = (evt: React.FormEvent<HTMLInputElement>) => {
     this.props.onSelected(this.props.value, evt)
+  }
+
+  private onDoubleClick = (evt: React.MouseEvent<HTMLLabelElement>) => {
+    this.props.onDoubleClick?.(this.props.value, evt)
   }
 }

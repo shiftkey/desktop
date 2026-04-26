@@ -2,6 +2,9 @@
 /** Is the app running in dev mode? */
 declare const __DEV__: boolean
 
+/** Is the app using dev secrets? */
+declare const __DEV_SECRETS__: boolean
+
 /** The OAuth client id the app should use */
 declare const __OAUTH_CLIENT_ID__: string | undefined
 
@@ -43,8 +46,6 @@ declare const __RELEASE_CHANNEL__:
   | 'beta'
   | 'test'
   | 'development'
-
-declare const __CLI_COMMANDS__: ReadonlyArray<string>
 
 /** The URL for Squirrel's updates. */
 declare const __UPDATES_URL__: string

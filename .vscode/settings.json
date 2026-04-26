@@ -6,7 +6,8 @@
     "**/node_modules": true,
     "**/out": true,
     "app/test/fixtures": true,
-    "vendor": true
+    "vendor/yarn-*": true,
+    "app/static/common/choosealicense.com": true
   },
   "files.exclude": {
     "**/.git": true,
@@ -25,6 +26,7 @@
   "prettier.singleQuote": true,
   "prettier.trailingComma": "es5",
   "editor.formatOnSave": true,
+  "prettier.prettierPath": "./node_modules/prettier",
   "prettier.ignorePath": ".prettierignore",
   "eslint.options": {
     "overrideConfigFile": ".eslintrc.yml",
@@ -36,5 +38,10 @@
     "typescript",
     "typescriptreact"
   ],
-  "editor.defaultFormatter": "esbenp.prettier-vscode"
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[typescript][javascript][typescriptreact]": {
+    "editor.codeActionsOnSave": {
+      "source.removeUnusedImports": "explicit"
+    }
+  }
 }

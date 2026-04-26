@@ -4,6 +4,7 @@ import {
   SubmoduleStatus,
   UnmergedEntrySummary,
 } from '../models/status'
+import { splitBuffer } from './split-buffer'
 
 type StatusItem = IStatusHeader | IStatusEntry
 
@@ -27,6 +28,9 @@ export interface IStatusEntry {
 
   /** The original path in the case of a renamed file */
   readonly oldPath?: string
+
+  /** The rename or copy score in the case of a renamed file */
+  readonly renameOrCopyScore?: number
 }
 
 export function isStatusHeader(
@@ -49,7 +53,7 @@ const IgnoredEntryType = '!'
 
 /** Parses output from git status --porcelain -z into file status entries */
 export function parsePorcelainStatus(
-  output: string
+  output: Buffer
 ): ReadonlyArray<StatusItem> {
   const entries = new Array<StatusItem>()
 
@@ -67,10 +71,10 @@ export function parsePorcelainStatus(
   // containing special characters are not specially formatted; no quoting or
   // backslash-escaping is performed.
 
-  const tokens = output.split('\0')
+  const tokens = splitBuffer(output, '\0')
 
   for (let i = 0; i < tokens.length; i++) {
-    const field = tokens[i]
+    const field = tokens[i].toString()
     if (field.startsWith('# ') && field.length > 2) {
       entries.push({ kind: 'header', value: field.substring(2) })
       continue
@@ -81,7 +85,7 @@ export function parsePorcelainStatus(
     if (entryKind === ChangedEntryType) {
       entries.push(parseChangedEntry(field))
     } else if (entryKind === RenamedOrCopiedEntryType) {
-      entries.push(parsedRenamedOrCopiedEntry(field, tokens[++i]))
+      entries.push(parsedRenamedOrCopiedEntry(field, tokens[++i].toString()))
     } else if (entryKind === UnmergedEntryType) {
       entries.push(parseUnmergedEntry(field))
     } else if (entryKind === UntrackedEntryType) {
@@ -140,6 +144,7 @@ function parsedRenamedOrCopiedEntry(
     statusCode: match[1],
     submoduleStatusCode: match[2],
     oldPath,
+    renameOrCopyScore: parseInt(match[8].substring(1), 10),
     path: match[9],
   }
 }
@@ -195,7 +200,8 @@ function mapSubmoduleStatus(
  */
 export function mapStatus(
   statusCode: string,
-  submoduleStatusCode: string
+  submoduleStatusCode: string,
+  renameOrCopyScore: number | undefined
 ): FileEntry {
   const submoduleStatus = mapSubmoduleStatus(submoduleStatusCode)
 
@@ -268,6 +274,7 @@ export function mapStatus(
       kind: 'renamed',
       index: GitStatusEntry.Renamed,
       workingTree: GitStatusEntry.Unchanged,
+      renameOrCopyScore,
       submoduleStatus,
     }
   }
@@ -277,6 +284,7 @@ export function mapStatus(
       kind: 'renamed',
       index: GitStatusEntry.Unchanged,
       workingTree: GitStatusEntry.Renamed,
+      renameOrCopyScore,
       submoduleStatus,
     }
   }
@@ -324,6 +332,7 @@ export function mapStatus(
       kind: 'renamed',
       index: GitStatusEntry.Renamed,
       workingTree: GitStatusEntry.Modified,
+      renameOrCopyScore,
       submoduleStatus,
     }
   }
@@ -333,6 +342,7 @@ export function mapStatus(
       kind: 'renamed',
       index: GitStatusEntry.Renamed,
       workingTree: GitStatusEntry.Deleted,
+      renameOrCopyScore,
       submoduleStatus,
     }
   }

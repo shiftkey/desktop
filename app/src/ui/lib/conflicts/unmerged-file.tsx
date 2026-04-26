@@ -28,6 +28,7 @@ import {
   getLabelForManualResolutionOption,
 } from '../../../lib/status'
 import { revealInFileManager } from '../../../lib/app-shell'
+import { DialogPreferredFocusClassName } from '../../dialog'
 
 const defaultConflictsResolvedMessage = 'No conflicts remaining'
 
@@ -78,6 +79,8 @@ export const renderUnmergedFile: React.FunctionComponent<{
   readonly setIsFileResolutionOptionsMenuOpen: (
     isFileResolutionOptionsMenuOpen: boolean
   ) => void
+  /** whether this is the first conflicted file in the dialog (for focus management) */
+  readonly isFirstConflictedFile?: boolean
 }> = props => {
   if (
     isConflictWithMarkers(props.status) &&
@@ -96,6 +99,7 @@ export const renderUnmergedFile: React.FunctionComponent<{
       isFileResolutionOptionsMenuOpen: props.isFileResolutionOptionsMenuOpen,
       setIsFileResolutionOptionsMenuOpen:
         props.setIsFileResolutionOptionsMenuOpen,
+      isFirstConflictedFile: props.isFirstConflictedFile,
     })
   }
   if (
@@ -109,6 +113,7 @@ export const renderUnmergedFile: React.FunctionComponent<{
       dispatcher: props.dispatcher,
       ourBranch: props.ourBranch,
       theirBranch: props.theirBranch,
+      isFirstConflictedFile: props.isFirstConflictedFile,
     })
   }
   return renderResolvedFile({
@@ -174,6 +179,7 @@ const renderManualConflictedFile: React.FunctionComponent<{
   readonly ourBranch?: string
   readonly theirBranch?: string
   readonly dispatcher: Dispatcher
+  readonly isFirstConflictedFile?: boolean
 }> = props => {
   const onDropdownClick = makeManualConflictDropdownClickHandler(
     props.path,
@@ -183,6 +189,16 @@ const renderManualConflictedFile: React.FunctionComponent<{
     props.ourBranch,
     props.theirBranch
   )
+
+  const onDropdownKeyDown = makeManualConflictDropdownOnKeyDownHandler(
+    props.path,
+    props.status,
+    props.repository,
+    props.dispatcher,
+    props.ourBranch,
+    props.theirBranch
+  )
+
   const { ourBranch, theirBranch } = props
   const { entry } = props.status
 
@@ -200,6 +216,10 @@ const renderManualConflictedFile: React.FunctionComponent<{
     conflictTypeString = `File does not exist on ${targetBranch}.`
   }
 
+  const resolveButtonClassName = props.isFirstConflictedFile
+    ? `small-button button-group-item resolve-arrow-menu ${DialogPreferredFocusClassName}`
+    : 'small-button button-group-item resolve-arrow-menu'
+
   const content = (
     <>
       <div className="column-left">
@@ -208,8 +228,9 @@ const renderManualConflictedFile: React.FunctionComponent<{
       </div>
       <div className="action-buttons">
         <Button
-          className="small-button button-group-item resolve-arrow-menu"
+          className={resolveButtonClassName}
           onClick={onDropdownClick}
+          onKeyDown={onDropdownKeyDown}
         >
           Resolve
           <Octicon symbol={octicons.triangleDown} />
@@ -246,6 +267,7 @@ const renderConflictedFileWithConflictMarkers: React.FunctionComponent<{
   readonly setIsFileResolutionOptionsMenuOpen: (
     isFileResolutionOptionsMenuOpen: boolean
   ) => void
+  readonly isFirstConflictedFile?: boolean
 }> = props => {
   const humanReadableConflicts = calculateConflicts(
     props.status.conflictMarkerCount
@@ -267,6 +289,19 @@ const renderConflictedFileWithConflictMarkers: React.FunctionComponent<{
     props.setIsFileResolutionOptionsMenuOpen
   )
 
+  const onDropdownKeyDown = makeManualConflictDropdownOnKeyDownHandler(
+    props.path,
+    props.status,
+    props.repository,
+    props.dispatcher,
+    props.ourBranch,
+    props.theirBranch
+  )
+
+  const openEditorButtonClassName = props.isFirstConflictedFile
+    ? `small-button button-group-item ${DialogPreferredFocusClassName}`
+    : 'small-button button-group-item'
+
   const content = (
     <>
       <div className="column-left">
@@ -278,12 +313,13 @@ const renderConflictedFileWithConflictMarkers: React.FunctionComponent<{
           onClick={props.onOpenEditorClick}
           disabled={disabled}
           tooltip={tooltip}
-          className="small-button button-group-item"
+          className={openEditorButtonClassName}
         >
           {editorButtonString(props.resolvedExternalEditor)}
         </Button>
         <Button
           onClick={onDropdownClick}
+          onKeyDown={onDropdownKeyDown}
           className="small-button button-group-item arrow-menu"
           ariaLabel="File resolution options"
           ariaHaspopup="menu"
@@ -317,6 +353,29 @@ const makeManualConflictDropdownClickHandler = (
         theirBranch
       )
     )
+  }
+}
+
+/** makes a click handling function for manual conflict resolution options */
+const makeManualConflictDropdownOnKeyDownHandler = (
+  relativeFilePath: string,
+  status: ManualConflict,
+  repository: Repository,
+  dispatcher: Dispatcher,
+  ourBranch?: string,
+  theirBranch?: string
+) => {
+  return (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowDown') {
+      return makeManualConflictDropdownClickHandler(
+        relativeFilePath,
+        status,
+        repository,
+        dispatcher,
+        ourBranch,
+        theirBranch
+      )()
+    }
   }
 }
 

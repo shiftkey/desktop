@@ -57,6 +57,10 @@ body.theme-dark {
   --commit-message-icon-warning-color: var(--input-icon-warning-color);
   --commit-message-icon-error-color: var(--input-icon-error-color);
 
+  // Colors used for the separator of commit message action buttons
+  // (e.g. co-authors and Copilot buttons)
+  --commit-message-action-button-separator-color: var(--box-border-contrast-color);
+
   /**
    * Background color for custom scroll bars.
    * The color is applied to the thumb part of the scrollbar.
@@ -269,6 +273,7 @@ body.theme-dark {
 
   /** The highlight color used for focus rings and focus box shadows */
   --focus-color: #{$blue};
+  --accent-color: #{$blue-200};
   --diff-linenumber-focus-color: #{$blue-200};
 
   /**
@@ -375,6 +380,12 @@ body.theme-dark {
   --dialog-warning-color: #{$yellow-600};
   --dialog-information-color: #{$blue-400};
   --dialog-error-color: #{$red-600};
+
+  /** Banner */
+  --banner-warning-background: #272216;
+  --banner-warning-text-color: var(--text-color);
+  --banner-warning-link-color: #6682ff;
+  --banner-warning-icon-color: #{$yellow-700};
 
   /** File warning */
   --file-warning-background-color: #{rgba($yellow-900, 0.4)};

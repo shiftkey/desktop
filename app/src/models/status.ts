@@ -47,6 +47,7 @@ export type PlainFileStatus = {
 export type CopiedOrRenamedFileStatus = {
   kind: AppFileStatusKind.Copied | AppFileStatusKind.Renamed
   oldPath: string
+  renameIncludesModifications: boolean
   submoduleStatus?: SubmoduleStatus
 }
 
@@ -146,6 +147,8 @@ type RenamedOrCopiedEntry = {
   readonly workingTree?: GitStatusEntry
   /** the submodule status for this entry */
   readonly submoduleStatus?: SubmoduleStatus
+  /** The rename or copy score in the case of a renamed file */
+  readonly renameOrCopyScore?: number
 }
 
 export enum UnmergedEntrySummary {
@@ -270,6 +273,22 @@ export class FileChange {
       this.id = `${status.kind}+${path}`
     }
   }
+
+  public isDeleted(): boolean {
+    return this.status.kind === AppFileStatusKind.Deleted
+  }
+
+  public isNew(): boolean {
+    return this.status.kind === AppFileStatusKind.New
+  }
+
+  public isModified(): boolean {
+    return this.status.kind === AppFileStatusKind.Modified
+  }
+
+  public isUntracked(): boolean {
+    return this.status.kind === AppFileStatusKind.Untracked
+  }
 }
 
 /** encapsulate the changes to a file in the working directory */
@@ -300,6 +319,14 @@ export class WorkingDirectoryFileChange extends FileChange {
   /** Create a new WorkingDirectoryFileChange with the given diff selection. */
   public withSelection(selection: DiffSelection): WorkingDirectoryFileChange {
     return new WorkingDirectoryFileChange(this.path, this.status, selection)
+  }
+
+  public isIncludedInCommit(): boolean {
+    return this.selection.getSelectionType() === DiffSelectionType.All
+  }
+
+  public isExcludedFromCommit(): boolean {
+    return this.selection.getSelectionType() === DiffSelectionType.None
   }
 }
 

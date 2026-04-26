@@ -9,7 +9,6 @@ import {
   PushProgressParser,
 } from '../../progress'
 import { git } from '../../git'
-import { friendlyEndpointName } from '../../friendly-endpoint-name'
 import { IRemote } from '../../../models/remote'
 import { getDefaultBranch } from '../../helpers/default-branch'
 import { envForRemoteOperation } from '../../git/environment'
@@ -48,9 +47,7 @@ async function createAPIRepository(account: Account, name: string) {
         ) {
           throw new Error(
             'You already have a repository named ' +
-              `"${name}" on your account at ${friendlyEndpointName(
-                account
-              )}.\n\n` +
+              `"${name}" on your account at ${account.friendlyEndpoint}.\n\n` +
               'Please delete the repository and try again.'
           )
         }
@@ -68,7 +65,7 @@ async function pushRepo(
   remoteBranchName: string,
   progressCb: (title: string, value: number, description?: string) => void
 ) {
-  const pushTitle = `Pushing repository to ${friendlyEndpointName(account)}`
+  const pushTitle = `Pushing repository to ${account.friendlyEndpoint}`
   progressCb(pushTitle, 0)
 
   const pushOpts = await executionOptionsWithProgress(
@@ -105,8 +102,7 @@ export async function createTutorialRepository(
   path: string,
   progressCb: (title: string, value: number, description?: string) => void
 ) {
-  const endpointName = friendlyEndpointName(account)
-  progressCb(`Creating repository on ${endpointName}`, 0)
+  progressCb(`Creating repository on ${account.friendlyEndpoint}`, 0)
 
   if (await pathExists(path)) {
     throw new Error(

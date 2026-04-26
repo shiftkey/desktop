@@ -1,6 +1,5 @@
 import { Commit } from './commit'
 import { removeRemotePrefix } from '../lib/remove-remote-prefix'
-import { CommitIdentity } from './commit-identity'
 import { ForkedRemotePrefix } from './remote'
 
 // NOTE: The values here matter as they are used to sort
@@ -32,7 +31,6 @@ export interface ITrackingBranch {
 /** Basic data about the latest commit on the branch. */
 export interface IBranchTip {
   readonly sha: string
-  readonly author: CommitIdentity
 }
 
 /** Default rules for where to create a branch from */

@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { TestStatsDatabase } from '../helpers/databases'
 
 import { StatsStore } from '../../src/lib/stats'
@@ -17,19 +19,17 @@ describe('StatsStore', () => {
 
     new StatsStore(statsDb, activityMonitor, fakePost)
 
-    expect(activityMonitor.subscriptionCount).toBe(1)
+    assert.equal(activityMonitor.subscriptionCount, 1)
 
     activityMonitor.fakeMouseActivity()
 
-    expect(activityMonitor.subscriptionCount).toBe(0)
+    assert.equal(activityMonitor.subscriptionCount, 0)
 
     // Use a read-write transaction to ensure that the write operation
     // from the StatsStore has completed before we try reading the table.
     await statsDb.transaction('rw!', statsDb.dailyMeasures, async () => {
       const statsEntry = await statsDb.dailyMeasures.limit(1).first()
-
-      expect(statsEntry).not.toBeUndefined()
-      expect(statsEntry!.active).toBe(true)
+      assert(statsEntry?.active === true)
     })
   })
 
@@ -39,11 +39,11 @@ describe('StatsStore', () => {
 
     const store = new StatsStore(statsDb, activityMonitor, fakePost)
 
-    expect(activityMonitor.subscriptionCount).toBe(1)
+    assert.equal(activityMonitor.subscriptionCount, 1)
 
     activityMonitor.fakeMouseActivity()
 
-    expect(activityMonitor.subscriptionCount).toBe(0)
+    assert.equal(activityMonitor.subscriptionCount, 0)
 
     // HACK: The stats store is hard coded to bail out of the
     // reporting method if running in a test-environment so
@@ -51,6 +51,6 @@ describe('StatsStore', () => {
     // the instance member that we know for sure gets called
     // after stats submission
     await store.clearDailyStats()
-    expect(activityMonitor.subscriptionCount).toBe(1)
+    assert.equal(activityMonitor.subscriptionCount, 1)
   })
 })

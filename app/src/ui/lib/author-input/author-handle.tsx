@@ -4,6 +4,8 @@ import { Author, isKnownAuthor } from '../../../models/author'
 import { Octicon, syncClockwise } from '../../octicons'
 import * as octicons from '../../octicons/octicons.generated'
 import { getFullTextForAuthor, getDisplayTextForAuthor } from './author-text'
+import { Tooltip } from '../tooltip'
+import { createObservableRef } from '../observable-ref'
 
 interface IAuthorHandleProps {
   /** Author to render */
@@ -53,6 +55,8 @@ interface IAuthorHandleProps {
 }
 
 export class AuthorHandle extends React.Component<IAuthorHandleProps> {
+  private readonly containerRef = createObservableRef<HTMLDivElement>()
+
   private getAriaLabel() {
     const { author } = this.props
     if (isKnownAuthor(author)) {
@@ -114,20 +118,23 @@ export class AuthorHandle extends React.Component<IAuthorHandleProps> {
 
   public render() {
     const { author, isFocused } = this.props
+    const title = this.getTitle()
 
     return (
-      // eslint-disable-next-line github/a11y-no-title-attribute
       <div
         className={this.getClassName()}
-        title={this.getTitle()}
         role="option"
         aria-label={this.getAriaLabel()}
         aria-selected={isFocused}
         onKeyDown={this.onKeyDown}
         onClick={this.onHandleClick}
         tabIndex={this.getTabIndex()}
+        ref={this.containerRef}
         onFocus={this.onFocus}
       >
+        {title && (
+          <Tooltip target={this.containerRef}>{this.getTitle()}</Tooltip>
+        )}
         <span aria-hidden="true">{getDisplayTextForAuthor(author)}</span>
         {!isKnownAuthor(author) && (
           <Octicon

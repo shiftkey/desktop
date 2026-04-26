@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { getAbsoluteUrl } from '../../src/lib/http'
 import { getDotComAPIEndpoint } from '../../src/lib/api'
 
@@ -7,12 +9,12 @@ describe('getAbsoluteUrl', () => {
 
     it('handles leading slashes', () => {
       const result = getAbsoluteUrl(dotcomEndpoint, '/user/repos')
-      expect(result).toBe('https://api.github.com/user/repos')
+      assert.equal(result, 'https://api.github.com/user/repos')
     })
 
     it('handles missing leading slash', () => {
       const result = getAbsoluteUrl(dotcomEndpoint, 'user/repos')
-      expect(result).toBe('https://api.github.com/user/repos')
+      assert.equal(result, 'https://api.github.com/user/repos')
     })
 
     it("doesn't mangle encoded query parameters", () => {
@@ -20,7 +22,8 @@ describe('getAbsoluteUrl', () => {
         getDotComAPIEndpoint(),
         '/issues?since=2019-05-10T16%3A00%3A00Z'
       )
-      expect(result).toBe(
+      assert.equal(
+        result,
         'https://api.github.com/issues?since=2019-05-10T16%3A00%3A00Z'
       )
     })
@@ -31,12 +34,12 @@ describe('getAbsoluteUrl', () => {
 
     it('handles leading slash', () => {
       const result = getAbsoluteUrl(enterpriseEndpoint, '/user/repos')
-      expect(result).toBe(`${enterpriseEndpoint}/user/repos`)
+      assert.equal(result, `${enterpriseEndpoint}/user/repos`)
     })
 
     it('handles missing leading slash', () => {
       const result = getAbsoluteUrl(enterpriseEndpoint, 'user/repos')
-      expect(result).toBe(`${enterpriseEndpoint}/user/repos`)
+      assert.equal(result, `${enterpriseEndpoint}/user/repos`)
     })
 
     it('handles next page resource which already contains prefix', () => {
@@ -44,7 +47,7 @@ describe('getAbsoluteUrl', () => {
         enterpriseEndpoint,
         '/api/v3/user/repos?page=2'
       )
-      expect(result).toBe(`${enterpriseEndpoint}/user/repos?page=2`)
+      assert.equal(result, `${enterpriseEndpoint}/user/repos?page=2`)
     })
 
     it("doesn't mangle encoded query parameters", () => {
@@ -52,7 +55,8 @@ describe('getAbsoluteUrl', () => {
         enterpriseEndpoint,
         '/issues?since=2019-05-10T16%3A00%3A00Z'
       )
-      expect(result).toBe(
+      assert.equal(
+        result,
         `${enterpriseEndpoint}/issues?since=2019-05-10T16%3A00%3A00Z`
       )
     })

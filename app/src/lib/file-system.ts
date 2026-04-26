@@ -1,20 +1,17 @@
-import * as Os from 'os'
-import * as Path from 'path'
 import { Disposable } from 'event-kit'
 import { Tailer } from './tailer'
 import byline from 'byline'
 import { createReadStream } from 'fs'
-import { mkdtemp } from 'fs/promises'
+import { randomBytes } from 'crypto'
+import { join } from 'path'
+import { tmpdir } from 'os'
 
 /**
  * Get a path to a temp file using the given name. Note that the file itself
  * will not be created.
  */
-export async function getTempFilePath(name: string): Promise<string> {
-  const tempDir = Path.join(Os.tmpdir(), `${name}-`)
-  const directory = await mkdtemp(tempDir)
-  return Path.join(directory, name)
-}
+export const getTempFilePath = (name: string) =>
+  join(tmpdir(), `${name}-${randomBytes(8).toString('hex')}`)
 
 /**
  * Tail the file and call the callback on every line.

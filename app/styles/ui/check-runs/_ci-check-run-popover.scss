@@ -40,7 +40,7 @@
         }
 
         .pending {
-          color: $yellow-700;
+          color: darken($yellow-700, 10%);
         }
       }
 
@@ -88,7 +88,7 @@
         > .waiting,
         > .requested,
         > .pending {
-          fill: $yellow-700;
+          fill: darken($yellow-700, 10%);
         }
 
         > .success {

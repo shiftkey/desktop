@@ -1,5 +1,3 @@
-/* eslint-disable jsx-a11y/no-noninteractive-element-interactions */
-/* eslint-disable jsx-a11y/click-events-have-key-events */
 import * as React from 'react'
 import {
   ValidTutorialStep,
@@ -33,16 +31,23 @@ interface ITutorialStepInstructionsProps {
 export class TutorialStepInstructions extends React.Component<ITutorialStepInstructionsProps> {
   public render() {
     return (
-      <li key={this.props.sectionId} onClick={this.onSummaryClick}>
+      <li key={this.props.sectionId}>
         <details
+          name={'tutorial-step'}
           open={this.props.sectionId === this.props.currentlyOpenSectionId}
-          onClick={this.onSummaryClick}
+          onToggle={this.onToggle}
         >
           {this.renderSummary()}
           <div className="contents">{this.props.children}</div>
         </details>
       </li>
     )
+  }
+
+  private onToggle = (e: React.UIEvent<HTMLElement, ToggleEvent>) => {
+    if (e.nativeEvent.newState === 'open') {
+      this.props.onSummaryClick(this.props.sectionId)
+    }
   }
 
   private renderSummary = () => {
@@ -81,14 +86,5 @@ export class TutorialStepInstructions extends React.Component<ITutorialStepInstr
     ) : (
       <div className="empty-circle">{stepNumber}</div>
     )
-  }
-
-  private onSummaryClick = (e: React.MouseEvent<HTMLElement>) => {
-    // prevents the default behavior of toggling on a `details` html element
-    // so we don't have to fight it with our react state
-    // for more info see:
-    // https://developer.mozilla.org/en-US/docs/Web/HTML/Element/details#Events
-    e.preventDefault()
-    this.props.onSummaryClick(this.props.sectionId)
   }
 }

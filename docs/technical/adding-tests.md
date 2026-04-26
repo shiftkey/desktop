@@ -21,8 +21,6 @@ Other important folders:
 
  - `fixtures` - this folder contains Git repositories which can be used in tests
  - `helpers` - modules containing logic to help setup, manage and teardown tests
- - `__mocks__` - this is a special Jest folder that contains mocks for Electron
-   APIs, which are only stubbed out when tests require it
 
 ## Adding Unit Tests
 
@@ -50,7 +48,7 @@ describe('module being tested', () => {
 ```
 
 If you run `yarn test:unit` from a shell you should see this error, which
-indicates the file is loaded into our Jest runner successfully.
+indicates the file is loaded into our test runner successfully.
 
 Once you're happy that the test is being run, feel free to write some proper
 tests to exercise your work.

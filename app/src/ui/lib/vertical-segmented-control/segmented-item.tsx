@@ -1,18 +1,6 @@
 import * as React from 'react'
 
-interface ISegmentedItemProps<T> {
-  /**
-   * An id for the item, used to assist in accessibility
-   */
-  readonly id: string
-
-  /**
-   * The value of the item among the other choices in the segmented
-   * control. This is passed along to the onClick handler to differentiate
-   * between clicked items.
-   */
-  readonly value: T
-
+interface ISegmentedItemProps {
   /**
    * The title for the segmented item. This should be kept short.
    */
@@ -23,60 +11,23 @@ interface ISegmentedItemProps<T> {
    * selecting this item.
    */
   readonly description?: string | JSX.Element
-
-  /**
-   * Whether or not the item is currently the active selection among the
-   * other choices in the segmented control.
-   */
-  readonly isSelected: boolean
-
-  /**
-   * A function that's called when a user clicks on the item using
-   * a pointer device.
-   */
-  readonly onClick: (value: T) => void
-
-  /**
-   * A function that's called when a user double-clicks on the item
-   * using a pointer device.
-   */
-  readonly onDoubleClick: (value: T) => void
 }
 
-export class SegmentedItem<T> extends React.Component<
-  ISegmentedItemProps<T>,
-  {}
-> {
-  private onClick = () => {
-    this.props.onClick(this.props.value)
-  }
+export class SegmentedItem extends React.Component<ISegmentedItemProps> {
+  private renderDescription() {
+    if (!this.props.description) {
+      return null
+    }
 
-  private onDoubleClick = () => {
-    this.props.onDoubleClick(this.props.value)
+    return <p>{this.props.description}</p>
   }
 
   public render() {
-    const description = this.props.description ? (
-      <p>{this.props.description}</p>
-    ) : undefined
-
-    const isSelected = this.props.isSelected
-    const className = isSelected ? 'selected' : undefined
-
     return (
-      // eslint-disable-next-line jsx-a11y/click-events-have-key-events
-      <li
-        className={className}
-        onClick={this.onClick}
-        onDoubleClick={this.onDoubleClick}
-        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role
-        role="radio"
-        id={this.props.id}
-        aria-checked={isSelected ? 'true' : 'false'}
-      >
+      <>
         <div className="title">{this.props.title}</div>
-        {description}
-      </li>
+        {this.renderDescription()}
+      </>
     )
   }
 }

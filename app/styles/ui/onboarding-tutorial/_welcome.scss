@@ -5,6 +5,8 @@
   flex: 1 1 630px;
   height: 100%;
   padding: 0 var(--spacing-triple);
+  overflow-y: auto;
+  overflow-x: hidden;
 
   .header {
     width: 100%;

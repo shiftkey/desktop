@@ -7,86 +7,64 @@ fieldset.vertical-segmented-control {
   padding: 0;
   min-width: 0;
 
-  // Make the component use the whole width of its container.
-  width: 100%;
-
   legend {
     margin-bottom: var(--spacing-third);
     padding: 0 0 5px 0;
     @include ellipsis;
   }
 
-  ul {
-    list-style: none;
-    padding: 0;
+  // Make the component use the whole width of its container.
+  width: 100%;
+
+  .radio-button-component {
     margin: 0;
+    border: var(--base-border);
+    // Last child to have a border-bottom
+    border-bottom: 0;
 
-    li {
-      padding: var(--spacing);
-      margin: 0;
-      border-left: var(--base-border);
-      border-right: var(--base-border);
-      border-top: var(--base-border);
-      border-bottom: none;
+    &:first-child {
+      border-top-left-radius: var(--border-radius);
+      border-top-right-radius: var(--border-radius);
+    }
 
-      &:first-child {
-        border-top-left-radius: var(--border-radius);
-        border-top-right-radius: var(--border-radius);
-      }
+    &:last-child {
+      border-bottom: var(--base-border);
+      border-bottom-left-radius: var(--border-radius);
+      border-bottom-right-radius: var(--border-radius);
+    }
 
-      &:last-child {
-        border-bottom: var(--base-border);
-        border-bottom-left-radius: var(--border-radius);
-        border-bottom-right-radius: var(--border-radius);
-      }
+    label > span {
+      min-width: 0;
+    }
 
-      &.selected {
-        color: var(--box-selected-active-text-color);
-        background: var(--box-selected-active-background-color);
-        border-color: var(--box-selected-active-background-color);
+    .title {
+      font-weight: var(--font-weight-semibold);
+      @include ellipsis;
+    }
 
-        p {
-          color: var(--box-selected-active-text-color);
-        }
+    p {
+      color: var(--text-secondary-color);
+    }
 
-        // The list item that immediately follows a selected item
-        // should have its top border be the same color as the background
-        // of the selected one. This makes for crisp division between
-        // selected and non-selected without a gray border to interfere.
-        & + li {
-          border-top-color: var(--box-selected-active-background-color);
-        }
-      }
-
-      &:hover:not(.selected) {
-        background: var(--box-hover-background-color);
-        color: var(--box-hover-text-color);
-
-        p {
-          color: var(--box-hover-text-color);
-        }
-      }
-
-      .title {
-        font-weight: var(--font-weight-semibold);
-        @include ellipsis;
-      }
+    input[type='radio'] {
+      margin-right: var(--spacing-half);
+      margin-left: var(--spacing-half);
+      align-self: flex-start;
+      margin-top: 4px;
+    }
+    &:has(input[type='radio']:focus),
+    &:hover {
+      background: var(--box-hover-background-color);
+      color: var(--box-hover-text-color);
 
       p {
-        color: var(--text-secondary-color);
+        color: var(--box-hover-text-color);
       }
     }
 
-    &:focus-visible li {
-      &:first-child {
-        border-top-left-radius: var(--outlined-border-radius);
-        border-top-right-radius: var(--outlined-border-radius);
-      }
-
-      &:last-child {
-        border-bottom-left-radius: var(--outlined-border-radius);
-        border-bottom-right-radius: var(--outlined-border-radius);
-      }
+    > label {
+      min-width: 100%;
+      padding: var(--spacing);
     }
   }
 }

@@ -17,7 +17,7 @@ import {
   size,
 } from '@floating-ui/core'
 import { assertNever } from '../../lib/fatal-error'
-import { isMacOSSonoma, isMacOSVentura } from '../../lib/get-os'
+import { isMacOSSequoia, isMacOSSonoma, isMacOSVentura } from '../../lib/get-os'
 
 /**
  * Position of the popover relative to its anchor element. It's composed by 2
@@ -76,6 +76,7 @@ interface IPopoverProps {
   readonly style?: React.CSSProperties
   readonly appearEffect?: PopoverAppearEffect
   readonly ariaLabelledby?: string
+  readonly ariaDescribedBy?: string
   readonly trapFocus?: boolean // Default: true
   readonly decoration?: PopoverDecoration // Default: none
 
@@ -153,13 +154,20 @@ export class Popover extends React.Component<IPopoverProps, IPopoverState> {
       flip({ padding: PopoverScreenBorderPadding }),
       size({
         apply({ availableHeight, availableWidth }) {
-          Object.assign(contentDiv.style, {
-            maxHeight:
-              maxHeight === undefined
-                ? `${availableHeight}px`
-                : `${Math.min(availableHeight, maxHeight)}px`,
-            maxWidth: `${availableWidth}px`,
-          })
+          const newMaxHeight =
+            maxHeight === undefined
+              ? `${availableHeight}px`
+              : `${Math.min(availableHeight, maxHeight)}px`
+
+          contentDiv.style.setProperty(
+            '--available-height',
+            `${newMaxHeight}px`
+          )
+
+          contentDiv.style.setProperty(
+            '--available-width',
+            `${availableWidth}px`
+          )
         },
         padding: PopoverScreenBorderPadding,
       }),
@@ -248,11 +256,11 @@ export class Popover extends React.Component<IPopoverProps, IPopoverState> {
        * hopefully, macOs will be fixed in a future release. The issue is known for
        * macOS versions 13.0 to the current version of 13.5 as of 2023-07-31. */
       return {
-        'aria-describedby': this.props.ariaLabelledby,
+        'aria-describedby': `${this.props.ariaLabelledby} ${this.props.ariaDescribedBy}`,
       }
     }
 
-    if (isMacOSSonoma()) {
+    if (isMacOSSonoma() || isMacOSSequoia()) {
       // macOS Sonoma introduced a regression in that: For role of 'dialog', the
       // aria-labelledby is not announced. However, if the dialog has a child
       // with a role of header (aka h* elemeent) it will be announced as long as
@@ -263,6 +271,7 @@ export class Popover extends React.Component<IPopoverProps, IPopoverState> {
     // correct semantics
     return {
       'aria-labelledby': this.props.ariaLabelledby,
+      'aria-describedby': this.props.ariaDescribedBy,
     }
   }
 

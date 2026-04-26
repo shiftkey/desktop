@@ -106,6 +106,14 @@ body > .tooltip,
     cursor: text;
   }
 
+  &.path-text {
+    mark {
+      font-weight: bold;
+      background-color: inherit;
+      color: currentColor;
+    }
+  }
+
   &.sha-hint {
     max-width: 500px;
 
@@ -210,6 +218,20 @@ body > .tooltip,
 
     &::before {
       border-bottom-color: var(--toolbar-tooltip-background-color);
+    }
+  }
+
+  .list-item-tooltip {
+    > div {
+      display: flex;
+      flex-direction: row;
+      margin-bottom: var(--spacing-half);
+    }
+
+    .label {
+      min-width: 60px;
+      margin-right: var(--spacing-half);
+      font-weight: bold;
     }
   }
 }

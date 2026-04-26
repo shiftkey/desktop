@@ -1,4 +1,7 @@
-import * as FSE from 'fs-extra'
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
+import { readFile, writeFile } from 'fs/promises'
+import { pathExists } from '../../../src/ui/lib/path-exists'
 import * as Path from 'path'
 import { exec } from 'dugite'
 
@@ -15,30 +18,30 @@ import { setupLocalConfig } from '../../helpers/local-config'
 
 describe('gitignore', () => {
   describe('readGitIgnoreAtRoot', () => {
-    it('returns null when .gitignore does not exist on disk', async () => {
-      const repo = await setupEmptyRepository()
+    it('returns null when .gitignore does not exist on disk', async t => {
+      const repo = await setupEmptyRepository(t)
 
       const gitignore = await readGitIgnoreAtRoot(repo)
 
-      expect(gitignore).toBeNull()
+      assert(gitignore === null)
     })
 
-    it('reads contents from disk', async () => {
-      const repo = await setupEmptyRepository()
+    it('reads contents from disk', async t => {
+      const repo = await setupEmptyRepository(t)
       const path = repo.path
 
       const expected = 'node_modules\nyarn-error.log\n'
 
       const ignoreFile = `${path}/.gitignore`
-      await FSE.writeFile(ignoreFile, expected)
+      await writeFile(ignoreFile, expected)
 
       const gitignore = await readGitIgnoreAtRoot(repo)
 
-      expect(gitignore).toBe(expected)
+      assert.equal(gitignore, expected)
     })
 
-    it('when autocrlf=true and safecrlf=true, appends CRLF to file', async () => {
-      const repo = await setupEmptyRepository()
+    it('when autocrlf=true and safecrlf=true, appends CRLF to file', async t => {
+      const repo = await setupEmptyRepository(t)
 
       await setupLocalConfig(repo, [
         ['core.autocrlf', 'true'],
@@ -54,14 +57,15 @@ describe('gitignore', () => {
         ['commit', '-m', 'create the ignore file'],
         path
       )
-      expect(commit.exitCode).toBe(0)
+      assert.equal(commit.exitCode, 0)
 
       const contents = await readGitIgnoreAtRoot(repo)
-      expect(contents!.endsWith('\r\n'))
+      assert(contents !== null)
+      assert(contents.endsWith('\r\n'))
     })
 
-    it('when autocrlf=input, appends LF to file', async () => {
-      const repo = await setupEmptyRepository()
+    it('when autocrlf=input, appends LF to file', async t => {
+      const repo = await setupEmptyRepository(t)
 
       setupLocalConfig(repo, [
         // ensure this repository only ever sticks to LF
@@ -79,40 +83,41 @@ describe('gitignore', () => {
         ['commit', '-m', 'create the ignore file'],
         path
       )
-      expect(commit.exitCode).toBe(0)
+      assert.equal(commit.exitCode, 0)
 
       const contents = await readGitIgnoreAtRoot(repo)
-      expect(contents!.endsWith('\n'))
+      assert(contents !== null)
+      assert(contents.endsWith('\n'))
     })
   })
 
   describe('saveGitIgnore', () => {
-    it(`creates gitignore file when it doesn't exist`, async () => {
-      const repo = await setupEmptyRepository()
+    it(`creates gitignore file when it doesn't exist`, async t => {
+      const repo = await setupEmptyRepository(t)
 
       await saveGitIgnore(repo, 'node_modules\n')
 
-      const exists = await FSE.pathExists(`${repo.path}/.gitignore`)
+      const exists = await pathExists(`${repo.path}/.gitignore`)
 
-      expect(exists).toBe(true)
+      assert(exists)
     })
 
-    it('deletes gitignore file when no entries provided', async () => {
-      const repo = await setupEmptyRepository()
+    it('deletes gitignore file when no entries provided', async t => {
+      const repo = await setupEmptyRepository(t)
       const path = repo.path
 
       const ignoreFile = `${path}/.gitignore`
-      await FSE.writeFile(ignoreFile, 'node_modules\n')
+      await writeFile(ignoreFile, 'node_modules\n')
 
       // update gitignore file to be empty
       await saveGitIgnore(repo, '')
 
-      const exists = await FSE.pathExists(ignoreFile)
-      expect(exists).toBe(false)
+      const exists = await pathExists(ignoreFile)
+      assert(!exists)
     })
 
-    it('applies rule correctly to repository', async () => {
-      const repo = await setupEmptyRepository()
+    it('applies rule correctly to repository', async t => {
+      const repo = await setupEmptyRepository(t)
 
       const path = repo.path
 
@@ -123,13 +128,13 @@ describe('gitignore', () => {
       // Create a txt file
       const file = Path.join(repo.path, 'a.txt')
 
-      await FSE.writeFile(file, 'thrvbnmerkl;,iuw')
+      await writeFile(file, 'thrvbnmerkl;,iuw')
 
       // Check status of repo
       const status = await getStatusOrThrow(repo)
       const files = status.workingDirectory.files
 
-      expect(files).toHaveLength(0)
+      assert.equal(files.length, 0)
     })
 
     it('escapes string with special git characters', async () => {
@@ -137,65 +142,65 @@ describe('gitignore', () => {
       const escapedFilePath = '\\[never\\]\\\\!gonna\\*give\\#you\\?_.up'
 
       const result = escapeGitSpecialCharacters(unescapedFilePath)
-      expect(result).toBe(escapedFilePath)
+      assert.equal(result, escapedFilePath)
     })
   })
 
   describe('appendIgnoreRule', () => {
-    it('appends one rule', async () => {
-      const repo = await setupEmptyRepository()
+    it('appends one rule', async t => {
+      const repo = await setupEmptyRepository(t)
 
       await setupLocalConfig(repo, [['core.autocrlf', 'true']])
 
       const { path } = repo
 
       const ignoreFile = `${path}/.gitignore`
-      await FSE.writeFile(ignoreFile, 'node_modules\n')
+      await writeFile(ignoreFile, 'node_modules\n')
 
       await appendIgnoreRule(repo, ['yarn-error.log'])
 
-      const gitignore = await FSE.readFile(ignoreFile)
+      const gitignore = await readFile(ignoreFile)
 
       const expected = 'node_modules\nyarn-error.log\n'
-      expect(gitignore.toString('utf8')).toBe(expected)
+      assert.equal(gitignore.toString('utf8'), expected)
     })
 
-    it('appends multiple rules', async () => {
-      const repo = await setupEmptyRepository()
+    it('appends multiple rules', async t => {
+      const repo = await setupEmptyRepository(t)
 
       await setupLocalConfig(repo, [['core.autocrlf', 'true']])
 
       const { path } = repo
 
       const ignoreFile = `${path}/.gitignore`
-      await FSE.writeFile(ignoreFile, 'node_modules\n')
+      await writeFile(ignoreFile, 'node_modules\n')
 
       await appendIgnoreRule(repo, ['yarn-error.log', '.eslintcache', 'dist/'])
 
-      const gitignore = await FSE.readFile(ignoreFile)
+      const gitignore = await readFile(ignoreFile)
 
       const expected = 'node_modules\nyarn-error.log\n.eslintcache\ndist/\n'
-      expect(gitignore.toString('utf8')).toBe(expected)
+      assert.equal(gitignore.toString('utf8'), expected)
     })
 
-    it('appends one file containing special characters', async () => {
-      const repo = await setupEmptyRepository()
+    it('appends one file containing special characters', async t => {
+      const repo = await setupEmptyRepository(t)
 
       await setupLocalConfig(repo, [['core.autocrlf', 'true']])
 
       const { path } = repo
 
       const ignoreFile = `${path}/.gitignore`
-      await FSE.writeFile(ignoreFile, 'node_modules\n')
+      await writeFile(ignoreFile, 'node_modules\n')
 
       const fileToIgnore = '[never]!gonna*give#you?_.up'
       await appendIgnoreFile(repo, [fileToIgnore])
 
-      const gitignore = await FSE.readFile(ignoreFile)
+      const gitignore = await readFile(ignoreFile)
 
       const expected =
         'node_modules\n' + '\\[never\\]\\!gonna\\*give\\#you\\?_.up\n'
-      expect(gitignore.toString('utf8')).toBe(expected)
+      assert.equal(gitignore.toString('utf8'), expected)
     })
   })
 })

@@ -183,6 +183,12 @@ export class MenuListItem extends React.Component<IMenuListItemProps, {}> {
     const ariaChecked = type === 'checkbox' ? item.checked : undefined
 
     return (
+      /**
+       * This a11y linter is a false-positive as the keydown listener is
+       * implemented at a higher level and as such the keydown listener is not
+       * required on this element. (but proper keyboard navigation is
+       * implemented.)
+       */
       // eslint-disable-next-line jsx-a11y/click-events-have-key-events
       <div
         id={this.props.menuItemId}

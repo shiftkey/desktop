@@ -8,6 +8,44 @@
   background-color: var(--background-color);
   box-shadow: var(--base-box-shadow);
 
+  @media (max-width: 850px) {
+    min-width: 200px;
+
+    // On high zoom levels we let the action buttons fill an entire row
+    // and put their keyboard shortcuts on the next line
+    details .contents .action {
+      flex-wrap: wrap;
+      .button-component {
+        flex-basis: 100%;
+        margin-bottom: var(--spacing);
+      }
+    }
+
+    .titleArea {
+      padding: var(--spacing) !important;
+      img {
+        display: none;
+      }
+    }
+  }
+
+  @media (max-width: 750px) {
+    min-width: 180px;
+
+    details .contents .action {
+      .button-component {
+        height: auto;
+        text-overflow: unset;
+        white-space: unset;
+        padding: var(--spacing);
+      }
+    }
+  }
+
+  @media (max-width: 550px) {
+    min-width: 130px;
+  }
+
   // we need this to be high so the panel's box shadow
   // appears on top of the codemirror buffer
   z-index: var(--side-panel-z-index);
@@ -48,13 +86,11 @@
     border-bottom: var(--base-border);
   }
 
-  li {
-    padding: var(--spacing-double);
-  }
   summary {
     display: flex;
     align-items: center;
     font-weight: var(--font-weight-semibold);
+    padding: var(--spacing-double);
 
     .summary-text {
       color: var(--text-secondary-color);
@@ -85,6 +121,9 @@
 
   details .contents {
     padding-left: var(--spacing-triple);
+    padding-bottom: var(--spacing-double);
+    padding-right: var(--spacing);
+
     .description {
       margin-bottom: var(--spacing);
     }
@@ -114,7 +153,7 @@
     }
   }
   details[open] summary {
-    margin-bottom: var(--spacing);
+    padding-bottom: var(--spacing);
     .summary-text {
       color: var(--text-color);
     }

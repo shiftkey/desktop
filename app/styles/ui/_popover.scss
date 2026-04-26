@@ -12,6 +12,8 @@
   .popover-content {
     padding: var(--spacing-double);
     border-radius: var(--border-radius);
+    max-height: var(--available-height);
+    max-width: var(--available-width);
   }
 
   & > p:first-of-type,
@@ -19,7 +21,7 @@
     margin-top: 0;
   }
 
-  footer {
+  .popover-footer {
     .button-group {
       display: flex;
       flex-direction: row;

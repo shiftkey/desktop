@@ -17,7 +17,6 @@ export enum BannerType {
   SuccessfulReorder = 'SuccessfulReorder',
   ConflictsFound = 'ConflictsFound',
   OSVersionNoLongerSupported = 'OSVersionNoLongerSupported',
-  AccessibilitySettingsBanner = 'AccessibilitySettingsBanner',
 }
 
 export type Banner =
@@ -123,7 +122,3 @@ export type Banner =
       readonly onOpenConflictsDialog: () => void
     }
   | { readonly type: BannerType.OSVersionNoLongerSupported }
-  | {
-      readonly type: BannerType.AccessibilitySettingsBanner
-      readonly onOpenAccessibilitySettings: () => void
-    }

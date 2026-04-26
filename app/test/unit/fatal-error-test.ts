@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { forceUnwrap } from '../../src/lib/fatal-error'
 
 describe('forceUnwrap', () => {
@@ -7,7 +9,7 @@ describe('forceUnwrap', () => {
       forceUnwrap(message, null)
     } catch (e) {
       const error = e as Error
-      expect(error.message).toBe(message)
+      assert.equal(error.message, message)
     }
   })
 
@@ -17,16 +19,16 @@ describe('forceUnwrap', () => {
       forceUnwrap(message, undefined)
     } catch (e) {
       const error = e as Error
-      expect(error.message).toBe(message)
+      assert.equal(error.message, message)
     }
   })
 
   it('passes for false', () => {
-    expect(forceUnwrap('false is an expected value', false)).toBe(false)
+    assert.equal(forceUnwrap('false is an expected value', false), false)
   })
 
   it('passes for a hash', () => {
     const a = { b: 4 }
-    expect(forceUnwrap('hash is an expected value', a)).toBe(a)
+    assert.equal(forceUnwrap('hash is an expected value', a), a)
   })
 })

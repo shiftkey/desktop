@@ -61,7 +61,7 @@
 .link-button-component {
   color: var(--link-button-color);
   text-decoration: none;
-  cursor: pointer;
+  cursor: pointer !important;
 
   display: inline-flex;
   align-items: center;

@@ -10,7 +10,6 @@ import {
   getRepositoryType,
   RepositoryType,
 } from '../../lib/git'
-import { sanitizedRepositoryName } from './sanitized-repository-name'
 import { TextBox } from '../lib/text-box'
 import { Button } from '../lib/button'
 import { Row } from '../lib/row'
@@ -37,6 +36,7 @@ import { join } from 'path'
 import { isTopMostDialog } from '../dialog/is-top-most'
 import { InputError } from '../lib/input-description/input-error'
 import { InputWarning } from '../lib/input-description/input-warning'
+import { CreateRepositoryError } from '../../lib/error-with-metadata'
 
 /** URL used to provide information about submodules to the user. */
 const submoduleDocsUrl = 'https://gh.io/git-submodules'
@@ -103,6 +103,22 @@ interface ICreateRepositoryState {
   readonly readMeExists: boolean
 }
 
+// We use this instead of sanitizedRepositoryName because it deals with
+// valid repository names on GitHub.com but here we only care about whether
+// we'll be able to create a directory with the given name. If a user
+// creates a repository with a name that GitHub.com doesn't like here it'll
+// get sanitized in the Publish dialog later on.
+//
+// Note that we don't sanitize `\` or `/` here since we use `Path.join` to
+// create the full path and that will handle those characters appropriately
+// letting users type something like OrgA\RepoB and have the new repo be
+// created in the OrgA folder.
+//
+// macOS and Linux allow are way more allowing so there's no need to sanitize
+const safeDirectoryName = (name: string) => {
+  return __WIN32__ ? name.replace(/[<>:"|?*]/g, '-').replace(/\s+$/, '') : name
+}
+
 /** The Create New Repository component. */
 export class CreateRepository extends React.Component<
   ICreateRepositoryProps,
@@ -121,10 +137,17 @@ export class CreateRepository extends React.Component<
   public constructor(props: ICreateRepositoryProps) {
     super(props)
 
-    const path = this.props.initialPath ? this.props.initialPath : null
+    // If there is an initial path, remove the last part of the path which will
+    // be the suggested repository name. For example, if the initial path is
+    // /Users/adam/Projects/MyProject, the path will be /Users/adam/Projects and
+    // the name will be MyProject, so the repository will be created at
+    // /Users/adam/Projects/MyProject.
+    const path = this.props.initialPath
+      ? Path.dirname(this.props.initialPath)
+      : null
 
     const name = this.props.initialPath
-      ? sanitizedRepositoryName(Path.basename(this.props.initialPath))
+      ? safeDirectoryName(Path.basename(this.props.initialPath))
       : ''
 
     this.state = {
@@ -196,7 +219,7 @@ export class CreateRepository extends React.Component<
   }
 
   private async updateIsRepository(path: string, name: string) {
-    const fullPath = Path.join(path, sanitizedRepositoryName(name))
+    const fullPath = Path.join(path, safeDirectoryName(name))
 
     const type = await getRepositoryType(fullPath).catch(e => {
       log.error(`Unable to determine repository type`, e)
@@ -251,7 +274,7 @@ export class CreateRepository extends React.Component<
       return
     }
 
-    const fullPath = Path.join(path, sanitizedRepositoryName(name), 'README.md')
+    const fullPath = Path.join(path, safeDirectoryName(name), 'README.md')
     const readMeExists = await pathExists(fullPath)
 
     // Only update readMeExists if the path is still the same
@@ -273,7 +296,7 @@ export class CreateRepository extends React.Component<
       } catch {}
     }
 
-    return Path.join(currentPath, sanitizedRepositoryName(this.state.name))
+    return Path.join(currentPath, safeDirectoryName(this.state.name))
   }
 
   private createRepository = async () => {
@@ -397,14 +420,14 @@ export class CreateRepository extends React.Component<
       this.props.dispatcher.postError(e)
     }
 
-    const status = await getStatus(repository)
-    if (status === null) {
-      this.props.dispatcher.postError(
-        new Error(
-          `Unable to create the new repository because there are too many new files in this directory`
-        )
-      )
+    const status = await getStatus(repository, true, true).catch(e => {
+      log.error(`createRepository: unable to get status for ${fullPath}`, e)
+      this.props.dispatcher.postError(new CreateRepositoryError(e))
+      return null
+    })
 
+    if (status === null) {
+      this.setState({ creating: false })
       return
     }
 
@@ -447,7 +470,7 @@ export class CreateRepository extends React.Component<
   }
 
   private renderSanitizedName() {
-    const sanitizedName = sanitizedRepositoryName(this.state.name)
+    const sanitizedName = safeDirectoryName(this.state.name)
     if (this.state.name === sanitizedName) {
       return null
     }
@@ -551,7 +574,7 @@ export class CreateRepository extends React.Component<
       return null
     }
 
-    const fullPath = Path.join(path, sanitizedRepositoryName(name))
+    const fullPath = Path.join(path, safeDirectoryName(name))
 
     return (
       <Row>
@@ -578,7 +601,7 @@ export class CreateRepository extends React.Component<
       return null
     }
 
-    const fullPath = Path.join(path, sanitizedRepositoryName(name))
+    const fullPath = Path.join(path, safeDirectoryName(name))
 
     return (
       <Row>
@@ -627,11 +650,16 @@ export class CreateRepository extends React.Component<
   private renderPathMessage = () => {
     const { path, name, isRepository } = this.state
 
-    if (path === null || path === '' || name === '' || isRepository) {
+    if (
+      path === null ||
+      path.trim().length === 0 ||
+      name.trim().length === 0 ||
+      isRepository
+    ) {
       return null
     }
 
-    const fullPath = Path.join(path, sanitizedRepositoryName(name))
+    const fullPath = Path.join(path, safeDirectoryName(name))
 
     return (
       <div id="create-repo-path-msg">
@@ -649,7 +677,7 @@ export class CreateRepository extends React.Component<
     if (path !== null) {
       this.props.dispatcher.showPopup({
         type: PopupType.AddRepository,
-        path: Path.join(path, sanitizedRepositoryName(name)),
+        path: Path.join(path, safeDirectoryName(name)),
       })
     }
   }
@@ -658,11 +686,10 @@ export class CreateRepository extends React.Component<
     const disabled =
       this.state.path === null ||
       this.state.path.length === 0 ||
-      this.state.name.length === 0 ||
+      this.state.name.trim().length === 0 ||
       this.state.creating ||
       this.state.isRepository
 
-    const readOnlyPath = !!this.props.initialPath
     const loadingDefaultDir = this.state.path === null
 
     return (
@@ -704,13 +731,10 @@ export class CreateRepository extends React.Component<
               label={__DARWIN__ ? 'Local Path' : 'Local path'}
               placeholder="repository path"
               onValueChanged={this.onPathChanged}
-              disabled={readOnlyPath || loadingDefaultDir}
+              disabled={loadingDefaultDir}
               ariaDescribedBy="existing-repository-path-error path-is-subfolder-of-repository"
             />
-            <Button
-              onClick={this.showFilePicker}
-              disabled={readOnlyPath || loadingDefaultDir}
-            >
+            <Button onClick={this.showFilePicker} disabled={loadingDefaultDir}>
               Choose…
             </Button>
           </Row>

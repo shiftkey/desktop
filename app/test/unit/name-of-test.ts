@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { Repository, nameOf } from '../../src/models/repository'
 import { gitHubRepoFixture } from '../helpers/github-repo-builder'
 
@@ -9,7 +11,7 @@ describe('nameOf', () => {
 
     const name = nameOf(repo)
 
-    expect(name).toBe('path')
+    assert.equal(name, 'path')
   })
 
   it('Returns the name of the repo', () => {
@@ -18,6 +20,6 @@ describe('nameOf', () => {
 
     const name = nameOf(repo)
 
-    expect(name).toBe('desktop/name')
+    assert.equal(name, 'desktop/name')
   })
 })

@@ -4,7 +4,7 @@ import { DialogHeader } from './header'
 import { createUniqueId, releaseUniqueId } from '../lib/id-pool'
 import { getTitleBarHeight } from '../window/title-bar'
 import { isTopMostDialog } from './is-top-most'
-import { isMacOSSonoma, isMacOSVentura } from '../../lib/get-os'
+import { isMacOSSonomaOrLater, isMacOSVentura } from '../../lib/get-os'
 import { sendDialogDidOpen } from '../main-process-proxy'
 
 /**
@@ -657,16 +657,17 @@ export class Dialog extends React.Component<DialogProps, IDialogState> {
       return
     }
 
-    // Ignore the first click right after the window's been focused. It could
-    // be the click that focused the window, in which case we don't wanna
-    // dismiss the dialog.
-    if (this.disableClickDismissal) {
-      this.disableClickDismissal = false
-      this.clearClickDismissalTimer()
-      return
-    }
-
     if (!this.mouseEventIsInsideDialog(e)) {
+      // Ignore the first backdrop click right after the window's been focused.
+      // It could be the click that focused the window, in which case we don't
+      // want to dismiss the dialog. Only ignore backdrop clicks, not clicks on
+      // interactive elements like buttons.
+      if (this.disableClickDismissal) {
+        this.disableClickDismissal = false
+        this.clearClickDismissalTimer()
+        return
+      }
+
       // The user has pressed down on their pointer device outside of the
       // dialog (i.e. on the backdrop). Now we subscribe to the global
       // mouse up event where we can make sure that they release the pointer
@@ -741,6 +742,35 @@ export class Dialog extends React.Component<DialogProps, IDialogState> {
     const shortcutKey = __DARWIN__ ? event.metaKey : event.ctrlKey
     if ((shortcutKey && event.key === 'w') || event.key === 'Escape') {
       this.onDialogCancel(event)
+    }
+
+    // N.B. - The following focus management is not needed to trap focus.
+    // Possibly a Chromium update will fix this. On Windows, chromium appears to
+    // briefly move the focus out of the dialog and then back in when the user
+    // presses Tab (or Shift Tab) to the cycle back to top or bottom of
+    // focusable elements in a dialog. For screen reader users, this results in
+    // the undesired behavior of redundantly announcing the dialog contents
+    // along with the first focusable element on alert dialogs because NVDA is
+    // receiving the signal of "opening the dialog" again.
+    if (event.key === 'Tab' && __WIN32__ && this.props.role === 'alertdialog') {
+      const focusableElements =
+        this.dialogElement?.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      if (focusableElements && focusableElements.length > 0) {
+        const isTabForward = !event.shiftKey
+        const compareElement = isTabForward
+          ? focusableElements[focusableElements.length - 1]
+          : focusableElements[0]
+        if (document.activeElement === compareElement) {
+          event.preventDefault()
+          // Move focus back to the first or focusable last element
+          const nextFocusElement = isTabForward
+            ? focusableElements[0]
+            : focusableElements[focusableElements.length - 1]
+          nextFocusElement.focus()
+        }
+      }
     }
   }
 
@@ -826,7 +856,7 @@ export class Dialog extends React.Component<DialogProps, IDialogState> {
       }
     }
 
-    if (isMacOSSonoma() && this.props.role !== 'alertdialog') {
+    if (isMacOSSonomaOrLater() && this.props.role !== 'alertdialog') {
       // macOS Sonoma introduced a regression in that: For role of 'dialog', the
       // aria-labelledby is not announced. However, if the dialog has a child
       // with a role of header (aka h* elemeent) it will be announced as long as
@@ -854,6 +884,10 @@ export class Dialog extends React.Component<DialogProps, IDialogState> {
     )
 
     return (
+      /**
+       * This a11y linter is a false-positive as the mousedown and keydown
+       * listeners facilitate expected behaviors around dismissing the dialog.
+       */
       // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
       <dialog
         ref={this.onDialogRef}

@@ -1,3 +1,4 @@
+const { describe, it } = require('node:test')
 // @ts-check
 
 const RuleTester = require('eslint').RuleTester
@@ -15,22 +16,26 @@ const parserOptions = {
 // Tests
 // ------------------------------------------------------------------------------
 
-const ruleTester = new RuleTester({ parserOptions })
-ruleTester.run('react-no-unbound-dispatcher-props', rule, {
-  valid: [
-    '<Resizable onReset={() => { this.props.dispatcher.resetSidebarWidth }} />',
-  ],
-  invalid: [
-    {
-      code: '<Resizable onReset={this.props.dispatcher.resetSidebarWidth} />',
-      errors: [
+describe('react-no-unbound-dispatcher-props', () => {
+  it('should complain about unbound dispatcher props', () => {
+    const ruleTester = new RuleTester({ parserOptions })
+    ruleTester.run('react-no-unbound-dispatcher-props', rule, {
+      valid: [
+        '<Resizable onReset={() => { this.props.dispatcher.resetSidebarWidth }} />',
+      ],
+      invalid: [
         {
-          messageId: 'unboundMethod',
-          data: {
-            text: 'this.props.dispatcher.resetSidebarWidth',
-          },
+          code: '<Resizable onReset={this.props.dispatcher.resetSidebarWidth} />',
+          errors: [
+            {
+              messageId: 'unboundMethod',
+              data: {
+                text: 'this.props.dispatcher.resetSidebarWidth',
+              },
+            },
+          ],
         },
       ],
-    },
-  ],
+    })
+  })
 })

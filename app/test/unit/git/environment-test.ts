@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { envForProxy } from '../../../src/lib/git/environment'
 
 describe('git/environmnent', () => {
@@ -18,91 +20,99 @@ describe('git/environmnent', () => {
 
   describe('envForProxy', () => {
     it('sets the correct environment variable based on protocol', async () => {
-      expect(
-        await envForProxy('https://github.com/', {}, defaultResolver)
-      ).toEqual({
-        https_proxy: httpsProxyUrl,
-      })
+      assert.deepStrictEqual(
+        await envForProxy('https://github.com/', {}, defaultResolver),
+        { https_proxy: httpsProxyUrl }
+      )
 
-      expect(
-        await envForProxy('http://github.com/', {}, defaultResolver)
-      ).toEqual({
-        http_proxy: httpProxyUrl,
-      })
+      assert.deepStrictEqual(
+        await envForProxy('http://github.com/', {}, defaultResolver),
+        { http_proxy: httpProxyUrl }
+      )
     })
 
     it('fails gracefully if resolver throws', async () => {
-      expect(
-        await envForProxy('https://github.com/', {}, throwingResolver)
-      ).toEqual(undefined)
+      assert.equal(
+        await envForProxy('https://github.com/', {}, throwingResolver),
+        undefined
+      )
     })
 
     it("it doesn't set any variables if resolver returns undefined", async () => {
-      expect(
-        await envForProxy('https://github.com/', {}, nullResolver)
-      ).toEqual(undefined)
+      assert.equal(
+        await envForProxy('https://github.com/', {}, nullResolver),
+        undefined
+      )
     })
 
     it('sets the correct environment variable based on protocol', async () => {
-      expect(
-        await envForProxy('https://github.com/', {}, defaultResolver)
-      ).toEqual({
-        https_proxy: httpsProxyUrl,
-      })
+      assert.deepStrictEqual(
+        await envForProxy('https://github.com/', {}, defaultResolver),
+        {
+          https_proxy: httpsProxyUrl,
+        }
+      )
 
-      expect(
-        await envForProxy('http://github.com/', {}, defaultResolver)
-      ).toEqual({
-        http_proxy: httpProxyUrl,
-      })
+      assert.deepStrictEqual(
+        await envForProxy('http://github.com/', {}, defaultResolver),
+        {
+          http_proxy: httpProxyUrl,
+        }
+      )
     })
 
     it('ignores unknown protocols', async () => {
-      expect(
-        await envForProxy('ftp://github.com/', {}, defaultResolver)
-      ).toEqual(undefined)
+      assert.equal(
+        await envForProxy('ftp://github.com/', {}, defaultResolver),
+        undefined
+      )
     })
 
     it('does not override existing environment variables', async () => {
-      expect(
+      assert.equal(
         await envForProxy(
           'https://github.com/',
           { https_proxy: 'foo' },
           defaultResolver
-        )
-      ).toEqual(undefined)
+        ),
+        undefined
+      )
 
-      expect(
+      assert.equal(
         await envForProxy(
           'https://github.com/',
           { HTTPS_PROXY: 'foo' },
           defaultResolver
-        )
-      ).toEqual(undefined)
+        ),
+        undefined
+      )
 
-      expect(
+      assert.equal(
         await envForProxy(
           'http://github.com/',
           { http_proxy: 'foo' },
           defaultResolver
-        )
-      ).toEqual(undefined)
+        ),
+        undefined
+      )
 
-      expect(
+      assert.equal(
         await envForProxy(
           'https://github.com/',
           { ALL_PROXY: 'foo' },
           defaultResolver
-        )
-      ).toEqual(undefined)
+        ),
+        undefined
+      )
 
-      expect(
+      assert.equal(
         await envForProxy(
           'https://github.com/',
           { all_proxy: 'foo' },
           defaultResolver
-        )
-      ).toEqual(undefined)
+        ),
+        undefined
+      )
     })
   })
 })

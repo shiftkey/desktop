@@ -98,9 +98,16 @@ interface IMenuPaneProps {
   readonly allowFirstCharacterNavigation?: boolean
 
   readonly renderLabel?: (item: MenuItem) => JSX.Element | undefined
+
+  /** Optional callback for capturing a ref to the menu pane element */
+  readonly onRef?: (depth: number, element: HTMLDivElement | null) => void
 }
 
 export class MenuPane extends React.Component<IMenuPaneProps> {
+  private onMenuPaneRef = (element: HTMLDivElement | null) => {
+    this.props.onRef?.(this.props.depth, element)
+  }
+
   private onRowClick = (
     item: MenuItem,
     event: React.MouseEvent<HTMLDivElement>
@@ -252,8 +259,13 @@ export class MenuPane extends React.Component<IMenuPaneProps> {
     const className = classNames('menu-pane', this.props.className)
 
     return (
+      /**
+       * This a11y linter is a false-positive as the mousedown and keydown
+       * listeners facilitate navigating the menu with the keyboard.
+       */
       // eslint-disable-next-line jsx-a11y/no-static-element-interactions
       <div
+        ref={this.onMenuPaneRef}
         className={className}
         onMouseEnter={this.onMouseEnter}
         onKeyDown={this.onKeyDown}

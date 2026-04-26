@@ -1,10 +1,13 @@
 /* eslint-disable no-sync */
 /// <reference path="./globals.d.ts" />
 
-import * as path from 'path'
 import * as cp from 'child_process'
-import packager, { OsxNotarizeOptions } from 'electron-packager'
+import packager, { OfficialArch, OsxNotarizeOptions } from 'electron-packager'
 import frontMatter from 'front-matter'
+import * as os from 'os'
+import * as path from 'path'
+import { getPrintenvzPath } from 'printenvz'
+import { getProxyCommandPath } from 'process-proxy'
 import { externals } from '../app/webpack.common'
 
 interface IChooseALicense {
@@ -27,19 +30,18 @@ import {
   getProductName,
 } from '../app/package-info'
 
+import { isGitHubActions } from './build-platforms'
 import {
   getChannel,
+  getDistArchitecture,
   getDistRoot,
   getExecutableName,
+  getIconDirectory,
   isPublishable,
-  getIconFileName,
-  getDistArchitecture,
 } from './dist-info'
-import { isGitHubActions } from './build-platforms'
 
-import { updateLicenseDump } from './licenses/update-license-dump'
-import { verifyInjectedSassVariables } from './validate-sass/validate-all'
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -48,10 +50,15 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'fs'
-import { copySync } from 'fs-extra'
+import { updateLicenseDump } from './licenses/update-license-dump'
+import { verifyInjectedSassVariables } from './validate-sass/validate-all'
+import { join } from 'path'
+import assert from 'assert'
 
 const isPublishableBuild = isPublishable()
+const isNonProductionRelease = getChannel() !== 'production'
 const isDevelopmentBuild = getChannel() === 'development'
+const shouldSkipPackaging = process.env.DESKTOP_SKIP_PACKAGE === '1'
 
 const projectRoot = path.join(__dirname, '..')
 const entitlementsSuffix = isDevelopmentBuild ? '-dev' : ''
@@ -107,6 +114,11 @@ verifyInjectedSassVariables(outRoot)
     })
   })
   .then(() => {
+    if (shouldSkipPackaging) {
+      console.log('Skipping packaging…')
+      return [outRoot]
+    }
+
     console.log('Packaging…')
     return packageApp()
   })
@@ -161,12 +173,12 @@ function packageApp() {
     )
   }
 
-  // this setting only works for macOS and Windows, so let's clear it now to ensure
-  // the app is working as expected
-  const icon =
-    process.platform === 'linux'
-      ? undefined
-      : path.join(projectRoot, 'app', 'static', 'logos', getIconFileName())
+  const iconPath = getIconDirectory()
+  const assetsCarPath = join(iconPath, 'Assets.car')
+  assert(
+    existsSync(assetsCarPath),
+    `Unable to find Assets.car at ${assetsCarPath}`
+  )
 
   return packager({
     name: getExecutableName(),
@@ -174,7 +186,8 @@ function packageApp() {
     arch: getPackageArch(),
     asar: false, // TODO: Probably wanna enable this down the road.
     out: getDistRoot(),
-    icon,
+    icon: join(iconPath, 'icon-logo'),
+    extraResource: [assetsCarPath],
     dir: outRoot,
     overwrite: true,
     tmpdir: false,
@@ -233,7 +246,7 @@ function packageApp() {
 
 function removeAndCopy(source: string, destination: string) {
   rmSync(destination, { recursive: true, force: true })
-  copySync(source, destination)
+  cpSync(source, destination, { recursive: true, verbatimSymlinks: true })
 }
 
 function copyEmoji() {
@@ -257,9 +270,16 @@ function copyStaticResources() {
   const destination = path.join(outRoot, 'static')
   rmSync(destination, { recursive: true, force: true })
   if (existsSync(platformSpecific)) {
-    copySync(platformSpecific, destination)
+    cpSync(platformSpecific, destination, {
+      recursive: true,
+      verbatimSymlinks: true,
+    })
   }
-  copySync(common, destination, { overwrite: false })
+  cpSync(common, destination, {
+    recursive: true,
+    force: false,
+    verbatimSymlinks: true,
+  })
 }
 
 function moveAnalysisFiles() {
@@ -273,7 +293,11 @@ function moveAnalysisFiles() {
     //
     // unlinkSync below ensures that the analysis file isn't bundled into
     // the app by accident
-    copySync(analysisSource, destination, { overwrite: true })
+    cpSync(analysisSource, destination, {
+      recursive: true,
+      force: true,
+      verbatimSymlinks: true,
+    })
     unlinkSync(analysisSource)
   }
 }
@@ -317,22 +341,75 @@ function copyDependencies() {
 
   rmSync(desktopTrampolineDir, { recursive: true, force: true })
   mkdirSync(desktopTrampolineDir, { recursive: true })
-  copySync(
+  cpSync(
     path.resolve(trampolineSource, desktopAskpassTrampolineFile),
-    path.resolve(desktopTrampolineDir, desktopAskpassTrampolineFile)
+    path.resolve(desktopTrampolineDir, desktopAskpassTrampolineFile),
+    { recursive: true, verbatimSymlinks: true }
   )
+
+  if (isNonProductionRelease) {
+    console.log('  Copying copilot…')
+    const copilotPkgDir = path.resolve(
+      projectRoot,
+      `app/node_modules/@github/copilot`
+    )
+
+    const copilotDestination = path.resolve(outRoot, 'copilot')
+    cpSync(copilotPkgDir, copilotDestination, {
+      recursive: true,
+    })
+
+    const nonValidPlatforms = ['darwin', 'linux', 'win32'].filter(
+      p => p !== process.platform
+    )
+    const nonValidArchitectures = ['x64', 'arm64'].filter(
+      a => a !== getDistArchitecture()
+    )
+
+    // Removing unnecessary prebuild binaries from the copilot package to reduce
+    // bundle size
+    const prebuildsDirs = [
+      path.join(copilotDestination, 'prebuilds'),
+      path.join(copilotDestination, 'ripgrep', 'bin'),
+      path.join(copilotDestination, 'clipboard', 'node_modules', '@teddyzhu'),
+    ]
+
+    for (const prebuildsDir of prebuildsDirs) {
+      const prebuilds = readdirSync(prebuildsDir)
+      for (const prebuild of prebuilds) {
+        for (const platform of nonValidPlatforms) {
+          if (prebuild.includes(platform)) {
+            rmSync(path.join(prebuildsDir, prebuild), {
+              recursive: true,
+              force: true,
+            })
+          }
+        }
+
+        for (const arch of nonValidArchitectures) {
+          if (prebuild.includes(arch)) {
+            rmSync(path.join(prebuildsDir, prebuild), {
+              recursive: true,
+              force: true,
+            })
+          }
+        }
+      }
+    }
+  }
 
   // Dev builds for macOS require a SSH wrapper to use SSH_ASKPASS
   if (process.platform === 'darwin' && isDevelopmentBuild) {
     console.log('  Copying ssh-wrapper')
     const sshWrapperFile = 'ssh-wrapper'
-    copySync(
+    cpSync(
       path.resolve(
         projectRoot,
         'app/node_modules/desktop-trampoline/build/Release',
         sshWrapperFile
       ),
-      path.resolve(desktopTrampolineDir, sshWrapperFile)
+      path.resolve(desktopTrampolineDir, sshWrapperFile),
+      { recursive: true, verbatimSymlinks: true }
     )
   }
 
@@ -340,10 +417,13 @@ function copyDependencies() {
   const gitDir = path.resolve(outRoot, 'git')
   rmSync(gitDir, { recursive: true, force: true })
   mkdirSync(gitDir, { recursive: true })
-  copySync(path.resolve(projectRoot, 'app/node_modules/dugite/git'), gitDir)
+  cpSync(path.resolve(projectRoot, 'app/node_modules/dugite/git'), gitDir, {
+    recursive: true,
+    verbatimSymlinks: true,
+  })
 
   console.log('  Copying desktop credential helper…')
-  const mingw = getDistArchitecture() === 'x64' ? 'mingw64' : 'mingw32'
+  const mingw = getDistArchitecture() === 'x64' ? 'mingw64' : 'clangarm64'
   const gitCoreDir =
     process.platform === 'win32'
       ? path.resolve(outRoot, 'git', mingw, 'libexec', 'git-core')
@@ -358,20 +438,42 @@ function copyDependencies() {
     process.platform === 'win32' ? '.exe' : ''
   }`
 
-  copySync(
+  cpSync(
     path.resolve(trampolineSource, desktopCredentialHelperTrampolineFile),
-    path.resolve(gitCoreDir, desktopCredentialHelperFile)
+    path.resolve(gitCoreDir, desktopCredentialHelperFile),
+    { recursive: true, verbatimSymlinks: true }
   )
 
   if (process.platform === 'darwin') {
     console.log('  Copying app-path binary…')
     const appPathMain = path.resolve(outRoot, 'main')
     rmSync(appPathMain, { recursive: true, force: true })
-    copySync(
+    cpSync(
       path.resolve(projectRoot, 'app/node_modules/app-path/main'),
-      appPathMain
+      appPathMain,
+      { recursive: true, verbatimSymlinks: true }
     )
   }
+
+  console.log('  Copying process-proxy binary')
+  cpSync(
+    getProxyCommandPath(),
+    path.resolve(
+      outRoot,
+      process.platform === 'win32' ? 'process-proxy.exe' : 'process-proxy'
+    ),
+    { recursive: true, verbatimSymlinks: true }
+  )
+
+  console.log('  Copying printenvz binary')
+  cpSync(
+    getPrintenvzPath(),
+    path.resolve(
+      outRoot,
+      process.platform === 'win32' ? 'printenvz.exe' : 'printenvz'
+    ),
+    { recursive: true, verbatimSymlinks: true }
+  )
 }
 
 function generateLicenseMetadata(outRoot: string) {

@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { parseError } from '../../src/lib/squirrel-error-parser'
 
 describe('parseError', () => {
@@ -8,7 +10,7 @@ describe('parseError', () => {
 
     const output = parseError(input)
 
-    expect(output).not.toBeNull()
+    assert(output !== null)
   })
 
   it('parses a Squirrel network error', () => {
@@ -75,7 +77,7 @@ describe('parseError', () => {
 
     const output = parseError(input)
 
-    expect(output).not.toBeNull()
+    assert(output !== null)
   })
 
   it('parses a timeout error', () => {
@@ -146,7 +148,7 @@ describe('parseError', () => {
 
     const output = parseError(input)
 
-    expect(output).not.toBeNull()
+    assert(output !== null)
   })
 
   it('passes through an empty error', () => {
@@ -154,6 +156,6 @@ describe('parseError', () => {
 
     const output = parseError(input)
 
-    expect(output).toBeNull()
+    assert(output === null)
   })
 })

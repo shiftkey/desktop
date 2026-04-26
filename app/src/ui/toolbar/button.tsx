@@ -1,4 +1,3 @@
-/* eslint-disable jsx-a11y/no-static-element-interactions */
 import * as React from 'react'
 import { Octicon, OcticonSymbol } from '../octicons'
 import classNames from 'classnames'
@@ -53,12 +52,6 @@ export interface IToolbarButtonProps {
    * a pointer device.
    */
   readonly onMouseEnter?: (event: React.MouseEvent<HTMLButtonElement>) => void
-
-  /**
-   * A function that's called when a key event is received from the
-   * ToolbarButton component or any of its descendants.
-   */
-  readonly onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void
 
   /**
    * An optional classname that will be appended to the default
@@ -208,11 +201,7 @@ export class ToolbarButton extends React.Component<IToolbarButtonProps, {}> {
       ) : undefined
 
     return (
-      <div
-        className={className}
-        onKeyDown={this.props.onKeyDown}
-        ref={this.wrapperRef}
-      >
+      <div className={className} ref={this.wrapperRef}>
         {tooltip && (
           <Tooltip
             target={this.wrapperRef}

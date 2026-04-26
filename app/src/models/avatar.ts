@@ -3,6 +3,7 @@ import { CommitIdentity } from './commit-identity'
 import { GitAuthor } from './git-author'
 import { GitHubRepository } from './github-repository'
 import { isWebFlowCommitter } from '../lib/web-flow-committer'
+import { parseStealthEmail } from '../lib/email'
 
 /** The minimum properties we need in order to display a user's avatar. */
 export interface IAvatarUser {
@@ -77,5 +78,24 @@ export function getAvatarUsersForCommit(
     )
   }
 
-  return avatarUsers
+  // Copilot sometimes uses the copilot-swe-agent[bot] as its committer identity name.
+  // Dotcom always resolves the user and shows the login leading to all Copilot commits
+  // to show up as Copilot, we should do the same.
+  if (gitHubRepository) {
+    for (const au of avatarUsers) {
+      if (
+        au.name === 'copilot-swe-agent[bot]' &&
+        parseStealthEmail(au.email, gitHubRepository.endpoint)?.login ===
+          'Copilot'
+      ) {
+        au.name = 'Copilot'
+      }
+    }
+  }
+
+  const avatarUsersByIdentity = new Map<string, IAvatarUser>(
+    avatarUsers.map(x => [x.name + x.email, x])
+  )
+
+  return [...avatarUsersByIdentity.values()]
 }

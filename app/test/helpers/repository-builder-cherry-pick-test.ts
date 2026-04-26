@@ -1,3 +1,4 @@
+import { TestContext } from 'node:test'
 import { Repository } from '../../src/models/repository'
 import { setupEmptyRepositoryDefaultMain } from './repositories'
 import { makeCommit, switchTo, createBranch } from './repository-scaffolding'
@@ -9,10 +10,11 @@ import { makeCommit, switchTo, createBranch } from './repository-scaffolding'
  *  - creates `targetBranchName` off of default branch
  */
 export async function createRepository(
+  t: TestContext,
   featureBranchName: string,
   targetBranchName: string
 ): Promise<Repository> {
-  const repository = await setupEmptyRepositoryDefaultMain()
+  const repository = await setupEmptyRepositoryDefaultMain(t)
 
   const firstCommit = {
     commitMessage: 'First!',

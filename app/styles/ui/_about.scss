@@ -20,6 +20,23 @@ dialog#about {
       margin-bottom: 0;
     }
 
+    p.terms-and-license {
+      // A11y: WCAG SC 2.58 states that "The size of the target for pointer
+      // inputs is at least 24 by 24 CSS pixels, except, if target is in a
+      // sentence or its size is otherwise constrained by the line-height of
+      // non-target text." Our links typically are in a sentence and therefore are
+      // 18px due to our text line-height. In this case, the links are stand
+      // alone and therefore do not meet this exception criteria. This adds the 3px top and bottom
+      // to give us that required 24px height.
+      .link-button-component {
+        padding: 3px;
+      }
+    }
+
+    .terms-and-license-container {
+      margin-top: var(--spacing);
+    }
+
     .version-text {
       cursor: pointer;
       .octicon {
@@ -44,14 +61,15 @@ dialog#about {
   }
 
   .update-status {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    text-align: center;
+    margin-bottom: var(--spacing);
     .octicon.spin {
       // Make sure the spinner is aligned with the text.
       align-self: center;
-
-      // Tighten up the spacing between the spinner and the text
-      &:not(:last-child) {
-        margin-right: 3px;
-      }
+      margin-right: 3px;
     }
   }
 }
