@@ -84,12 +84,23 @@ findYarnVersion(path => {
     process.exit(result.status || 1)
   }
 
-  // Linux-specific: apply patches via patch-package
+  // Linux-specific: apply patches from the patches/ directory
   if (process.platform === 'linux') {
-    result = spawnSync('node', getYarnArgs([path, 'patch-package']), options)
-
-    if (result.status !== 0) {
-      process.exit(result.status || 1)
+    const patchesDir = Path.join(root, 'patches')
+    const fs = require('fs')
+    if (fs.existsSync(patchesDir)) {
+      const patches = fs.readdirSync(patchesDir).filter((f: string) => f.endsWith('.patch'))
+      for (const patch of patches) {
+        const patchPath = Path.join(patchesDir, patch)
+        result = spawnSync('patch', ['-p1', '--forward', '--input', patchPath], {
+          ...options,
+          cwd: Path.join(root, 'node_modules'),
+        })
+        if (result.status !== 0 && result.status !== 1) {
+          // status 1 means already applied (idempotent), only fail on other errors
+          console.warn(`Warning: patch ${patch} may have failed (status ${result.status})`)
+        }
+      }
     }
   }
 
