@@ -23,6 +23,12 @@ uses [React](https://reactjs.org/).
 This repository contains specific patches on top of the upstream
 `desktop/desktop` repository to support Linux usage.
 
+> **Update Status:** This fork has been recently synchronized with the upstream GitHub Desktop version `3.5.9-beta2`. Extensive updates were made to ensure continued Linux compatibility, including:
+> - **Build & Packaging:** Node.js script fixes, patch application adjustments, and `webpack` memory limits for stable builds.
+> - **Runtime & UI:** Fixed sandbox-related launch issues (`--no-sandbox` integration where needed on Linux), added missing Linux UI elements (like `TitleBarStyle` and `ConfirmRestart` popups), and correctly configured protocol-style app URL handling for Linux.
+> - **Stores Architecture:** Addressed TypeErrors caused by merge discrepancies, ensuring resilience in `CopilotStore` and other app state handlers.
+
+
 It also publishes [releases](https://github.com/shiftkey/desktop/releases) for various Linux distributions:
 
  - AppImage (`.AppImage`)
