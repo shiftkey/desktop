@@ -13,7 +13,21 @@ const options: SpawnSyncOptions = {
   stdio: 'inherit',
 }
 
-/** Check if the caller has set the OFFLINe environment variable */
+const captureOutputOptions: SpawnSyncOptions = {
+  cwd: root,
+  encoding: 'utf8',
+}
+
+// Some Windows CI runners do not expose an `npx` executable on PATH, so
+// invoke the locally installed Playwright CLI through the current Node binary.
+// Resolve from the exported package root since `playwright/cli` is not exported.
+const playwrightPackagePath = require.resolve('playwright/package.json')
+const playwrightCliPath = Path.join(
+  Path.dirname(playwrightPackagePath),
+  'cli.js'
+)
+
+/** Check if the caller has set the OFFLINE environment variable */
 function isOffline() {
   return process.env.OFFLINE === '1'
 }
@@ -70,6 +84,7 @@ findYarnVersion(path => {
     process.exit(result.status || 1)
   }
 
+  // Linux-specific: apply patches via patch-package
   if (process.platform === 'linux') {
     result = spawnSync('node', getYarnArgs([path, 'patch-package']), options)
 
