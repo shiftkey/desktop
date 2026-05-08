@@ -162,6 +162,8 @@
     }
 
     .action-bar {
+      display: flex;
+      gap: var(--spacing-half);
       padding: var(--spacing-half);
       background: var(--box-background-color);
 
@@ -213,6 +215,16 @@
         height: 13px;
         width: 18px;
         pointer-events: none;
+      }
+    }
+
+    .ai-commit-message-button {
+      width: 22px;
+      height: 18px;
+      padding: 0;
+
+      .octicon {
+        margin: 0;
       }
     }
   }

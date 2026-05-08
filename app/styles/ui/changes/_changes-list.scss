@@ -43,6 +43,13 @@
       }
     }
   }
+
+  .filter {
+    border-bottom: 1px solid var(--box-border-color);
+    padding: var(--spacing-half) var(--spacing);
+    background: var(--box-background-color);
+    flex: 0 0 auto;
+  }
 }
 
 .stashed-changes-button {

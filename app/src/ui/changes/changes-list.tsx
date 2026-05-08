@@ -20,6 +20,7 @@ import { Account } from '../../models/account'
 import { Author, UnknownAuthor } from '../../models/author'
 import { List, ClickSource } from '../lib/list'
 import { Checkbox, CheckboxValue } from '../lib/checkbox'
+import { TextBox } from '../lib/text-box'
 import {
   isSafeFileExtension,
   DefaultEditorLabel,
@@ -33,6 +34,7 @@ import {
 import { CommitMessage } from './commit-message'
 import { ChangedFile } from './changed-file'
 import { IAutocompletionProvider } from '../autocompletion'
+import { generateAICommitMessage } from '../../lib/ai/generate-commit-message'
 import { showContextualMenu } from '../../lib/menu-item'
 import { arrayEquals } from '../../lib/equality'
 import { clipboard } from 'electron'
@@ -58,6 +60,7 @@ import { TooltippedContent } from '../lib/tooltipped-content'
 import { RepoRulesInfo } from '../../models/repo-rules'
 import { IAheadBehind } from '../../models/branch'
 import { StashDiffViewerId } from '../stashing'
+import { filterChangedFilesByPath } from '../../lib/filter-changed-files'
 
 const RowHeight = 29
 const StashIcon: OcticonSymbolVariant = {
@@ -229,16 +232,22 @@ interface IChangesListProps {
 interface IChangesState {
   readonly selectedRows: ReadonlyArray<number>
   readonly focusedRow: number | null
+  readonly filterText: string
 }
 
 function getSelectedRowsFromProps(
-  props: IChangesListProps
+  props: IChangesListProps,
+  filterText: string = ''
 ): ReadonlyArray<number> {
   const selectedFileIDs = props.selectedFileIDs
+  const visibleFiles = filterChangedFilesByPath(
+    props.workingDirectory.files,
+    filterText
+  )
   const selectedRows = []
 
   for (const id of selectedFileIDs) {
-    const ix = props.workingDirectory.findFileIndexByID(id)
+    const ix = visibleFiles.findIndex(file => file.id === id)
     if (ix !== -1) {
       selectedRows.push(ix)
     }
@@ -259,6 +268,7 @@ export class ChangesList extends React.Component<
     this.state = {
       selectedRows: getSelectedRowsFromProps(props),
       focusedRow: null,
+      filterText: '',
     }
   }
 
@@ -272,8 +282,34 @@ export class ChangesList extends React.Component<
         this.props.workingDirectory.files
       )
     ) {
-      this.setState({ selectedRows: getSelectedRowsFromProps(nextProps) })
+      this.setState({
+        selectedRows: getSelectedRowsFromProps(
+          nextProps,
+          this.state.filterText
+        ),
+      })
     }
+  }
+
+  private get visibleFiles() {
+    return filterChangedFilesByPath(
+      this.props.workingDirectory.files,
+      this.state.filterText
+    )
+  }
+
+  private getOriginalRowFromVisibleRow(row: number) {
+    const file = this.visibleFiles[row]
+    return file !== undefined
+      ? this.props.workingDirectory.findFileIndexByID(file.id)
+      : -1
+  }
+
+  private onFilterTextChanged = (filterText: string) => {
+    this.setState({
+      filterText,
+      selectedRows: getSelectedRowsFromProps(this.props, filterText),
+    })
   }
 
   private onIncludeAllChanged = (event: React.FormEvent<HTMLInputElement>) => {
@@ -283,14 +319,13 @@ export class ChangesList extends React.Component<
 
   private renderRow = (row: number): JSX.Element => {
     const {
-      workingDirectory,
       rebaseConflictState,
       isCommitting,
       onIncludeChanged,
       availableWidth,
     } = this.props
 
-    const file = workingDirectory.files[row]
+    const file = this.visibleFiles[row]
     const selection = file.selection.getSelectionType()
     const { submoduleStatus } = file.status
 
@@ -711,8 +746,7 @@ export class ChangesList extends React.Component<
     row: number,
     event: React.MouseEvent<HTMLDivElement>
   ) => {
-    const { workingDirectory } = this.props
-    const file = workingDirectory.files[row]
+    const file = this.visibleFiles[row]
 
     if (this.props.isCommitting) {
       return
@@ -860,9 +894,18 @@ export class ChangesList extends React.Component<
         onCommitSpellcheckEnabledChanged={this.onCommitSpellcheckEnabledChanged}
         onStopAmending={this.onStopAmending}
         onShowCreateForkDialog={this.onShowCreateForkDialog}
+        onGenerateCommitMessage={this.onGenerateCommitMessage}
         accounts={this.props.accounts}
       />
     )
+  }
+
+  private onGenerateCommitMessage = () => {
+    const files = this.props.workingDirectory.files.filter(
+      f => f.selection.getSelectionType() !== DiffSelectionType.None
+    )
+
+    return generateAICommitMessage(this.props.repository, files)
   }
 
   private onCoAuthorsUpdated = (coAuthors: ReadonlyArray<Author>) =>
@@ -947,9 +990,25 @@ export class ChangesList extends React.Component<
   }
 
   private onRowDoubleClick = (row: number) => {
-    const file = this.props.workingDirectory.files[row]
+    const file = this.visibleFiles[row]
 
     this.props.onOpenItemInExternalEditor(file.path)
+  }
+
+  private onSelectionChanged = (rows: ReadonlyArray<number>) => {
+    const originalRows = rows
+      .map(row => this.getOriginalRowFromVisibleRow(row))
+      .filter(row => row !== -1)
+
+    this.props.onFileSelectionChanged(originalRows)
+  }
+
+  private onRowClick = (row: number, source: ClickSource) => {
+    const originalRow = this.getOriginalRowFromVisibleRow(row)
+
+    if (originalRow !== -1) {
+      this.props.onRowClick?.(originalRow, source)
+    }
   }
 
   private onRowKeyDown = (
@@ -975,6 +1034,7 @@ export class ChangesList extends React.Component<
   public render() {
     const { workingDirectory, rebaseConflictState, isCommitting } = this.props
     const { files } = workingDirectory
+    const visibleFiles = this.visibleFiles
 
     const filesPlural = files.length === 1 ? 'file' : 'files'
     const filesDescription = `${files.length} changed ${filesPlural}`
@@ -1019,20 +1079,30 @@ export class ChangesList extends React.Component<
               {selectedChangesDescription}
             </div>
           </div>
+          <div className="filter">
+            <TextBox
+              type="search"
+              ariaLabel="Filter changed files"
+              placeholder="Filter changed files"
+              value={this.state.filterText}
+              onValueChanged={this.onFilterTextChanged}
+              displayClearButton={true}
+            />
+          </div>
           <List
             id="changes-list"
-            rowCount={files.length}
+            rowCount={visibleFiles.length}
             rowHeight={RowHeight}
             rowRenderer={this.renderRow}
             selectedRows={this.state.selectedRows}
             selectionMode="multi"
-            onSelectionChanged={this.props.onFileSelectionChanged}
+            onSelectionChanged={this.onSelectionChanged}
             invalidationProps={{
               workingDirectory: workingDirectory,
               isCommitting: isCommitting,
               focusedRow: this.state.focusedRow,
             }}
-            onRowClick={this.props.onRowClick}
+            onRowClick={this.onRowClick}
             onRowDoubleClick={this.onRowDoubleClick}
             onRowKeyboardFocus={this.onRowFocus}
             onRowBlur={this.onRowBlur}

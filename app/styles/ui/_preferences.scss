@@ -44,6 +44,10 @@
   }
 
   .accounts-tab {
+    .account-section {
+      margin-bottom: var(--spacing-double);
+    }
+
     .account-info {
       .user-info-container {
         display: flex;
@@ -73,6 +77,33 @@
       }
     }
 
+    .organization-status {
+      margin-top: var(--spacing);
+      padding-left: 42px;
+      color: var(--text-secondary-color);
+      font-size: var(--font-size-sm);
+
+      p {
+        margin-top: var(--spacing-half);
+        margin-bottom: var(--spacing-half);
+      }
+    }
+
+    .organization-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-half);
+      margin-top: var(--spacing-half);
+    }
+
+    .organization-pill {
+      border: var(--base-border);
+      border-radius: var(--border-radius);
+      padding: 2px var(--spacing-half);
+      color: var(--text-color);
+      background: var(--box-background-color);
+    }
+
     @media (max-width: 600px) {
       .account-info {
         flex-direction: column;
@@ -84,6 +115,10 @@
         .button-component {
           align-self: normal;
         }
+      }
+
+      .organization-status {
+        padding-left: 0;
       }
     }
 

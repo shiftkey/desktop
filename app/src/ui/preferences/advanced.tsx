@@ -2,8 +2,16 @@ import * as React from 'react'
 import { DialogContent } from '../dialog'
 import { Checkbox, CheckboxValue } from '../lib/checkbox'
 import { LinkButton } from '../lib/link-button'
+import { TextBox } from '../lib/text-box'
+import { PasswordTextBox } from '../lib/password-text-box'
 import { SamplesURL } from '../../lib/stats'
 import { isWindowsOpenSSHAvailable } from '../../lib/ssh/ssh'
+import {
+  DefaultOpenRouterBaseUrl,
+  DefaultOpenRouterModel,
+  getAICommitMessageSettings,
+  setAICommitMessageSettings,
+} from '../../lib/ai/commit-message-settings'
 
 interface IAdvancedPreferencesProps {
   readonly useWindowsOpenSSH: boolean
@@ -20,6 +28,10 @@ interface IAdvancedPreferencesState {
   readonly optOutOfUsageTracking: boolean
   readonly canUseWindowsSSH: boolean
   readonly useExternalCredentialHelper: boolean
+  readonly aiCommitMessagesEnabled: boolean
+  readonly openRouterAPIKey: string
+  readonly openRouterModel: string
+  readonly openRouterBaseUrl: string
 }
 
 export class Advanced extends React.Component<
@@ -33,15 +45,48 @@ export class Advanced extends React.Component<
       optOutOfUsageTracking: this.props.optOutOfUsageTracking,
       canUseWindowsSSH: false,
       useExternalCredentialHelper: this.props.useExternalCredentialHelper,
+      aiCommitMessagesEnabled: false,
+      openRouterAPIKey: '',
+      openRouterModel: DefaultOpenRouterModel,
+      openRouterBaseUrl: DefaultOpenRouterBaseUrl,
     }
   }
 
   public componentDidMount() {
     this.checkSSHAvailability()
+    this.loadAICommitMessageSettings()
   }
 
   private async checkSSHAvailability() {
     this.setState({ canUseWindowsSSH: await isWindowsOpenSSHAvailable() })
+  }
+
+  private async loadAICommitMessageSettings() {
+    const settings = await getAICommitMessageSettings()
+
+    this.setState({
+      aiCommitMessagesEnabled: settings.enabled,
+      openRouterAPIKey: settings.apiKey,
+      openRouterModel: settings.model,
+      openRouterBaseUrl: settings.baseUrl,
+    })
+  }
+
+  private persistAICommitMessageSettings = async (
+    state: Pick<
+      IAdvancedPreferencesState,
+      | 'aiCommitMessagesEnabled'
+      | 'openRouterAPIKey'
+      | 'openRouterModel'
+      | 'openRouterBaseUrl'
+    >
+  ) => {
+    await setAICommitMessageSettings({
+      enabled: state.aiCommitMessagesEnabled,
+      apiKey: state.openRouterAPIKey.trim(),
+      model: state.openRouterModel.trim() || DefaultOpenRouterModel,
+      baseUrl: state.openRouterBaseUrl.trim() || DefaultOpenRouterBaseUrl,
+    })
   }
 
   private onReportingOptOutChanged = (
@@ -72,6 +117,47 @@ export class Advanced extends React.Component<
     event: React.FormEvent<HTMLInputElement>
   ) => {
     this.props.onUseWindowsOpenSSHChanged(event.currentTarget.checked)
+  }
+
+  private onAICommitMessagesEnabledChanged = (
+    event: React.FormEvent<HTMLInputElement>
+  ) => {
+    const nextState = {
+      ...this.state,
+      aiCommitMessagesEnabled: event.currentTarget.checked,
+    }
+    this.setState(nextState)
+    this.persistAICommitMessageSettings(nextState)
+  }
+
+  private onOpenRouterAPIKeyBlur = (apiKey: string) => {
+    const nextState = { ...this.state, openRouterAPIKey: apiKey }
+    this.setState(nextState)
+    this.persistAICommitMessageSettings(nextState)
+  }
+
+  private onOpenRouterAPIKeyChanged = (apiKey: string) => {
+    this.setState({ openRouterAPIKey: apiKey })
+  }
+
+  private onOpenRouterModelChanged = (model: string) => {
+    this.setState({ openRouterModel: model })
+  }
+
+  private onOpenRouterModelBlur = (model: string) => {
+    const nextState = { ...this.state, openRouterModel: model }
+    this.setState(nextState)
+    this.persistAICommitMessageSettings(nextState)
+  }
+
+  private onOpenRouterBaseUrlChanged = (baseUrl: string) => {
+    this.setState({ openRouterBaseUrl: baseUrl })
+  }
+
+  private onOpenRouterBaseUrlBlur = (baseUrl: string) => {
+    const nextState = { ...this.state, openRouterBaseUrl: baseUrl }
+    this.setState(nextState)
+    this.persistAICommitMessageSettings(nextState)
   }
 
   private reportDesktopUsageLabel() {
@@ -126,6 +212,7 @@ export class Advanced extends React.Component<
             onChange={this.onReportingOptOutChanged}
           />
         </div>
+        {this.renderAICommitMessageSettings()}
         <h2>Network and credentials</h2>
         {this.renderSSHSettings()}
         <div className="advanced-section">
@@ -170,6 +257,55 @@ export class Advanced extends React.Component<
             this.props.useWindowsOpenSSH ? CheckboxValue.On : CheckboxValue.Off
           }
           onChange={this.onUseWindowsOpenSSHChanged}
+        />
+      </div>
+    )
+  }
+
+  private renderAICommitMessageSettings() {
+    return (
+      <div className="advanced-section">
+        <h2>AI commit messages</h2>
+        <Checkbox
+          label="Enable OpenRouter commit message generation"
+          value={
+            this.state.aiCommitMessagesEnabled
+              ? CheckboxValue.On
+              : CheckboxValue.Off
+          }
+          onChange={this.onAICommitMessagesEnabledChanged}
+          ariaDescribedBy="ai-commit-messages-description"
+        />
+        <div
+          id="ai-commit-messages-description"
+          className="git-settings-description"
+        >
+          Generate commit summaries from selected changes only when you click
+          the generate button. Review generated messages before committing.
+        </div>
+        <PasswordTextBox
+          label="OpenRouter API key"
+          value={this.state.openRouterAPIKey}
+          placeholder="sk-or-..."
+          onValueChanged={this.onOpenRouterAPIKeyChanged}
+          onBlur={this.onOpenRouterAPIKeyBlur}
+          disabled={!this.state.aiCommitMessagesEnabled}
+        />
+        <TextBox
+          label="OpenRouter model"
+          value={this.state.openRouterModel}
+          placeholder={DefaultOpenRouterModel}
+          onValueChanged={this.onOpenRouterModelChanged}
+          onBlur={this.onOpenRouterModelBlur}
+          disabled={!this.state.aiCommitMessagesEnabled}
+        />
+        <TextBox
+          label="OpenRouter base URL"
+          value={this.state.openRouterBaseUrl}
+          placeholder={DefaultOpenRouterBaseUrl}
+          onValueChanged={this.onOpenRouterBaseUrlChanged}
+          onBlur={this.onOpenRouterBaseUrlBlur}
+          disabled={!this.state.aiCommitMessagesEnabled}
         />
       </div>
     )

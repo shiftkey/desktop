@@ -55,6 +55,10 @@ import { RepoRulesetsForBranchLink } from '../repository-rules/repo-rulesets-for
 import { RepoRulesMetadataFailureList } from '../repository-rules/repo-rules-failure-list'
 import { formatCommitMessage } from '../../lib/format-commit-message'
 import { useRepoRulesLogic } from '../../lib/helpers/repo-rules'
+import {
+  getAICommitMessageSettings,
+  hasUsableAICommitMessageSettings,
+} from '../../lib/ai/commit-message-settings'
 
 const addAuthorIcon: OcticonSymbolVariant = {
   w: 18,
@@ -161,6 +165,7 @@ interface ICommitMessageProps {
   readonly onCommitSpellcheckEnabledChanged: (enabled: boolean) => void
   readonly onStopAmending: () => void
   readonly onShowCreateForkDialog: () => void
+  readonly onGenerateCommitMessage?: () => Promise<ICommitMessage>
 
   readonly accounts: ReadonlyArray<Account>
 }
@@ -190,6 +195,9 @@ interface ICommitMessageState {
   readonly repoRuleCommitMessageFailures: RepoRulesMetadataFailures
   readonly repoRuleCommitAuthorFailures: RepoRulesMetadataFailures
   readonly repoRuleBranchNameFailures: RepoRulesMetadataFailures
+  readonly isGeneratingAICommitMessage: boolean
+  readonly aiCommitMessageError: string | null
+  readonly aiCommitMessagesConfigured: boolean
 }
 
 function findCommitMessageAutoCompleteProvider(
@@ -246,6 +254,9 @@ export class CommitMessage extends React.Component<
       repoRuleCommitMessageFailures: new RepoRulesMetadataFailures(),
       repoRuleCommitAuthorFailures: new RepoRulesMetadataFailures(),
       repoRuleBranchNameFailures: new RepoRulesMetadataFailures(),
+      isGeneratingAICommitMessage: false,
+      aiCommitMessageError: null,
+      aiCommitMessagesConfigured: false,
     }
   }
 
@@ -258,7 +269,15 @@ export class CommitMessage extends React.Component<
 
   public async componentDidMount() {
     window.addEventListener('keydown', this.onKeyDown)
+    await this.loadAICommitMessageSettings()
     await this.updateRepoRuleFailures(undefined, undefined, true)
+  }
+
+  private async loadAICommitMessageSettings() {
+    const settings = await getAICommitMessageSettings()
+    this.setState({
+      aiCommitMessagesConfigured: hasUsableAICommitMessageSettings(settings),
+    })
   }
 
   /**
@@ -304,6 +323,10 @@ export class CommitMessage extends React.Component<
           this.props.autocompletionProviders
         ),
       })
+    }
+
+    if (prevProps.isShowingModal && !this.props.isShowingModal) {
+      await this.loadAICommitMessageSettings()
     }
 
     if (
@@ -847,11 +870,14 @@ export class CommitMessage extends React.Component<
    * Whether or not there's anything to render in the action bar
    */
   private get isActionBarEnabled() {
-    return this.isCoAuthorInputEnabled
+    return (
+      this.isCoAuthorInputEnabled ||
+      this.props.onGenerateCommitMessage !== undefined
+    )
   }
 
   private renderActionBar() {
-    if (!this.isCoAuthorInputEnabled) {
+    if (!this.isActionBarEnabled) {
       return null
     }
 
@@ -859,7 +885,74 @@ export class CommitMessage extends React.Component<
       disabled: this.props.isCommitting === true,
     })
 
-    return <div className={className}>{this.renderCoAuthorToggleButton()}</div>
+    return (
+      <div className={className}>
+        {this.renderAICommitMessageButton()}
+        {this.renderCoAuthorToggleButton()}
+      </div>
+    )
+  }
+
+  private onGenerateCommitMessage = async () => {
+    const { onGenerateCommitMessage } = this.props
+
+    if (onGenerateCommitMessage === undefined) {
+      return
+    }
+
+    this.setState({
+      isGeneratingAICommitMessage: true,
+      aiCommitMessageError: null,
+    })
+
+    try {
+      const message = await onGenerateCommitMessage()
+      this.setState({
+        summary: message.summary,
+        description: message.description,
+        isGeneratingAICommitMessage: false,
+      })
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Unable to generate.'
+      this.setState({
+        isGeneratingAICommitMessage: false,
+        aiCommitMessageError: message,
+      })
+    }
+  }
+
+  private renderAICommitMessageButton() {
+    if (this.props.onGenerateCommitMessage === undefined) {
+      return null
+    }
+
+    const disabled =
+      this.props.isCommitting === true ||
+      this.props.anyFilesSelected === false ||
+      this.state.aiCommitMessagesConfigured === false ||
+      this.state.isGeneratingAICommitMessage
+
+    const tooltip =
+      this.state.aiCommitMessageError ||
+      (this.state.aiCommitMessagesConfigured
+        ? 'Generate a commit message from selected changes'
+        : 'Configure AI commit messages in Preferences')
+
+    return (
+      <Button
+        className="ai-commit-message-button"
+        tooltip={tooltip}
+        ariaLabel="Generate commit message"
+        disabled={disabled}
+        onClick={this.onGenerateCommitMessage}
+      >
+        {this.state.isGeneratingAICommitMessage ? (
+          <Loading />
+        ) : (
+          <Octicon symbol={octicons.sparkleFill} />
+        )}
+      </Button>
+    )
   }
 
   private renderAmendCommitNotice() {

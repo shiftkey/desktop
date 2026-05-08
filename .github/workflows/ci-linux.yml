@@ -1,6 +1,20 @@
 name: 'CI / Linux'
 
 on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag, or SHA to build'
+        required: true
+        default: 'linux'
+      publish_release:
+        description: 'Create a draft GitHub release from the built packages'
+        required: true
+        type: boolean
+        default: false
+      release_tag:
+        description: 'Release tag to publish, for example release-3.4.9-linux1'
+        required: false
   push:
     branches:
       - development
@@ -22,8 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: ${{ inputs.repository || github.repository }}
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
           submodules: recursive
       - name: Package and test application in container
         uses: shiftkey/desktop-ubuntu-arm64-packaging@9be09c4b945873e6509baaf690d457aae08cf901
@@ -44,8 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: ${{ inputs.repository || github.repository }}
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
           submodules: recursive
       - name: Package and test application in container
         uses: shiftkey/desktop-ubuntu-arm-packaging@dd75ebc57f69fdb9319ab2b0fe11b253bb1ff2a4
@@ -66,8 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: ${{ inputs.repository || github.repository }}
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
           submodules: recursive
       - name: Package and test application in container
         uses: shiftkey/desktop-ubuntu-amd64-packaging@ea7b7a6a940a6b907b160b946439c5c7a516f9f1
@@ -87,11 +98,13 @@ jobs:
     name: Create GitHub release
     needs: [arm64, arm, amd64]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || inputs.publish_release
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Use Node.js 20.17.0
         uses: actions/setup-node@v4
@@ -110,7 +123,15 @@ jobs:
 
       - name: Get tag name without prefix
         run: |
-          RELEASE_TAG=${GITHUB_REF/refs\/tags\//}
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            RELEASE_TAG="${{ inputs.release_tag }}"
+          else
+            RELEASE_TAG=${GITHUB_REF/refs\/tags\//}
+          fi
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "release_tag is required when publish_release is enabled."
+            exit 1
+          fi
           echo "RELEASE_TAG=${RELEASE_TAG}" >> $GITHUB_ENV
           tagNameWithoutPrefix="${RELEASE_TAG:8}"
           echo "RELEASE_TAG_WITHOUT_PREFIX=${tagNameWithoutPrefix}" >> $GITHUB_ENV
@@ -138,6 +159,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: GitHub Desktop for Linux ${{ env.RELEASE_TAG_WITHOUT_PREFIX }}
+          tag_name: ${{ env.RELEASE_TAG }}
           body_path: script/release_notes.txt
           files: |
             artifacts/**/*.AppImage
