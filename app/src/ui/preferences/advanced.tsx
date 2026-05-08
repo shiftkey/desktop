@@ -9,7 +9,10 @@ import { isWindowsOpenSSHAvailable } from '../../lib/ssh/ssh'
 import {
   DefaultOpenRouterBaseUrl,
   DefaultOpenRouterModel,
+  IAICommitMessageSettingsValidationErrors,
+  getAICommitMessageSettingsValidationErrors,
   getAICommitMessageSettings,
+  normalizeAICommitMessageSettings,
   setAICommitMessageSettings,
 } from '../../lib/ai/commit-message-settings'
 
@@ -32,6 +35,7 @@ interface IAdvancedPreferencesState {
   readonly openRouterAPIKey: string
   readonly openRouterModel: string
   readonly openRouterBaseUrl: string
+  readonly aiCommitMessageSettingsErrors: IAICommitMessageSettingsValidationErrors
 }
 
 export class Advanced extends React.Component<
@@ -49,6 +53,7 @@ export class Advanced extends React.Component<
       openRouterAPIKey: '',
       openRouterModel: DefaultOpenRouterModel,
       openRouterBaseUrl: DefaultOpenRouterBaseUrl,
+      aiCommitMessageSettingsErrors: {},
     }
   }
 
@@ -69,7 +74,26 @@ export class Advanced extends React.Component<
       openRouterAPIKey: settings.apiKey,
       openRouterModel: settings.model,
       openRouterBaseUrl: settings.baseUrl,
+      aiCommitMessageSettingsErrors:
+        getAICommitMessageSettingsValidationErrors(settings),
     })
+  }
+
+  private getAICommitMessageSettingsFromState(
+    state: Pick<
+      IAdvancedPreferencesState,
+      | 'aiCommitMessagesEnabled'
+      | 'openRouterAPIKey'
+      | 'openRouterModel'
+      | 'openRouterBaseUrl'
+    >
+  ) {
+    return {
+      enabled: state.aiCommitMessagesEnabled,
+      apiKey: state.openRouterAPIKey,
+      model: state.openRouterModel,
+      baseUrl: state.openRouterBaseUrl,
+    }
   }
 
   private persistAICommitMessageSettings = async (
@@ -81,11 +105,26 @@ export class Advanced extends React.Component<
       | 'openRouterBaseUrl'
     >
   ) => {
-    await setAICommitMessageSettings({
-      enabled: state.aiCommitMessagesEnabled,
-      apiKey: state.openRouterAPIKey.trim(),
-      model: state.openRouterModel.trim() || DefaultOpenRouterModel,
-      baseUrl: state.openRouterBaseUrl.trim() || DefaultOpenRouterBaseUrl,
+    await setAICommitMessageSettings(
+      this.getAICommitMessageSettingsFromState(state)
+    )
+  }
+
+  private setAICommitMessageSettingsState = (
+    settingsState: Pick<
+      IAdvancedPreferencesState,
+      | 'aiCommitMessagesEnabled'
+      | 'openRouterAPIKey'
+      | 'openRouterModel'
+      | 'openRouterBaseUrl'
+    >
+  ) => {
+    const settings = this.getAICommitMessageSettingsFromState(settingsState)
+
+    this.setState({
+      ...settingsState,
+      aiCommitMessageSettingsErrors:
+        getAICommitMessageSettingsValidationErrors(settings),
     })
   }
 
@@ -126,38 +165,83 @@ export class Advanced extends React.Component<
       ...this.state,
       aiCommitMessagesEnabled: event.currentTarget.checked,
     }
-    this.setState(nextState)
+    this.setAICommitMessageSettingsState(nextState)
     this.persistAICommitMessageSettings(nextState)
   }
 
   private onOpenRouterAPIKeyBlur = (apiKey: string) => {
-    const nextState = { ...this.state, openRouterAPIKey: apiKey }
-    this.setState(nextState)
-    this.persistAICommitMessageSettings(nextState)
+    const nextState = normalizeAICommitMessageSettings(
+      this.getAICommitMessageSettingsFromState({
+        ...this.state,
+        openRouterAPIKey: apiKey,
+      })
+    )
+    const settingsState = {
+      ...this.state,
+      aiCommitMessagesEnabled: nextState.enabled,
+      openRouterAPIKey: nextState.apiKey,
+      openRouterModel: nextState.model,
+      openRouterBaseUrl: nextState.baseUrl,
+    }
+    this.setAICommitMessageSettingsState(settingsState)
+    this.persistAICommitMessageSettings(settingsState)
   }
 
   private onOpenRouterAPIKeyChanged = (apiKey: string) => {
-    this.setState({ openRouterAPIKey: apiKey })
+    this.setAICommitMessageSettingsState({
+      ...this.state,
+      openRouterAPIKey: apiKey,
+    })
   }
 
   private onOpenRouterModelChanged = (model: string) => {
-    this.setState({ openRouterModel: model })
+    this.setAICommitMessageSettingsState({
+      ...this.state,
+      openRouterModel: model,
+    })
   }
 
   private onOpenRouterModelBlur = (model: string) => {
-    const nextState = { ...this.state, openRouterModel: model }
-    this.setState(nextState)
-    this.persistAICommitMessageSettings(nextState)
+    const nextState = normalizeAICommitMessageSettings(
+      this.getAICommitMessageSettingsFromState({
+        ...this.state,
+        openRouterModel: model,
+      })
+    )
+    const settingsState = {
+      ...this.state,
+      aiCommitMessagesEnabled: nextState.enabled,
+      openRouterAPIKey: nextState.apiKey,
+      openRouterModel: nextState.model,
+      openRouterBaseUrl: nextState.baseUrl,
+    }
+    this.setAICommitMessageSettingsState(settingsState)
+    this.persistAICommitMessageSettings(settingsState)
   }
 
   private onOpenRouterBaseUrlChanged = (baseUrl: string) => {
-    this.setState({ openRouterBaseUrl: baseUrl })
+    this.setAICommitMessageSettingsState({
+      ...this.state,
+      openRouterBaseUrl: baseUrl,
+    })
   }
 
   private onOpenRouterBaseUrlBlur = (baseUrl: string) => {
-    const nextState = { ...this.state, openRouterBaseUrl: baseUrl }
-    this.setState(nextState)
-    this.persistAICommitMessageSettings(nextState)
+    const nextState = normalizeAICommitMessageSettings(
+      this.getAICommitMessageSettingsFromState({
+        ...this.state,
+        openRouterBaseUrl: baseUrl,
+      })
+    )
+    const settingsState = {
+      ...this.state,
+      aiCommitMessagesEnabled: nextState.enabled,
+      openRouterAPIKey: nextState.apiKey,
+      openRouterModel: nextState.model,
+      openRouterBaseUrl: nextState.baseUrl,
+    }
+    this.setAICommitMessageSettingsState(settingsState)
+    this.persistAICommitMessageSettings(settingsState)
   }
 
   private reportDesktopUsageLabel() {
@@ -262,7 +346,24 @@ export class Advanced extends React.Component<
     )
   }
 
+  private renderAICommitMessageSettingError(
+    id: string,
+    message: string | undefined
+  ) {
+    if (message === undefined) {
+      return null
+    }
+
+    return (
+      <div id={id} className="git-settings-description setting-hint-warning">
+        {message}
+      </div>
+    )
+  }
+
   private renderAICommitMessageSettings() {
+    const { aiCommitMessageSettingsErrors } = this.state
+
     return (
       <div className="advanced-section">
         <h2>AI commit messages</h2>
@@ -290,7 +391,13 @@ export class Advanced extends React.Component<
           onValueChanged={this.onOpenRouterAPIKeyChanged}
           onBlur={this.onOpenRouterAPIKeyBlur}
           disabled={!this.state.aiCommitMessagesEnabled}
+          required={this.state.aiCommitMessagesEnabled}
+          ariaDescribedBy="openrouter-api-key-error"
         />
+        {this.renderAICommitMessageSettingError(
+          'openrouter-api-key-error',
+          aiCommitMessageSettingsErrors.apiKey
+        )}
         <TextBox
           label="OpenRouter model"
           value={this.state.openRouterModel}
@@ -298,7 +405,12 @@ export class Advanced extends React.Component<
           onValueChanged={this.onOpenRouterModelChanged}
           onBlur={this.onOpenRouterModelBlur}
           disabled={!this.state.aiCommitMessagesEnabled}
+          ariaDescribedBy="openrouter-model-error"
         />
+        {this.renderAICommitMessageSettingError(
+          'openrouter-model-error',
+          aiCommitMessageSettingsErrors.model
+        )}
         <TextBox
           label="OpenRouter base URL"
           value={this.state.openRouterBaseUrl}
@@ -306,7 +418,12 @@ export class Advanced extends React.Component<
           onValueChanged={this.onOpenRouterBaseUrlChanged}
           onBlur={this.onOpenRouterBaseUrlBlur}
           disabled={!this.state.aiCommitMessagesEnabled}
+          ariaDescribedBy="openrouter-base-url-error"
         />
+        {this.renderAICommitMessageSettingError(
+          'openrouter-base-url-error',
+          aiCommitMessageSettingsErrors.baseUrl
+        )}
       </div>
     )
   }

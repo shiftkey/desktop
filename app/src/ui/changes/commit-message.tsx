@@ -57,6 +57,7 @@ import { formatCommitMessage } from '../../lib/format-commit-message'
 import { useRepoRulesLogic } from '../../lib/helpers/repo-rules'
 import {
   getAICommitMessageSettings,
+  getAICommitMessagesEnabledForRepository,
   hasUsableAICommitMessageSettings,
 } from '../../lib/ai/commit-message-settings'
 
@@ -198,6 +199,7 @@ interface ICommitMessageState {
   readonly isGeneratingAICommitMessage: boolean
   readonly aiCommitMessageError: string | null
   readonly aiCommitMessagesConfigured: boolean
+  readonly aiCommitMessagesDisabledForRepository: boolean
 }
 
 function findCommitMessageAutoCompleteProvider(
@@ -257,6 +259,7 @@ export class CommitMessage extends React.Component<
       isGeneratingAICommitMessage: false,
       aiCommitMessageError: null,
       aiCommitMessagesConfigured: false,
+      aiCommitMessagesDisabledForRepository: false,
     }
   }
 
@@ -275,8 +278,16 @@ export class CommitMessage extends React.Component<
 
   private async loadAICommitMessageSettings() {
     const settings = await getAICommitMessageSettings()
+    const enabledForRepository = getAICommitMessagesEnabledForRepository(
+      this.props.repository
+    )
+
     this.setState({
-      aiCommitMessagesConfigured: hasUsableAICommitMessageSettings(settings),
+      aiCommitMessagesConfigured: hasUsableAICommitMessageSettings(
+        settings,
+        this.props.repository
+      ),
+      aiCommitMessagesDisabledForRepository: !enabledForRepository,
     })
   }
 
@@ -697,6 +708,13 @@ export class CommitMessage extends React.Component<
     })
   }
 
+  private onOpenAdvancedSettings = () => {
+    this.props.onShowPopup({
+      type: PopupType.Preferences,
+      initialSelectedTab: PreferencesTab.Advanced,
+    })
+  }
+
   private get isCoAuthorInputEnabled() {
     return this.props.repository.gitHubRepository !== null
   }
@@ -934,7 +952,11 @@ export class CommitMessage extends React.Component<
 
     const tooltip =
       this.state.aiCommitMessageError ||
-      (this.state.aiCommitMessagesConfigured
+      (this.props.anyFilesSelected === false
+        ? 'Select at least one changed file first'
+        : this.state.aiCommitMessagesDisabledForRepository
+        ? 'Enable AI commit messages in Repository settings'
+        : this.state.aiCommitMessagesConfigured
         ? 'Generate a commit message from selected changes'
         : 'Configure AI commit messages in Preferences')
 
@@ -952,6 +974,21 @@ export class CommitMessage extends React.Component<
           <Octicon symbol={octicons.sparkleFill} />
         )}
       </Button>
+    )
+  }
+
+  private renderAICommitMessageError() {
+    if (this.state.aiCommitMessageError === null) {
+      return null
+    }
+
+    return (
+      <CommitWarning icon={CommitWarningIcon.Error}>
+        {this.state.aiCommitMessageError}{' '}
+        <LinkButton onClick={this.onOpenAdvancedSettings}>
+          Open AI settings
+        </LinkButton>
+      </CommitWarning>
     )
   }
 
@@ -1469,6 +1506,7 @@ export class CommitMessage extends React.Component<
 
         {this.renderCoAuthorInput()}
 
+        {this.renderAICommitMessageError()}
         {this.renderAmendCommitNotice()}
         {this.renderBranchProtectionsRepoRulesCommitWarning()}
 

@@ -6,6 +6,7 @@ import { getDotComAPIEndpoint } from '../../lib/api'
 import { Row } from '../lib/row'
 import { RadioGroup } from '../lib/radio-group'
 import { assertNever } from '../../lib/fatal-error'
+import { Checkbox, CheckboxValue } from '../lib/checkbox'
 
 interface IGitConfigProps {
   readonly account: Account | null
@@ -16,10 +17,12 @@ interface IGitConfigProps {
   readonly globalName: string
   readonly globalEmail: string
   readonly isLoadingGitConfig: boolean
+  readonly aiCommitMessagesEnabled: boolean
 
   readonly onGitConfigLocationChanged: (value: GitConfigLocation) => void
   readonly onNameChanged: (name: string) => void
   readonly onEmailChanged: (email: string) => void
+  readonly onAICommitMessagesEnabledChanged: (enabled: boolean) => void
 }
 
 export enum GitConfigLocation {
@@ -31,6 +34,12 @@ export enum GitConfigLocation {
 export class GitConfig extends React.Component<IGitConfigProps> {
   private onGitConfigLocationChanged = (value: GitConfigLocation) => {
     this.props.onGitConfigLocationChanged(value)
+  }
+
+  private onAICommitMessagesEnabledChanged = (
+    event: React.FormEvent<HTMLInputElement>
+  ) => {
+    this.props.onAICommitMessagesEnabledChanged(event.currentTarget.checked)
   }
 
   private renderConfigOptionLabel = (key: GitConfigLocation) => {
@@ -87,6 +96,26 @@ export class GitConfig extends React.Component<IGitConfigProps> {
             onNameChanged={this.props.onNameChanged}
             isLoadingGitConfig={this.props.isLoadingGitConfig}
           />
+        </div>
+        <div className="advanced-section">
+          <h2>AI commit messages</h2>
+          <Checkbox
+            label="Allow AI commit message generation in this repository"
+            value={
+              this.props.aiCommitMessagesEnabled
+                ? CheckboxValue.On
+                : CheckboxValue.Off
+            }
+            onChange={this.onAICommitMessagesEnabledChanged}
+            ariaDescribedBy="repository-ai-commit-messages-description"
+          />
+          <div
+            id="repository-ai-commit-messages-description"
+            className="git-settings-description"
+          >
+            This repository setting only applies when AI commit messages are
+            enabled in Preferences.
+          </div>
         </div>
       </DialogContent>
     )

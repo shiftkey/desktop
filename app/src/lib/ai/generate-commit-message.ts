@@ -9,6 +9,7 @@ import {
 } from './commit-message'
 import {
   getAICommitMessageSettings,
+  getAICommitMessagesEnabledForRepository,
   hasUsableAICommitMessageSettings,
 } from './commit-message-settings'
 
@@ -18,7 +19,13 @@ export async function generateAICommitMessage(
 ) {
   const settings = await getAICommitMessageSettings()
 
-  if (!hasUsableAICommitMessageSettings(settings)) {
+  if (!getAICommitMessagesEnabledForRepository(repository)) {
+    throw new Error(
+      'AI commit messages are disabled for this repository. Enable them in Repository settings.'
+    )
+  }
+
+  if (!hasUsableAICommitMessageSettings(settings, repository)) {
     throw new Error('Configure AI commit messages in Preferences first.')
   }
 

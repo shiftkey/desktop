@@ -31,6 +31,10 @@ import {
 import { Account } from '../../models/account'
 import { Octicon } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
+import {
+  getAICommitMessagesEnabledForRepository,
+  setAICommitMessagesEnabledForRepository,
+} from '../../lib/ai/commit-message-settings'
 
 interface IRepositorySettingsProps {
   readonly initialSelectedTab?: RepositorySettingsTab
@@ -66,6 +70,8 @@ interface IRepositorySettingsState {
   readonly errors?: ReadonlyArray<JSX.Element | string>
   readonly forkContributionTarget: ForkContributionTarget
   readonly isLoadingGitConfig: boolean
+  readonly aiCommitMessagesEnabled: boolean
+  readonly initialAICommitMessagesEnabled: boolean
 }
 
 export class RepositorySettings extends React.Component<
@@ -93,6 +99,8 @@ export class RepositorySettings extends React.Component<
       initialCommitterName: null,
       initialCommitterEmail: null,
       isLoadingGitConfig: true,
+      aiCommitMessagesEnabled: true,
+      initialAICommitMessagesEnabled: true,
     }
   }
 
@@ -145,6 +153,12 @@ export class RepositorySettings extends React.Component<
       initialGitConfigLocation: gitConfigLocation,
       initialCommitterName: localCommitterName,
       initialCommitterEmail: localCommitterEmail,
+      aiCommitMessagesEnabled: getAICommitMessagesEnabledForRepository(
+        this.props.repository
+      ),
+      initialAICommitMessagesEnabled: getAICommitMessagesEnabledForRepository(
+        this.props.repository
+      ),
       isLoadingGitConfig: false,
     })
   }
@@ -269,6 +283,10 @@ export class RepositorySettings extends React.Component<
             onNameChanged={this.onCommitterNameChanged}
             onEmailChanged={this.onCommitterEmailChanged}
             isLoadingGitConfig={this.state.isLoadingGitConfig}
+            aiCommitMessagesEnabled={this.state.aiCommitMessagesEnabled}
+            onAICommitMessagesEnabledChanged={
+              this.onAICommitMessagesEnabledChanged
+            }
           />
         )
       }
@@ -381,6 +399,16 @@ export class RepositorySettings extends React.Component<
       this.props.dispatcher.refreshAuthor(this.props.repository)
     }
 
+    if (
+      this.state.aiCommitMessagesEnabled !==
+      this.state.initialAICommitMessagesEnabled
+    ) {
+      setAICommitMessagesEnabledForRepository(
+        this.props.repository,
+        this.state.aiCommitMessagesEnabled
+      )
+    }
+
     if (!errors.length) {
       this.props.onDismissed()
     } else {
@@ -434,5 +462,9 @@ export class RepositorySettings extends React.Component<
 
   private onCommitterEmailChanged = (committerEmail: string) => {
     this.setState({ committerEmail })
+  }
+
+  private onAICommitMessagesEnabledChanged = (enabled: boolean) => {
+    this.setState({ aiCommitMessagesEnabled: enabled })
   }
 }

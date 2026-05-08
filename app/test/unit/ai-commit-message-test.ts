@@ -4,6 +4,16 @@ import {
   parseAICommitMessageResponse,
 } from '../../src/lib/ai/commit-message'
 import {
+  DefaultOpenRouterBaseUrl,
+  DefaultOpenRouterModel,
+  getAICommitMessageSettingsValidationErrors,
+  getAICommitMessagesEnabledForRepository,
+  hasUsableAICommitMessageSettings,
+  normalizeAICommitMessageSettings,
+  setAICommitMessagesEnabledForRepository,
+} from '../../src/lib/ai/commit-message-settings'
+import { Repository } from '../../src/models/repository'
+import {
   DiffHunk,
   DiffHunkExpansionType,
   DiffHunkHeader,
@@ -130,5 +140,88 @@ describe('AI commit message generation', () => {
         }),
       })
     )
+  })
+
+  it('surfaces OpenRouter error messages', async () => {
+    const fetcher = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({
+        error: { message: 'Invalid API key.' },
+      }),
+    })
+
+    const provider = createOpenRouterAICommitMessageProvider({
+      apiKey: 'sk-or-test',
+      model: 'openrouter/auto',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      fetcher,
+    })
+
+    await expect(provider.generate('prompt text')).rejects.toThrow(
+      'OpenRouter request failed with 401. Invalid API key.'
+    )
+  })
+
+  it('validates required AI commit message settings', () => {
+    const errors = getAICommitMessageSettingsValidationErrors({
+      enabled: true,
+      apiKey: '',
+      model: 'openrouter/auto',
+      baseUrl: 'https://openrouter.ai/api/v1',
+    })
+
+    expect(errors.apiKey).toEqual('Enter an OpenRouter API key.')
+  })
+
+  it('rejects invalid model IDs and base URLs', () => {
+    const settings = {
+      enabled: true,
+      apiKey: 'sk-or-test',
+      model: 'bad model',
+      baseUrl: 'file:///tmp/openrouter',
+    }
+
+    expect(getAICommitMessageSettingsValidationErrors(settings)).toEqual({
+      model: 'Model IDs cannot contain spaces.',
+      baseUrl: 'Enter an HTTP or HTTPS URL.',
+    })
+    expect(hasUsableAICommitMessageSettings(settings)).toBeFalse()
+  })
+
+  it('normalizes blank optional AI settings to defaults', () => {
+    expect(
+      normalizeAICommitMessageSettings({
+        enabled: true,
+        apiKey: '  sk-or-test  ',
+        model: '  ',
+        baseUrl: '',
+      })
+    ).toEqual({
+      enabled: true,
+      apiKey: 'sk-or-test',
+      model: DefaultOpenRouterModel,
+      baseUrl: DefaultOpenRouterBaseUrl,
+    })
+  })
+
+  it('honors per-repository AI commit message settings', () => {
+    const repository = new Repository('/tmp/repo', 991177, null, false)
+    const settings = {
+      enabled: true,
+      apiKey: 'sk-or-test',
+      model: 'openrouter/auto',
+      baseUrl: 'https://openrouter.ai/api/v1',
+    }
+
+    setAICommitMessagesEnabledForRepository(repository, false)
+
+    expect(getAICommitMessagesEnabledForRepository(repository)).toBeFalse()
+    expect(hasUsableAICommitMessageSettings(settings, repository)).toBeFalse()
+
+    setAICommitMessagesEnabledForRepository(repository, true)
+
+    expect(getAICommitMessagesEnabledForRepository(repository)).toBeTrue()
+    expect(hasUsableAICommitMessageSettings(settings, repository)).toBeTrue()
   })
 })

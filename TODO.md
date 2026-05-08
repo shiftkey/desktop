@@ -9,7 +9,7 @@ workflows while keeping changes test-driven and shipped in small E2E slices.
 
 - [x] Organization visibility/access diagnostics and organization-aware repo
       browsing.
-- [ ] Finish AI commit message polish: Preferences tests, better error UX,
+- [x] Finish AI commit message polish: Preferences tests, better error UX,
       provider/model validation, and optional per-repo control.
 - [x] Filter changed files in the Changes view.
 - [ ] Git hooks support with hook output, skip/bypass controls, and clear errors.
@@ -35,8 +35,9 @@ workflows while keeping changes test-driven and shipped in small E2E slices.
 - [x] Disable generation when no selected changes exist or settings are missing.
 - [x] Show loading and recoverable error states.
 - [x] Insert generated summary/body into the existing commit message fields.
-- [ ] Add UI tests or component tests for missing-key, loading, success, and
+- [x] Add UI tests or component tests for missing-key, loading, success, and
       failure states where practical.
+- [x] Add optional per-repository AI commit message control.
 - [x] Run targeted unit tests.
 - [x] Run `yarn lint` or the smallest relevant lint command.
 

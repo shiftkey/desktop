@@ -32,6 +32,13 @@ function normalizeBaseUrl(baseUrl: string) {
   return baseUrl.replace(/\/+$/, '')
 }
 
+function getOpenRouterErrorMessage(json: any): string | null {
+  const message = json?.error?.message || json?.message
+  return typeof message === 'string' && message.trim().length > 0
+    ? message.trim()
+    : null
+}
+
 function formatSelectedTextDiff(
   diff: ITextDiff | ILargeTextDiff,
   selection: DiffSelection
@@ -192,7 +199,20 @@ export function createOpenRouterAICommitMessageProvider(
       )
 
       if (!response.ok) {
-        throw new Error(`OpenRouter request failed with ${response.status}.`)
+        let providerMessage: string | null = null
+
+        try {
+          providerMessage = getOpenRouterErrorMessage(await response.json())
+        } catch (e) {
+          providerMessage = null
+        }
+
+        const statusMessage = `OpenRouter request failed with ${response.status}.`
+        throw new Error(
+          providerMessage === null
+            ? statusMessage
+            : `${statusMessage} ${providerMessage}`
+        )
       }
 
       const json = await response.json()
