@@ -74,6 +74,8 @@ export type PossibleSelections =
 /** All of the shared app state. */
 export interface IAppState {
   readonly accounts: ReadonlyArray<Account>
+  /** Maps endpoint → active user id for multi-account switching. */
+  readonly activeAccountByEndpoint: ReadonlyMap<string, number>
   /**
    * The current list of repositories tracked in the application
    */

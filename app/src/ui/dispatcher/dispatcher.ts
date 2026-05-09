@@ -1075,6 +1075,11 @@ export class Dispatcher {
     return this.appStore._removeAccount(account)
   }
 
+  /** Switch the active account for its endpoint. */
+  public switchAccount(account: Account): Promise<void> {
+    return this.appStore._switchAccount(account)
+  }
+
   /**
    * Ask the dispatcher to apply a transformation function to the current
    * state of the application menu.

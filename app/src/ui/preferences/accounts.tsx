@@ -16,17 +16,14 @@ import {
 } from '../../lib/organizations/organization-diagnostics'
 
 interface IAccountsProps {
-  readonly dotComAccount: Account | null
-  readonly enterpriseAccount: Account | null
+  readonly dotComAccounts: ReadonlyArray<Account>
+  readonly enterpriseAccounts: ReadonlyArray<Account>
+  readonly activeAccountByEndpoint: ReadonlyMap<string, number>
 
   readonly onDotComSignIn: () => void
   readonly onEnterpriseSignIn: () => void
   readonly onLogout: (account: Account) => void
-}
-
-enum SignInType {
-  DotCom,
-  Enterprise,
+  readonly onSwitchAccount: (account: Account) => void
 }
 
 type OrganizationLookupState =
@@ -44,7 +41,6 @@ const OrganizationApprovalDocsURL =
 export class Accounts extends React.Component<IAccountsProps, IAccountsState> {
   public constructor(props: IAccountsProps) {
     super(props)
-
     this.state = { organizationLookup: new Map() }
   }
 
@@ -54,8 +50,8 @@ export class Accounts extends React.Component<IAccountsProps, IAccountsState> {
 
   public componentWillReceiveProps(nextProps: IAccountsProps) {
     if (
-      this.props.dotComAccount !== nextProps.dotComAccount ||
-      this.props.enterpriseAccount !== nextProps.enterpriseAccount
+      this.props.dotComAccounts !== nextProps.dotComAccounts ||
+      this.props.enterpriseAccounts !== nextProps.enterpriseAccounts
     ) {
       this.refreshOrganizations(nextProps)
     }
@@ -65,22 +61,49 @@ export class Accounts extends React.Component<IAccountsProps, IAccountsState> {
     return (
       <DialogContent className="accounts-tab">
         <h2>GitHub.com</h2>
-        {this.props.dotComAccount
-          ? this.renderAccount(this.props.dotComAccount, SignInType.DotCom)
-          : this.renderSignIn(SignInType.DotCom)}
+        {this.props.dotComAccounts.length > 0
+          ? this.props.dotComAccounts.map((a, i) =>
+              this.renderAccount(a, 'dotcom', i === 0)
+            )
+          : this.renderSignIn('dotcom')}
+        <div className="account-add-row">
+          <Button onClick={this.props.onDotComSignIn}>
+            {__DARWIN__ ? 'Add GitHub.com Account' : 'Add GitHub.com account'}
+          </Button>
+        </div>
 
         <h2>GitHub Enterprise</h2>
-        {this.props.enterpriseAccount
-          ? this.renderAccount(
-              this.props.enterpriseAccount,
-              SignInType.Enterprise
+        {this.props.enterpriseAccounts.length > 0
+          ? this.props.enterpriseAccounts.map((a, i) =>
+              this.renderAccount(a, 'enterprise', i === 0)
             )
-          : this.renderSignIn(SignInType.Enterprise)}
+          : this.renderSignIn('enterprise')}
+        <div className="account-add-row">
+          <Button onClick={this.props.onEnterpriseSignIn}>
+            {__DARWIN__
+              ? 'Add GitHub Enterprise Account'
+              : 'Add GitHub Enterprise account'}
+          </Button>
+        </div>
       </DialogContent>
     )
   }
 
-  private renderAccount(account: Account, type: SignInType) {
+  private isActiveAccount(account: Account): boolean {
+    const activeId = this.props.activeAccountByEndpoint.get(account.endpoint)
+    return activeId === account.id
+  }
+
+  private renderAccount(
+    account: Account,
+    type: 'dotcom' | 'enterprise',
+    isFirst: boolean
+  ) {
+    const allAccounts = [
+      ...this.props.dotComAccounts,
+      ...this.props.enterpriseAccounts,
+    ]
+
     const avatarUser: IAvatarUser = {
       name: account.name,
       email: lookupPreferredEmail(account),
@@ -88,34 +111,44 @@ export class Accounts extends React.Component<IAccountsProps, IAccountsState> {
       endpoint: account.endpoint,
     }
 
-    const accountTypeLabel =
-      type === SignInType.DotCom ? 'GitHub.com' : 'GitHub Enterprise'
-
-    const accounts = [
-      ...(this.props.dotComAccount ? [this.props.dotComAccount] : []),
-      ...(this.props.enterpriseAccount ? [this.props.enterpriseAccount] : []),
-    ]
-
-    // The DotCom account is shown first, so its sign in/out button should be
-    // focused initially when the dialog is opened.
-    const className =
-      type === SignInType.DotCom ? DialogPreferredFocusClassName : undefined
+    const isActive = this.isActiveAccount(account)
+    const className = isFirst && type === 'dotcom'
+      ? DialogPreferredFocusClassName
+      : undefined
 
     return (
-      <div className="account-section">
+      <div
+        className={`account-section${isActive ? ' account-section--active' : ''}`}
+        key={`${account.endpoint}:${account.id}`}
+      >
         <Row className="account-info">
           <div className="user-info-container">
-            <Avatar accounts={accounts} user={avatarUser} />
+            <Avatar accounts={allAccounts} user={avatarUser} />
             <div className="user-info">
               <div className="name">{account.name}</div>
               <div className="login">@{account.login}</div>
+              {isActive && (
+                <div className="active-badge">
+                  {__DARWIN__ ? 'Active' : 'active'}
+                </div>
+              )}
             </div>
           </div>
-          <Button onClick={this.logout(account)} className={className}>
-            {__DARWIN__ ? 'Sign Out of' : 'Sign out of'} {accountTypeLabel}
-          </Button>
+          <div className="account-actions">
+            {!isActive && (
+              <Button onClick={this.switchTo(account)}>
+                {__DARWIN__ ? 'Switch To' : 'Switch to'}
+              </Button>
+            )}
+            <Button
+              onClick={this.logout(account)}
+              className={isActive ? className : undefined}
+            >
+              {__DARWIN__ ? 'Sign Out' : 'Sign out'}
+            </Button>
+          </div>
         </Row>
-        {this.renderOrganizationStatus(account)}
+        {isActive && this.renderOrganizationStatus(account)}
       </div>
     )
   }
@@ -125,11 +158,7 @@ export class Accounts extends React.Component<IAccountsProps, IAccountsState> {
   }
 
   private refreshOrganizations(props: IAccountsProps) {
-    const accounts = [
-      ...(props.dotComAccount ? [props.dotComAccount] : []),
-      ...(props.enterpriseAccount ? [props.enterpriseAccount] : []),
-    ]
-
+    const accounts = [...props.dotComAccounts, ...props.enterpriseAccounts]
     for (const account of accounts) {
       this.fetchOrganizations(account)
     }
@@ -207,24 +236,14 @@ export class Accounts extends React.Component<IAccountsProps, IAccountsState> {
     )
   }
 
-  private onDotComSignIn = () => {
-    this.props.onDotComSignIn()
-  }
-
-  private onEnterpriseSignIn = () => {
-    this.props.onEnterpriseSignIn()
-  }
-
-  private renderSignIn(type: SignInType) {
+  private renderSignIn(type: 'dotcom' | 'enterprise') {
     const signInTitle = __DARWIN__ ? 'Sign Into' : 'Sign into'
     switch (type) {
-      case SignInType.DotCom: {
+      case 'dotcom':
         return (
           <CallToAction
             actionTitle={signInTitle + ' GitHub.com'}
-            onAction={this.onDotComSignIn}
-            // The DotCom account is shown first, so its sign in/out button should be
-            // focused initially when the dialog is opened.
+            onAction={this.props.onDotComSignIn}
             buttonClassName={DialogPreferredFocusClassName}
           >
             <div>
@@ -232,12 +251,11 @@ export class Accounts extends React.Component<IAccountsProps, IAccountsState> {
             </div>
           </CallToAction>
         )
-      }
-      case SignInType.Enterprise:
+      case 'enterprise':
         return (
           <CallToAction
             actionTitle={signInTitle + ' GitHub Enterprise'}
-            onAction={this.onEnterpriseSignIn}
+            onAction={this.props.onEnterpriseSignIn}
           >
             <div>
               If you are using GitHub Enterprise at work, sign in to it to get
@@ -247,6 +265,12 @@ export class Accounts extends React.Component<IAccountsProps, IAccountsState> {
         )
       default:
         return assertNever(type, `Unknown sign in type: ${type}`)
+    }
+  }
+
+  private switchTo = (account: Account) => {
+    return () => {
+      this.props.onSwitchAccount(account)
     }
   }
 

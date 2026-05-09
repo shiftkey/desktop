@@ -54,6 +54,9 @@ export class AccountsStore extends TypedBaseStore<ReadonlyArray<Account>> {
 
   private accounts: ReadonlyArray<Account> = []
 
+  /** Maps endpoint → active user id for multi-account switching. */
+  private activeAccountByEndpoint: Map<string, number> = new Map()
+
   /** A promise that will resolve when the accounts have been loaded. */
   private loadingPromise: Promise<void>
 
@@ -72,6 +75,29 @@ export class AccountsStore extends TypedBaseStore<ReadonlyArray<Account>> {
     await this.loadingPromise
 
     return this.accounts.slice()
+  }
+
+  /** Returns the active account id map (endpoint → user id). */
+  public getActiveAccountByEndpoint(): ReadonlyMap<string, number> {
+    return this.activeAccountByEndpoint
+  }
+
+  /** Returns the active account for an endpoint, falling back to the first one. */
+  public getActiveAccount(endpoint: string): Account | null {
+    const activeId = this.activeAccountByEndpoint.get(endpoint)
+    const endpointAccounts = this.accounts.filter(a => a.endpoint === endpoint)
+    if (endpointAccounts.length === 0) return null
+    if (activeId !== undefined) {
+      return endpointAccounts.find(a => a.id === activeId) ?? endpointAccounts[0]
+    }
+    return endpointAccounts[0]
+  }
+
+  /** Set the active account for its endpoint. */
+  public setActiveAccount(account: Account): void {
+    this.activeAccountByEndpoint.set(account.endpoint, account.id)
+    this.saveActiveAccounts()
+    this.emitUpdate(this.accounts)
   }
 
   /**
@@ -98,13 +124,22 @@ export class AccountsStore extends TypedBaseStore<ReadonlyArray<Account>> {
       return null
     }
 
-    const accountsByEndpoint = this.accounts.reduce(
-      (map, x) => map.set(x.endpoint, x),
-      new Map<string, Account>()
+    // Dedup by (endpoint, id) — allows multiple accounts per endpoint.
+    const existingIdx = this.accounts.findIndex(
+      a => a.endpoint === account.endpoint && a.id === account.id
     )
-    accountsByEndpoint.set(account.endpoint, account)
+    if (existingIdx >= 0) {
+      this.accounts = [
+        ...this.accounts.slice(0, existingIdx),
+        account,
+        ...this.accounts.slice(existingIdx + 1),
+      ]
+    } else {
+      this.accounts = [...this.accounts, account]
+    }
 
-    this.accounts = [...accountsByEndpoint.values()]
+    // Make this account active for its endpoint.
+    this.activeAccountByEndpoint.set(account.endpoint, account.id)
 
     this.save()
     return account
@@ -160,6 +195,17 @@ export class AccountsStore extends TypedBaseStore<ReadonlyArray<Account>> {
     this.accounts = this.accounts.filter(
       a => !(a.endpoint === account.endpoint && a.id === account.id)
     )
+
+    // If the removed account was active, switch to the next available one.
+    const activeId = this.activeAccountByEndpoint.get(account.endpoint)
+    if (activeId === account.id) {
+      const next = this.accounts.find(a => a.endpoint === account.endpoint)
+      if (next) {
+        this.activeAccountByEndpoint.set(account.endpoint, next.id)
+      } else {
+        this.activeAccountByEndpoint.delete(account.endpoint)
+      }
+    }
 
     this.save()
   }
@@ -225,6 +271,31 @@ export class AccountsStore extends TypedBaseStore<ReadonlyArray<Account>> {
     }
 
     this.accounts = accountsWithTokens
+
+    // Load active account selections.
+    const rawActive = this.dataStore.getItem('activeAccounts')
+    if (rawActive) {
+      try {
+        const parsed: ReadonlyArray<{ endpoint: string; id: number }> =
+          JSON.parse(rawActive)
+        for (const { endpoint, id } of parsed) {
+          // Only restore if the account still exists.
+          if (this.accounts.some(a => a.endpoint === endpoint && a.id === id)) {
+            this.activeAccountByEndpoint.set(endpoint, id)
+          }
+        }
+      } catch (e) {
+        log.warn('Failed to parse activeAccounts from store', e)
+      }
+    }
+
+    // For any endpoint without an active selection, default to the first.
+    for (const account of this.accounts) {
+      if (!this.activeAccountByEndpoint.has(account.endpoint)) {
+        this.activeAccountByEndpoint.set(account.endpoint, account.id)
+      }
+    }
+
     // If any account was migrated, make sure to persist the new value
     if (migratedAccounts !== null) {
       this.save() // Save already emits an update
@@ -233,11 +304,19 @@ export class AccountsStore extends TypedBaseStore<ReadonlyArray<Account>> {
     }
   }
 
+  private saveActiveAccounts() {
+    const entries = [...this.activeAccountByEndpoint.entries()].map(
+      ([endpoint, id]) => ({ endpoint, id })
+    )
+    this.dataStore.setItem('activeAccounts', JSON.stringify(entries))
+  }
+
   private save() {
     const usersWithoutTokens = this.accounts.map(account =>
       account.withToken('')
     )
     this.dataStore.setItem('users', JSON.stringify(usersWithoutTokens))
+    this.saveActiveAccounts()
 
     this.emitUpdate(this.accounts)
   }

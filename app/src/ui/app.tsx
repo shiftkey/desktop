@@ -807,17 +807,19 @@ export class App extends React.Component<IAppProps, IAppState> {
   }
 
   private getDotComAccount(): Account | null {
-    const dotComAccount = this.state.accounts.find(
-      a => a.endpoint === getDotComAPIEndpoint()
-    )
-    return dotComAccount || null
+    const endpoint = getDotComAPIEndpoint()
+    const accounts = this.state.accounts.filter(a => a.endpoint === endpoint)
+    if (accounts.length === 0) return null
+    const activeId = this.state.activeAccountByEndpoint.get(endpoint)
+    return accounts.find(a => a.id === activeId) ?? accounts[0]
   }
 
   private getEnterpriseAccount(): Account | null {
-    const enterpriseAccount = this.state.accounts.find(
-      a => a.endpoint !== getDotComAPIEndpoint()
-    )
-    return enterpriseAccount || null
+    const dotCom = getDotComAPIEndpoint()
+    const accounts = this.state.accounts.filter(a => a.endpoint !== dotCom)
+    if (accounts.length === 0) return null
+    const activeId = this.state.activeAccountByEndpoint.get(accounts[0].endpoint)
+    return accounts.find(a => a.id === activeId) ?? accounts[0]
   }
 
   private updateBranchWithContributionTargetBranch() {
@@ -1725,7 +1727,13 @@ export class App extends React.Component<IAppProps, IAppState> {
             key="preferences"
             initialSelectedTab={popup.initialSelectedTab}
             dispatcher={this.props.dispatcher}
-            dotComAccount={this.getDotComAccount()}
+            dotComAccounts={this.state.accounts.filter(
+              a => a.endpoint === getDotComAPIEndpoint()
+            )}
+            enterpriseAccounts={this.state.accounts.filter(
+              a => a.endpoint !== getDotComAPIEndpoint()
+            )}
+            activeAccountByEndpoint={this.state.activeAccountByEndpoint}
             confirmRepositoryRemoval={
               this.state.askForConfirmationOnRepositoryRemoval
             }
@@ -1748,7 +1756,6 @@ export class App extends React.Component<IAppProps, IAppState> {
             notificationsEnabled={this.state.notificationsEnabled}
             optOutOfUsageTracking={this.state.optOutOfUsageTracking}
             useExternalCredentialHelper={this.state.useExternalCredentialHelper}
-            enterpriseAccount={this.getEnterpriseAccount()}
             repository={repository}
             onDismissed={onPopupDismissedFn}
             selectedShell={this.state.selectedShell}

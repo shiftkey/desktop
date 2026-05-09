@@ -52,8 +52,9 @@ import {
 
 interface IPreferencesProps {
   readonly dispatcher: Dispatcher
-  readonly dotComAccount: Account | null
-  readonly enterpriseAccount: Account | null
+  readonly dotComAccounts: ReadonlyArray<Account>
+  readonly enterpriseAccounts: ReadonlyArray<Account>
+  readonly activeAccountByEndpoint: ReadonlyMap<string, number>
   readonly repository: Repository | null
   readonly onDismissed: () => void
   readonly useWindowsOpenSSH: boolean
@@ -205,7 +206,8 @@ export class Preferences extends React.Component<
     let committerEmail = initialCommitterEmail
 
     if (!committerName || !committerEmail) {
-      const account = this.props.dotComAccount || this.props.enterpriseAccount
+      const account =
+        this.getActiveDotComAccount() || this.getActiveEnterpriseAccount()
 
       if (account) {
         if (!committerName) {
@@ -378,6 +380,24 @@ export class Preferences extends React.Component<
     this.props.dispatcher.removeAccount(account)
   }
 
+  private onSwitchAccount = (account: Account) => {
+    this.props.dispatcher.switchAccount(account)
+  }
+
+  private getActiveDotComAccount(): Account | null {
+    const { dotComAccounts, activeAccountByEndpoint } = this.props
+    if (dotComAccounts.length === 0) return null
+    const activeId = activeAccountByEndpoint.get(dotComAccounts[0].endpoint)
+    return dotComAccounts.find(a => a.id === activeId) ?? dotComAccounts[0]
+  }
+
+  private getActiveEnterpriseAccount(): Account | null {
+    const { enterpriseAccounts, activeAccountByEndpoint } = this.props
+    if (enterpriseAccounts.length === 0) return null
+    const activeId = activeAccountByEndpoint.get(enterpriseAccounts[0].endpoint)
+    return enterpriseAccounts.find(a => a.id === activeId) ?? enterpriseAccounts[0]
+  }
+
   private renderDisallowedCharactersError() {
     const message = this.state.disallowedCharactersMessage
     if (message != null) {
@@ -394,11 +414,13 @@ export class Preferences extends React.Component<
       case PreferencesTab.Accounts:
         View = (
           <Accounts
-            dotComAccount={this.props.dotComAccount}
-            enterpriseAccount={this.props.enterpriseAccount}
+            dotComAccounts={this.props.dotComAccounts}
+            enterpriseAccounts={this.props.enterpriseAccounts}
+            activeAccountByEndpoint={this.props.activeAccountByEndpoint}
             onDotComSignIn={this.onDotComSignIn}
             onEnterpriseSignIn={this.onEnterpriseSignIn}
             onLogout={this.onLogout}
+            onSwitchAccount={this.onSwitchAccount}
           />
         )
         break
@@ -443,8 +465,8 @@ export class Preferences extends React.Component<
               name={this.state.committerName}
               email={this.state.committerEmail}
               defaultBranch={this.state.defaultBranch}
-              dotComAccount={this.props.dotComAccount}
-              enterpriseAccount={this.props.enterpriseAccount}
+              dotComAccount={this.getActiveDotComAccount()}
+              enterpriseAccount={this.getActiveEnterpriseAccount()}
               onNameChanged={this.onCommitterNameChanged}
               onEmailChanged={this.onCommitterEmailChanged}
               onDefaultBranchChanged={this.onDefaultBranchChanged}

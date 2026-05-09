@@ -449,6 +449,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private readonly gitStoreCache: GitStoreCache
 
   private accounts: ReadonlyArray<Account> = new Array<Account>()
+  private activeAccountByEndpoint: ReadonlyMap<string, number> = new Map()
   private repositories: ReadonlyArray<Repository> = new Array<Repository>()
   private recentRepositories: ReadonlyArray<number> = new Array<number>()
 
@@ -877,6 +878,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     this.accountsStore.onDidUpdate(accounts => {
       this.accounts = accounts
+      this.activeAccountByEndpoint =
+        this.accountsStore.getActiveAccountByEndpoint()
       const endpointTokens = accounts.map<EndpointToken>(
         ({ endpoint, token }) => ({ endpoint, token })
       )
@@ -1006,6 +1009,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     return {
       accounts: this.accounts,
+      activeAccountByEndpoint: this.activeAccountByEndpoint,
       repositories,
       recentRepositories: this.recentRepositories,
       localRepositoryStateLookup: this.localRepositoryStateLookup,
@@ -2133,6 +2137,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
     })
 
     this.accounts = accounts
+    this.activeAccountByEndpoint =
+      this.accountsStore.getActiveAccountByEndpoint()
     this.repositories = repositories
 
     this.updateRepositorySelectionAfterRepositoriesChanged()
@@ -6014,13 +6020,17 @@ export class AppStore extends TypedBaseStore<IAppState> {
     )
     const storedAccount = await this.accountsStore.addAccount(account)
 
-    // If we're in the welcome flow and a user signs in we want to trigger
-    // a refresh of the repositories available for cloning straight away
-    // in order to have the list of repositories ready for them when they
-    // get to the blankslate.
-    if (this.showWelcomeFlow && storedAccount !== null) {
+    if (storedAccount !== null) {
       this.apiRepositoriesStore.loadRepositories(storedAccount)
     }
+  }
+
+  public async _switchAccount(account: Account): Promise<void> {
+    log.info(
+      `[AppStore] switching active account to ${account.login} (${account.name})`
+    )
+    this.accountsStore.setActiveAccount(account)
+    this.apiRepositoriesStore.loadRepositories(account)
   }
 
   public _updateRepositoryMissing(

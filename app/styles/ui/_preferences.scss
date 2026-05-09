@@ -45,6 +45,15 @@
 
   .accounts-tab {
     .account-section {
+      margin-bottom: var(--spacing);
+
+      &--active {
+        border-left: 3px solid var(--color-new);
+        padding-left: var(--spacing);
+      }
+    }
+
+    .account-add-row {
       margin-bottom: var(--spacing-double);
     }
 
@@ -74,6 +83,18 @@
           margin-top: -2px;
           margin-bottom: -2px;
         }
+
+        .active-badge {
+          font-size: var(--font-size-sm);
+          color: var(--color-new);
+          margin-top: 2px;
+        }
+      }
+
+      .account-actions {
+        display: flex;
+        gap: var(--spacing-half);
+        align-items: center;
       }
     }
 
