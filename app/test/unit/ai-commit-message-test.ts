@@ -1,18 +1,21 @@
 import {
-  OpenRouterConnectionTestPrompt,
   buildAICommitMessagePrompt,
   createOpenRouterAICommitMessageProvider,
   parseAICommitMessageResponse,
+  testOpenRouterConnection,
 } from '../../src/lib/ai/commit-message'
 import {
   DefaultOpenRouterBaseUrl,
   DefaultOpenRouterModel,
+  getAICommitMessageSettings,
   getAICommitMessageSettingsValidationErrors,
   getAICommitMessagesEnabledForRepository,
   hasUsableAICommitMessageSettings,
   normalizeAICommitMessageSettings,
+  setAICommitMessageSettings,
   setAICommitMessagesEnabledForRepository,
 } from '../../src/lib/ai/commit-message-settings'
+import { TokenStore } from '../../src/lib/stores/token-store'
 import { Repository } from '../../src/models/repository'
 import {
   DiffHunk,
@@ -46,6 +49,11 @@ function createTextDiff(text: string): ITextDiff {
 }
 
 describe('AI commit message generation', () => {
+  afterEach(() => {
+    jest.restoreAllMocks()
+    localStorage.clear()
+  })
+
   it('builds a prompt from selected text diffs', () => {
     const prompt = buildAICommitMessagePrompt([
       {
@@ -143,12 +151,39 @@ describe('AI commit message generation', () => {
     )
   })
 
-  it('uses a synthetic diff for OpenRouter connection tests', () => {
-    expect(OpenRouterConnectionTestPrompt).toContain(
-      'openrouter-connection-test.txt'
+  it('tests OpenRouter connections without parsing commit messages', async () => {
+    const fetcher = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: 'OK' } }],
+      }),
+    })
+
+    await expect(
+      testOpenRouterConnection({
+        apiKey: 'sk-or-test',
+        model: 'openrouter/auto',
+        baseUrl: 'https://openrouter.ai/api/v1/',
+        fetcher,
+      })
+    ).resolves.toBeUndefined()
+
+    expect(fetcher).toHaveBeenCalledWith(
+      'https://openrouter.ai/api/v1/chat/completions',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer sk-or-test',
+          'Content-Type': 'application/json',
+        }),
+      })
     )
-    expect(OpenRouterConnectionTestPrompt).toContain('-before')
-    expect(OpenRouterConnectionTestPrompt).toContain('+after')
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({
+      model: 'openrouter/auto',
+      temperature: 0,
+      max_tokens: 5,
+      messages: [{ role: 'user', content: 'Reply with OK.' }],
+    })
   })
 
   it('reports when OpenRouter returns no message content', async () => {
@@ -230,6 +265,76 @@ describe('AI commit message generation', () => {
       model: DefaultOpenRouterModel,
       baseUrl: DefaultOpenRouterBaseUrl,
     })
+  })
+
+  it('keeps a fallback copy of OpenRouter API keys', async () => {
+    jest.spyOn(TokenStore, 'setItem').mockResolvedValue()
+    jest.spyOn(TokenStore, 'getItem').mockResolvedValue(null)
+
+    await setAICommitMessageSettings({
+      enabled: true,
+      apiKey: 'sk-or-test',
+      model: 'openrouter/auto',
+      baseUrl: 'https://openrouter.ai/api/v1',
+    })
+
+    await expect(getAICommitMessageSettings()).resolves.toEqual({
+      enabled: true,
+      apiKey: 'sk-or-test',
+      model: 'openrouter/auto',
+      baseUrl: 'https://openrouter.ai/api/v1',
+    })
+  })
+
+  it('does not delete the OpenRouter API key during unrelated settings saves', async () => {
+    jest.spyOn(TokenStore, 'setItem').mockResolvedValue()
+    jest.spyOn(TokenStore, 'getItem').mockResolvedValue(null)
+    const deleteItem = jest
+      .spyOn(TokenStore, 'deleteItem')
+      .mockResolvedValue(true)
+
+    await setAICommitMessageSettings({
+      enabled: true,
+      apiKey: 'sk-or-test',
+      model: 'openrouter/auto',
+      baseUrl: 'https://openrouter.ai/api/v1',
+    })
+    await setAICommitMessageSettings({
+      enabled: false,
+      apiKey: '',
+      model: 'openrouter/auto',
+      baseUrl: 'https://openrouter.ai/api/v1',
+    })
+
+    expect(deleteItem).not.toHaveBeenCalled()
+    expect((await getAICommitMessageSettings()).apiKey).toEqual('sk-or-test')
+  })
+
+  it('clears the OpenRouter API key only when explicitly requested', async () => {
+    jest.spyOn(TokenStore, 'setItem').mockResolvedValue()
+    jest.spyOn(TokenStore, 'getItem').mockResolvedValue(null)
+    const deleteItem = jest
+      .spyOn(TokenStore, 'deleteItem')
+      .mockResolvedValue(true)
+
+    await setAICommitMessageSettings({
+      enabled: true,
+      apiKey: 'sk-or-test',
+      model: 'openrouter/auto',
+      baseUrl: 'https://openrouter.ai/api/v1',
+    })
+    await setAICommitMessageSettings(
+      {
+        enabled: true,
+        apiKey: '',
+        model: 'openrouter/auto',
+        baseUrl: 'https://openrouter.ai/api/v1',
+      },
+      { clearAPIKey: true }
+    )
+
+    expect(deleteItem).toHaveBeenCalled()
+    expect((await getAICommitMessageSettings()).apiKey).toEqual('')
   })
 
   it('honors per-repository AI commit message settings', () => {

@@ -16,10 +16,7 @@ import {
   normalizeAICommitMessageSettings,
   setAICommitMessageSettings,
 } from '../../lib/ai/commit-message-settings'
-import {
-  OpenRouterConnectionTestPrompt,
-  createOpenRouterAICommitMessageProvider,
-} from '../../lib/ai/commit-message'
+import { testOpenRouterConnection } from '../../lib/ai/commit-message'
 
 interface IAdvancedPreferencesProps {
   readonly useWindowsOpenSSH: boolean
@@ -114,11 +111,16 @@ export class Advanced extends React.Component<
       | 'openRouterAPIKey'
       | 'openRouterModel'
       | 'openRouterBaseUrl'
-    >
+    >,
+    clearAPIKey: boolean = false
   ) => {
-    await setAICommitMessageSettings(
-      this.getAICommitMessageSettingsFromState(state)
-    )
+    const settings = this.getAICommitMessageSettingsFromState(state)
+
+    if (clearAPIKey) {
+      await setAICommitMessageSettings(settings, { clearAPIKey: true })
+    } else {
+      await setAICommitMessageSettings(settings)
+    }
   }
 
   private setAICommitMessageSettingsState = (
@@ -197,7 +199,10 @@ export class Advanced extends React.Component<
       openRouterBaseUrl: nextState.baseUrl,
     }
     this.setAICommitMessageSettingsState(settingsState)
-    this.persistAICommitMessageSettings(settingsState)
+    this.persistAICommitMessageSettings(
+      settingsState,
+      nextState.apiKey.length === 0
+    )
   }
 
   private onOpenRouterAPIKeyChanged = (apiKey: string) => {
@@ -284,12 +289,11 @@ export class Advanced extends React.Component<
     })
 
     try {
-      const provider = createOpenRouterAICommitMessageProvider(settings)
-      const message = await provider.generate(OpenRouterConnectionTestPrompt)
+      await testOpenRouterConnection(settings)
 
       this.setState({
         isTestingAICommitMessages: false,
-        aiCommitMessageTestResult: `OpenRouter returned: ${message.summary}`,
+        aiCommitMessageTestResult: 'OpenRouter connection test succeeded.',
       })
     } catch (e) {
       const message =

@@ -1,172 +1,128 @@
-name: 'CI / Linux'
+name: Build Linux Debian Release
 
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Branch, tag, or SHA to build'
+        description: Branch, tag, or SHA to build
         required: true
-        default: 'linux'
-      publish_release:
-        description: 'Create a draft GitHub release from the built packages'
-        required: true
-        type: boolean
-        default: false
-      release_tag:
-        description: 'Release tag to publish, for example release-3.4.9-linux1'
-        required: false
+        default: linux
   push:
     branches:
-      - development
       - linux
-      - 'linux-release-*'
-    tags:
-      - 'release-*.*.*-linux*'
-      - 'release-*.*.*-test*'
-  pull_request:
-    branches:
-      - linux
-      - linux-vnext
-      - 'linux-release-*'
+
+permissions:
+  contents: write
+
+env:
+  BUILD_VERSION_SUFFIX: linux.${{ github.run_number }}
 
 jobs:
   arm64:
-    name: Ubuntu arm64
+    name: Debian arm64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
           submodules: recursive
+      - name: Set release build version
+        run: |
+          node -e "const fs = require('fs'); const path = 'app/package.json'; const pkg = require('./' + path); pkg.version = pkg.version.replace(/-.*/, '') + '-' + process.env.BUILD_VERSION_SUFFIX; fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');"
+          node -p "require('./app/package.json').version"
       - name: Package and test application in container
         uses: shiftkey/desktop-ubuntu-arm64-packaging@9be09c4b945873e6509baaf690d457aae08cf901
-      - name: Upload output artifacts
+      - name: Upload Debian package
         uses: actions/upload-artifact@v4
         with:
-          name: ubuntu-arm64-artifacts
+          name: debian-arm64
           path: |
-            dist/*.AppImage
             dist/*.deb
-            dist/*.rpm
-            dist/*.sha256
-          retention-days: 5
+            dist/*.deb.sha256
+          retention-days: 30
           if-no-files-found: error
+
   arm:
-    name: Ubuntu arm
+    name: Debian arm
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
           submodules: recursive
+      - name: Set release build version
+        run: |
+          node -e "const fs = require('fs'); const path = 'app/package.json'; const pkg = require('./' + path); pkg.version = pkg.version.replace(/-.*/, '') + '-' + process.env.BUILD_VERSION_SUFFIX; fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');"
+          node -p "require('./app/package.json').version"
       - name: Package and test application in container
         uses: shiftkey/desktop-ubuntu-arm-packaging@dd75ebc57f69fdb9319ab2b0fe11b253bb1ff2a4
-      - name: Upload output artifacts
+      - name: Upload Debian package
         uses: actions/upload-artifact@v4
         with:
-          name: ubuntu-arm-artifacts
+          name: debian-arm
           path: |
-            dist/*.AppImage
             dist/*.deb
-            dist/*.rpm
-            dist/*.sha256
-          retention-days: 5
+            dist/*.deb.sha256
+          retention-days: 30
           if-no-files-found: error
+
   amd64:
-    name: Ubuntu x64
+    name: Debian amd64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
           submodules: recursive
+      - name: Set release build version
+        run: |
+          node -e "const fs = require('fs'); const path = 'app/package.json'; const pkg = require('./' + path); pkg.version = pkg.version.replace(/-.*/, '') + '-' + process.env.BUILD_VERSION_SUFFIX; fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');"
+          node -p "require('./app/package.json').version"
       - name: Package and test application in container
         uses: shiftkey/desktop-ubuntu-amd64-packaging@ea7b7a6a940a6b907b160b946439c5c7a516f9f1
-      - name: Upload output artifacts
+      - name: Upload Debian package
         uses: actions/upload-artifact@v4
         with:
-          name: ubuntu-amd64-artifacts
+          name: debian-amd64
           path: |
-            dist/*.AppImage
             dist/*.deb
-            dist/*.rpm
-            dist/*.sha256
-          retention-days: 5
+            dist/*.deb.sha256
+          retention-days: 30
           if-no-files-found: error
 
-  publish:
-    name: Create GitHub release
+  release:
+    name: Publish GitHub release
     needs: [arm64, arm, amd64]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') || inputs.publish_release
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
-
-      - name: Use Node.js 20.17.0
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.17.0
-          cache: yarn
-
-      - name: Download all artifacts
+      - name: Set release metadata
+        run: |
+          BASE_VERSION="$(node -p "require('./app/package.json').version.replace(/-.*/, '')")"
+          RELEASE_VERSION="${BASE_VERSION}-${BUILD_VERSION_SUFFIX}"
+          echo "RELEASE_VERSION=${RELEASE_VERSION}" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=release-${RELEASE_VERSION}" >> "$GITHUB_ENV"
+      - name: Download Debian packages
         uses: actions/download-artifact@v4
         with:
-          path: './artifacts'
-
-      - name: Display structure of downloaded files
-        run: ls -R
-        working-directory: './artifacts'
-
-      - name: Get tag name without prefix
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            RELEASE_TAG="${{ inputs.release_tag }}"
-          else
-            RELEASE_TAG=${GITHUB_REF/refs\/tags\//}
-          fi
-          if [[ -z "$RELEASE_TAG" ]]; then
-            echo "release_tag is required when publish_release is enabled."
-            exit 1
-          fi
-          echo "RELEASE_TAG=${RELEASE_TAG}" >> $GITHUB_ENV
-          tagNameWithoutPrefix="${RELEASE_TAG:8}"
-          echo "RELEASE_TAG_WITHOUT_PREFIX=${tagNameWithoutPrefix}" >> $GITHUB_ENV
-
-      # TODO: generate release notes
-      #    - pull in default if version matches X.Y.Z-linux1
-      #    - otherwise stub template
-
-      - name: Generate release notes
-        run: |
-          node -v
-          yarn
-          node -r ts-node/register script/generate-release-notes.ts "${{ github.workspace }}/artifacts" "${{ env.RELEASE_TAG_WITHOUT_PREFIX }}"
-          RELEASE_NOTES_FILE=script/release_notes.txt
-          if [[ ! -f "$RELEASE_NOTES_FILE" ]]; then
-              echo "$RELEASE_NOTES_FILE does not exist. Something might have gone wrong while generating the release notes."
-              exit 1
-          fi
-          echo "Release notes:"
-          echo "---"
-          cat ${RELEASE_NOTES_FILE}
-          echo "---"
-
-      - name: Create Release
+          path: artifacts
+      - name: Show release assets
+        run: find artifacts -maxdepth 3 -type f | sort
+      - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          name: GitHub Desktop for Linux ${{ env.RELEASE_TAG_WITHOUT_PREFIX }}
+          name: GitHub Desktop for Linux ${{ env.RELEASE_VERSION }}
           tag_name: ${{ env.RELEASE_TAG }}
-          body_path: script/release_notes.txt
+          target_commitish: ${{ github.sha }}
+          body: |
+            Automated Debian package release for `${{ github.sha }}` from the `linux` branch.
           files: |
-            artifacts/**/*.AppImage
             artifacts/**/*.deb
-            artifacts/**/*.rpm
-            artifacts/**/*.sha256
-          draft: true
+            artifacts/**/*.deb.sha256
+          draft: false
+          prerelease: true
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

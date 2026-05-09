@@ -10,6 +10,11 @@ import {
 } from '../../models/diff'
 
 const DefaultMaxPromptLength = 12000
+const AICommitMessagePromptPrefix =
+  'Write a concise Git commit message for the selected changes below.\n' +
+  'Return only JSON with "summary" and "description" string fields.\n' +
+  'Use imperative mood. Keep the summary under 72 characters.\n\n' +
+  'Selected changes:\n'
 
 export interface IAICommitMessageDiff {
   readonly path: string
@@ -27,14 +32,6 @@ export interface IOpenRouterAICommitMessageProviderOptions {
 export interface IAICommitMessageProvider {
   generate(prompt: string): Promise<ICommitMessage>
 }
-
-export const OpenRouterConnectionTestPrompt =
-  'Write a commit message for this test diff.\n\n' +
-  'Selected changes:\n' +
-  'File: openrouter-connection-test.txt\n' +
-  '@@ -1 +1 @@\n' +
-  '-before\n' +
-  '+after\n'
 
 function normalizeBaseUrl(baseUrl: string) {
   return baseUrl.replace(/\/+$/, '')
@@ -126,13 +123,7 @@ export function buildAICommitMessagePrompt(
     .filter((change): change is string => change !== null)
     .join('\n\n')
 
-  const prefix =
-    'Write a concise Git commit message for the selected changes below.\n' +
-    'Return only JSON with "summary" and "description" string fields.\n' +
-    'Use imperative mood. Keep the summary under 72 characters.\n\n' +
-    'Selected changes:\n'
-
-  const prompt = `${prefix}${formattedChanges}`
+  const prompt = `${AICommitMessagePromptPrefix}${formattedChanges}`
 
   if (prompt.length <= maxLength) {
     return prompt
@@ -176,54 +167,84 @@ export function parseAICommitMessageResponse(content: string): ICommitMessage {
   return { summary, description }
 }
 
+async function requestOpenRouterChatCompletion(
+  options: IOpenRouterAICommitMessageProviderOptions,
+  messages: ReadonlyArray<{ readonly role: string; readonly content: string }>,
+  maxTokens: number,
+  temperature: number
+) {
+  const fetcher = options.fetcher || fetch
+  const response = await fetcher(
+    `${normalizeBaseUrl(options.baseUrl)}/chat/completions`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${options.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: options.model,
+        temperature,
+        max_tokens: maxTokens,
+        messages,
+      }),
+    }
+  )
+
+  if (!response.ok) {
+    let providerMessage: string | null = null
+
+    try {
+      providerMessage = getOpenRouterErrorMessage(await response.json())
+    } catch (e) {
+      providerMessage = null
+    }
+
+    const statusMessage = `OpenRouter request failed with ${response.status}.`
+    throw new Error(
+      providerMessage === null
+        ? statusMessage
+        : `${statusMessage} ${providerMessage}`
+    )
+  }
+
+  return response.json()
+}
+
+export async function testOpenRouterConnection(
+  options: IOpenRouterAICommitMessageProviderOptions
+): Promise<void> {
+  const json = await requestOpenRouterChatCompletion(
+    options,
+    [{ role: 'user', content: 'Reply with OK.' }],
+    5,
+    0
+  )
+  const content = json?.choices?.[0]?.message?.content
+
+  if (typeof content !== 'string' || content.trim().length === 0) {
+    throw new Error('OpenRouter did not return a connection test response.')
+  }
+}
+
 export function createOpenRouterAICommitMessageProvider(
   options: IOpenRouterAICommitMessageProviderOptions
 ): IAICommitMessageProvider {
   return {
     async generate(prompt: string): Promise<ICommitMessage> {
-      const fetcher = options.fetcher || fetch
-      const response = await fetcher(
-        `${normalizeBaseUrl(options.baseUrl)}/chat/completions`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${options.apiKey}`,
-            'Content-Type': 'application/json',
+      const json = await requestOpenRouterChatCompletion(
+        options,
+        [
+          {
+            role: 'system',
+            content:
+              'You write accurate Git commit messages from diffs. Return JSON only.',
           },
-          body: JSON.stringify({
-            model: options.model,
-            temperature: 0.2,
-            max_tokens: 300,
-            messages: [
-              {
-                role: 'system',
-                content:
-                  'You write accurate Git commit messages from diffs. Return JSON only.',
-              },
-              { role: 'user', content: prompt },
-            ],
-          }),
-        }
+          { role: 'user', content: prompt },
+        ],
+        300,
+        0.2
       )
-
-      if (!response.ok) {
-        let providerMessage: string | null = null
-
-        try {
-          providerMessage = getOpenRouterErrorMessage(await response.json())
-        } catch (e) {
-          providerMessage = null
-        }
-
-        const statusMessage = `OpenRouter request failed with ${response.status}.`
-        throw new Error(
-          providerMessage === null
-            ? statusMessage
-            : `${statusMessage} ${providerMessage}`
-        )
-      }
-
-      const json = await response.json()
       const content = json?.choices?.[0]?.message?.content
 
       if (typeof content !== 'string') {

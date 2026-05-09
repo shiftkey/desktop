@@ -67,13 +67,9 @@ describe('Advanced preferences', () => {
   })
 
   it('tests OpenRouter settings from current preference values', async () => {
-    const generate = jest.fn().mockResolvedValue({
-      summary: 'Update connection test',
-      description: null,
-    })
-    const createProvider = jest
-      .spyOn(aiCommitMessage, 'createOpenRouterAICommitMessageProvider')
-      .mockReturnValue({ generate })
+    const testConnection = jest
+      .spyOn(aiCommitMessage, 'testOpenRouterConnection')
+      .mockResolvedValue(undefined)
     const component = createAdvancedPreferences()
 
     ;(component as any).setAICommitMessageSettingsState({
@@ -86,31 +82,24 @@ describe('Advanced preferences', () => {
 
     await (component as any).onTestAICommitMessageSettings()
 
-    expect(createProvider).toHaveBeenCalledWith({
+    expect(testConnection).toHaveBeenCalledWith({
       enabled: true,
       apiKey: 'sk-or-test',
       model: 'openrouter/auto',
       baseUrl: 'https://openrouter.ai/api/v1/',
     })
-    expect(generate).toHaveBeenCalledWith(
-      aiCommitMessage.OpenRouterConnectionTestPrompt
-    )
     expect(component.state.aiCommitMessageTestResult).toEqual(
-      'OpenRouter returned: Update connection test'
+      'OpenRouter connection test succeeded.'
     )
     expect(component.state.aiCommitMessageTestError).toBeNull()
   })
 
   it('shows OpenRouter test failures in preferences', async () => {
     jest
-      .spyOn(aiCommitMessage, 'createOpenRouterAICommitMessageProvider')
-      .mockReturnValue({
-        generate: jest
-          .fn()
-          .mockRejectedValue(
-            new Error('OpenRouter did not return a commit message.')
-          ),
-      })
+      .spyOn(aiCommitMessage, 'testOpenRouterConnection')
+      .mockRejectedValue(
+        new Error('OpenRouter did not return a connection test response.')
+      )
     const component = createAdvancedPreferences()
 
     ;(component as any).setAICommitMessageSettingsState({
@@ -124,7 +113,7 @@ describe('Advanced preferences', () => {
     await (component as any).onTestAICommitMessageSettings()
 
     expect(component.state.aiCommitMessageTestError).toEqual(
-      'OpenRouter did not return a commit message.'
+      'OpenRouter did not return a connection test response.'
     )
     expect(component.state.aiCommitMessageTestResult).toBeNull()
   })

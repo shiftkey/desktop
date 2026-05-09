@@ -5,6 +5,7 @@ import { Repository } from '../../models/repository'
 const aiCommitMessagesEnabledKey = 'ai-commit-messages-enabled'
 const aiCommitMessagesModelKey = 'ai-commit-messages-model'
 const aiCommitMessagesBaseUrlKey = 'ai-commit-messages-base-url'
+const aiCommitMessagesAPIKeyFallbackKey = 'ai-commit-messages-api-key'
 const openRouterTokenStoreKey = 'openrouter-api-key'
 const openRouterTokenStoreLogin = 'openrouter'
 
@@ -26,6 +27,10 @@ export interface IAICommitMessageSettingsValidationErrors {
   readonly apiKey?: string
   readonly model?: string
   readonly baseUrl?: string
+}
+
+export interface ISetAICommitMessageSettingsOptions {
+  readonly clearAPIKey?: boolean
 }
 
 export function normalizeAICommitMessageSettings(
@@ -71,13 +76,21 @@ export function getAICommitMessageSettingsValidationErrors(
 }
 
 export async function getAICommitMessageSettings(): Promise<IAICommitMessageSettings> {
-  return {
-    enabled: getBoolean(aiCommitMessagesEnabledKey, false),
-    apiKey:
+  let apiKey = localStorage.getItem(aiCommitMessagesAPIKeyFallbackKey) || ''
+
+  try {
+    apiKey =
       (await TokenStore.getItem(
         openRouterTokenStoreKey,
         openRouterTokenStoreLogin
-      )) || '',
+      )) || apiKey
+  } catch (e) {
+    log.warn('Unable to load OpenRouter API key from secure storage', e)
+  }
+
+  return {
+    enabled: getBoolean(aiCommitMessagesEnabledKey, false),
+    apiKey,
     model:
       localStorage.getItem(aiCommitMessagesModelKey) || DefaultOpenRouterModel,
     baseUrl:
@@ -87,7 +100,8 @@ export async function getAICommitMessageSettings(): Promise<IAICommitMessageSett
 }
 
 export async function setAICommitMessageSettings(
-  settings: IAICommitMessageSettings
+  settings: IAICommitMessageSettings,
+  options: ISetAICommitMessageSettingsOptions = {}
 ): Promise<void> {
   const normalized = normalizeAICommitMessageSettings(settings)
 
@@ -102,16 +116,28 @@ export async function setAICommitMessageSettings(
   )
 
   if (normalized.apiKey.length > 0) {
-    await TokenStore.setItem(
-      openRouterTokenStoreKey,
-      openRouterTokenStoreLogin,
-      normalized.apiKey
-    )
-  } else {
-    await TokenStore.deleteItem(
-      openRouterTokenStoreKey,
-      openRouterTokenStoreLogin
-    )
+    localStorage.setItem(aiCommitMessagesAPIKeyFallbackKey, normalized.apiKey)
+
+    try {
+      await TokenStore.setItem(
+        openRouterTokenStoreKey,
+        openRouterTokenStoreLogin,
+        normalized.apiKey
+      )
+    } catch (e) {
+      log.warn('Unable to save OpenRouter API key to secure storage', e)
+    }
+  } else if (options.clearAPIKey === true) {
+    localStorage.removeItem(aiCommitMessagesAPIKeyFallbackKey)
+
+    try {
+      await TokenStore.deleteItem(
+        openRouterTokenStoreKey,
+        openRouterTokenStoreLogin
+      )
+    } catch (e) {
+      log.warn('Unable to delete OpenRouter API key from secure storage', e)
+    }
   }
 }
 
