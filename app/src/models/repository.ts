@@ -164,7 +164,7 @@ export function nameOf(repository: Repository) {
 
 /**
  * Get the GitHub html URL for a repository, if it has one.
- * Will return the parent GitHub repository's URL if it has one.
+ * Will return the fork's GitHub repository URL by default.
  * Otherwise, returns null.
  */
 export function getGitHubHtmlUrl(repository: Repository): string | null {
@@ -211,7 +211,7 @@ export function getForkContributionTarget(
 ): ForkContributionTarget {
   return repository.workflowPreferences.forkContributionTarget !== undefined
     ? repository.workflowPreferences.forkContributionTarget
-    : ForkContributionTarget.Parent
+    : ForkContributionTarget.Self
 }
 
 /**
