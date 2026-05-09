@@ -28,6 +28,14 @@ export interface IAICommitMessageProvider {
   generate(prompt: string): Promise<ICommitMessage>
 }
 
+export const OpenRouterConnectionTestPrompt =
+  'Write a commit message for this test diff.\n\n' +
+  'Selected changes:\n' +
+  'File: openrouter-connection-test.txt\n' +
+  '@@ -1 +1 @@\n' +
+  '-before\n' +
+  '+after\n'
+
 function normalizeBaseUrl(baseUrl: string) {
   return baseUrl.replace(/\/+$/, '')
 }

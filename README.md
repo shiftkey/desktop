@@ -15,14 +15,33 @@ installable Linux packages directly from GitHub.
 ## Current Focus
 
 - Keep the Linux app building and installable.
-- Catch up high-value Desktop workflows such as organization visibility,
-  AI-assisted commit messages, changed-file filtering, Git hooks, and security
-  status links.
+- Continue catching up high-value Desktop workflows such as Git hooks,
+  multi-domain account flows, security status links, and GitHub browser
+  shortcuts.
 - Prefer small, tested, end-to-end feature slices over large rewrites.
 - Publish user-installable `.deb`, `.rpm`, and `.AppImage` artifacts from
   GitHub Actions.
 
 See [TODO.md](TODO.md) for the active catch-up roadmap.
+
+## Linux Catch-up Features
+
+This fork includes Linux-focused catch-up work on top of the upstream GitHub
+Desktop codebase:
+
+- **AI commit messages**: generate commit summaries and descriptions from the
+  currently selected changes. Configure OpenRouter in Preferences, choose the
+  model and base URL, and optionally disable generation per repository in
+  Repository Settings.
+- **Changed-file filtering**: filter the Changes view by path using one or more
+  case-insensitive search terms while keeping the existing file selection flow.
+- **Organization diagnostics**: see visible organizations for each signed-in
+  GitHub.com or GitHub Enterprise account in Preferences, with guidance for
+  common missing-organization causes such as OAuth app restrictions, SAML SSO,
+  private membership, and repository permissions.
+- **Manual Linux release builds**: maintainers can run the `CI / Linux`
+  workflow manually for a branch, tag, or SHA and produce `.AppImage`, `.deb`,
+  `.rpm`, and `.sha256` artifacts, with optional draft GitHub Release creation.
 
 ## Download and Install
 

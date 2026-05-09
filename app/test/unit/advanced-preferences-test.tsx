@@ -1,5 +1,6 @@
 import { Advanced } from '../../src/ui/preferences/advanced'
 import * as aiCommitMessageSettings from '../../src/lib/ai/commit-message-settings'
+import * as aiCommitMessage from '../../src/lib/ai/commit-message'
 
 function createAdvancedPreferences() {
   const component = new Advanced({
@@ -63,5 +64,68 @@ describe('Advanced preferences', () => {
       model: aiCommitMessageSettings.DefaultOpenRouterModel,
       baseUrl: aiCommitMessageSettings.DefaultOpenRouterBaseUrl,
     })
+  })
+
+  it('tests OpenRouter settings from current preference values', async () => {
+    const generate = jest.fn().mockResolvedValue({
+      summary: 'Update connection test',
+      description: null,
+    })
+    const createProvider = jest
+      .spyOn(aiCommitMessage, 'createOpenRouterAICommitMessageProvider')
+      .mockReturnValue({ generate })
+    const component = createAdvancedPreferences()
+
+    ;(component as any).setAICommitMessageSettingsState({
+      ...component.state,
+      aiCommitMessagesEnabled: true,
+      openRouterAPIKey: ' sk-or-test ',
+      openRouterModel: 'openrouter/auto',
+      openRouterBaseUrl: 'https://openrouter.ai/api/v1/',
+    })
+
+    await (component as any).onTestAICommitMessageSettings()
+
+    expect(createProvider).toHaveBeenCalledWith({
+      enabled: true,
+      apiKey: 'sk-or-test',
+      model: 'openrouter/auto',
+      baseUrl: 'https://openrouter.ai/api/v1/',
+    })
+    expect(generate).toHaveBeenCalledWith(
+      aiCommitMessage.OpenRouterConnectionTestPrompt
+    )
+    expect(component.state.aiCommitMessageTestResult).toEqual(
+      'OpenRouter returned: Update connection test'
+    )
+    expect(component.state.aiCommitMessageTestError).toBeNull()
+  })
+
+  it('shows OpenRouter test failures in preferences', async () => {
+    jest
+      .spyOn(aiCommitMessage, 'createOpenRouterAICommitMessageProvider')
+      .mockReturnValue({
+        generate: jest
+          .fn()
+          .mockRejectedValue(
+            new Error('OpenRouter did not return a commit message.')
+          ),
+      })
+    const component = createAdvancedPreferences()
+
+    ;(component as any).setAICommitMessageSettingsState({
+      ...component.state,
+      aiCommitMessagesEnabled: true,
+      openRouterAPIKey: 'sk-or-test',
+      openRouterModel: 'openrouter/auto',
+      openRouterBaseUrl: 'https://openrouter.ai/api/v1',
+    })
+
+    await (component as any).onTestAICommitMessageSettings()
+
+    expect(component.state.aiCommitMessageTestError).toEqual(
+      'OpenRouter did not return a commit message.'
+    )
+    expect(component.state.aiCommitMessageTestResult).toBeNull()
   })
 })

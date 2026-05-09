@@ -1,4 +1,5 @@
 import {
+  OpenRouterConnectionTestPrompt,
   buildAICommitMessagePrompt,
   createOpenRouterAICommitMessageProvider,
   parseAICommitMessageResponse,
@@ -139,6 +140,32 @@ describe('AI commit message generation', () => {
           'Content-Type': 'application/json',
         }),
       })
+    )
+  })
+
+  it('uses a synthetic diff for OpenRouter connection tests', () => {
+    expect(OpenRouterConnectionTestPrompt).toContain(
+      'openrouter-connection-test.txt'
+    )
+    expect(OpenRouterConnectionTestPrompt).toContain('-before')
+    expect(OpenRouterConnectionTestPrompt).toContain('+after')
+  })
+
+  it('reports when OpenRouter returns no message content', async () => {
+    const fetcher = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [] }),
+    })
+
+    const provider = createOpenRouterAICommitMessageProvider({
+      apiKey: 'sk-or-test',
+      model: 'openrouter/auto',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      fetcher,
+    })
+
+    await expect(provider.generate('prompt text')).rejects.toThrow(
+      'OpenRouter did not return a commit message.'
     )
   })
 

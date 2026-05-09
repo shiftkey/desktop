@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { DialogContent } from '../dialog'
+import { Button } from '../lib/button'
 import { Checkbox, CheckboxValue } from '../lib/checkbox'
 import { LinkButton } from '../lib/link-button'
 import { TextBox } from '../lib/text-box'
@@ -15,6 +16,10 @@ import {
   normalizeAICommitMessageSettings,
   setAICommitMessageSettings,
 } from '../../lib/ai/commit-message-settings'
+import {
+  OpenRouterConnectionTestPrompt,
+  createOpenRouterAICommitMessageProvider,
+} from '../../lib/ai/commit-message'
 
 interface IAdvancedPreferencesProps {
   readonly useWindowsOpenSSH: boolean
@@ -36,6 +41,9 @@ interface IAdvancedPreferencesState {
   readonly openRouterModel: string
   readonly openRouterBaseUrl: string
   readonly aiCommitMessageSettingsErrors: IAICommitMessageSettingsValidationErrors
+  readonly isTestingAICommitMessages: boolean
+  readonly aiCommitMessageTestResult: string | null
+  readonly aiCommitMessageTestError: string | null
 }
 
 export class Advanced extends React.Component<
@@ -54,6 +62,9 @@ export class Advanced extends React.Component<
       openRouterModel: DefaultOpenRouterModel,
       openRouterBaseUrl: DefaultOpenRouterBaseUrl,
       aiCommitMessageSettingsErrors: {},
+      isTestingAICommitMessages: false,
+      aiCommitMessageTestResult: null,
+      aiCommitMessageTestError: null,
     }
   }
 
@@ -125,6 +136,8 @@ export class Advanced extends React.Component<
       ...settingsState,
       aiCommitMessageSettingsErrors:
         getAICommitMessageSettingsValidationErrors(settings),
+      aiCommitMessageTestResult: null,
+      aiCommitMessageTestError: null,
     })
   }
 
@@ -242,6 +255,51 @@ export class Advanced extends React.Component<
     }
     this.setAICommitMessageSettingsState(settingsState)
     this.persistAICommitMessageSettings(settingsState)
+  }
+
+  private onTestAICommitMessageSettings = async () => {
+    const settings = normalizeAICommitMessageSettings(
+      this.getAICommitMessageSettingsFromState(this.state)
+    )
+    const errors = getAICommitMessageSettingsValidationErrors(settings)
+
+    if (
+      errors.apiKey !== undefined ||
+      errors.model !== undefined ||
+      errors.baseUrl !== undefined
+    ) {
+      this.setState({
+        aiCommitMessageSettingsErrors: errors,
+        aiCommitMessageTestResult: null,
+        aiCommitMessageTestError:
+          'Fix the OpenRouter settings above before testing.',
+      })
+      return
+    }
+
+    this.setState({
+      isTestingAICommitMessages: true,
+      aiCommitMessageTestResult: null,
+      aiCommitMessageTestError: null,
+    })
+
+    try {
+      const provider = createOpenRouterAICommitMessageProvider(settings)
+      const message = await provider.generate(OpenRouterConnectionTestPrompt)
+
+      this.setState({
+        isTestingAICommitMessages: false,
+        aiCommitMessageTestResult: `OpenRouter returned: ${message.summary}`,
+      })
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : 'Unable to test OpenRouter settings.'
+
+      this.setState({
+        isTestingAICommitMessages: false,
+        aiCommitMessageTestError: message,
+      })
+    }
   }
 
   private reportDesktopUsageLabel() {
@@ -363,6 +421,9 @@ export class Advanced extends React.Component<
 
   private renderAICommitMessageSettings() {
     const { aiCommitMessageSettingsErrors } = this.state
+    const canTestAICommitMessages =
+      this.state.aiCommitMessagesEnabled &&
+      !this.state.isTestingAICommitMessages
 
     return (
       <div className="advanced-section">
@@ -423,6 +484,23 @@ export class Advanced extends React.Component<
         {this.renderAICommitMessageSettingError(
           'openrouter-base-url-error',
           aiCommitMessageSettingsErrors.baseUrl
+        )}
+        <Button
+          onClick={this.onTestAICommitMessageSettings}
+          disabled={!canTestAICommitMessages}
+        >
+          {this.state.isTestingAICommitMessages
+            ? 'Testing OpenRouter...'
+            : 'Test OpenRouter'}
+        </Button>
+        {this.state.aiCommitMessageTestResult === null ? null : (
+          <div className="git-settings-description">
+            {this.state.aiCommitMessageTestResult}
+          </div>
+        )}
+        {this.renderAICommitMessageSettingError(
+          'openrouter-test-error',
+          this.state.aiCommitMessageTestError ?? undefined
         )}
       </div>
     )
