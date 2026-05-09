@@ -7,9 +7,6 @@ on:
         description: Branch, tag, or SHA to build
         required: true
         default: linux
-  push:
-    branches:
-      - linux
 
 permissions:
   contents: write

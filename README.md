@@ -33,6 +33,11 @@ Desktop codebase:
   currently selected changes. Configure OpenRouter in Preferences, choose the
   model and base URL, and optionally disable generation per repository in
   Repository Settings.
+
+  [![Commit AI preferences](https://i.ibb.co/hFKFv2BV/Screenshot-From-2026-05-08-23-14-30.png)](https://ibb.co/4RjRx48p)
+
+  [![Commit AI generation](https://i.ibb.co/p7zh9yY/Screenshot-From-2026-05-08-23-15-33.png)](https://ibb.co/tGsLWXV)
+
 - **Changed-file filtering**: filter the Changes view by path using one or more
   case-insensitive search terms while keeping the existing file selection flow.
 - **Organization diagnostics**: see visible organizations for each signed-in
