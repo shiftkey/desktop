@@ -24,6 +24,10 @@ const snap = (
   createdAt: 0,
   status: 'running',
   exitCode: null,
+  liveCwd: null,
+  hasActivity: false,
+  lastExitCode: null,
+  title: null,
   ...over,
 })
 

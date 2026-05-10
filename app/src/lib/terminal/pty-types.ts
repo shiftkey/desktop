@@ -46,6 +46,14 @@ export interface ITerminalSessionSnapshot {
   readonly status: TerminalSessionStatus
   /** Exit code, set only when status === 'exited'. */
   readonly exitCode: number | null
+  /** Live cwd from OSC 7. null = never reported. */
+  readonly liveCwd: string | null
+  /** Output produced since this tab was last viewed. */
+  readonly hasActivity: boolean
+  /** Exit code of the most recently completed command (OSC 133;D). */
+  readonly lastExitCode: number | null
+  /** User-supplied custom title (rename), or null. */
+  readonly title: string | null
 }
 
 /**

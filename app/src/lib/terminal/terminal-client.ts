@@ -143,5 +143,9 @@ export function makePendingSnapshot(
     createdAt: now,
     status: 'running',
     exitCode: null,
+    liveCwd: null,
+    hasActivity: false,
+    lastExitCode: null,
+    title: null,
   }
 }

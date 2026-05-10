@@ -7136,6 +7136,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
       createdAt: Date.now(),
       status: 'running',
       exitCode: null,
+      liveCwd: null,
+      hasActivity: false,
+      lastExitCode: null,
+      title: null,
     })
     return sessionId
   }

@@ -84,6 +84,10 @@ export class PtySession {
       createdAt: (deps.now ?? Date.now)(),
       status: 'starting',
       exitCode: null,
+      liveCwd: null,
+      hasActivity: false,
+      lastExitCode: null,
+      title: null,
     }
   }
 
