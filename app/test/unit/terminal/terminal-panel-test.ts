@@ -204,6 +204,13 @@ describe('TerminalPanel', () => {
     portFor.mockImplementation((sid: string) =>
       sid === 'a' ? (fakePortA as any) : (fakePortB as any)
     )
+    // Force both sessions into the mounted set so the existing assertion
+    // that both views render survives the lazy-mount filter. The user
+    // would have visited both tabs to see this state.
+    ;(panel as any).state = {
+      ...(panel as any).state,
+      mountedSessionIds: new Set(['a', 'b']),
+    }
     const tree: any = panel.render()
     // root children: [resize, toolbar, findBar, body]
     const body = tree.props.children[3]
@@ -598,6 +605,111 @@ describe('TerminalPanel', () => {
         preventDefault: jest.fn(),
       })
       expect(onFocusTabByIndex).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('lazy mount', () => {
+    it('lazy-mounts XtermView only for sessions that have been activated', () => {
+      const s1 = snap({ id: 's1' })
+      const s2 = snap({ id: 's2' })
+      const s3 = snap({ id: 's3' })
+      const sessions = new Map([
+        [s1.id, s1],
+        [s2.id, s2],
+        [s3.id, s3],
+      ])
+      const tabsByRepoId = new Map([[1, ['s1', 's2', 's3']]])
+      const stateActiveS2: any = {
+        ...baseState,
+        activeSessionId: 's2',
+        sessions,
+        tabsByRepoId,
+      }
+      const { panel } = makePanel(stateActiveS2)
+
+      // First render: only the active session (s2) is mounted.
+      const tree1: any = panel.render()
+      const wrappers1 = tree1.props.children[3].props.children[1] as any[]
+      expect(wrappers1).toHaveLength(1)
+      expect(wrappers1[0].key).toBe('s2')
+
+      // Switch to s3: simulate prop change, run componentDidUpdate.
+      const stateActiveS3: any = {
+        ...stateActiveS2,
+        activeSessionId: 's3',
+      }
+      ;(panel as any).props = {
+        ...(panel as any).props,
+        state: stateActiveS3,
+      }
+      panel.componentDidUpdate({
+        ...(panel as any).props,
+        state: stateActiveS2,
+      } as any)
+
+      const tree2: any = panel.render()
+      const wrappers2 = tree2.props.children[3].props.children[1] as any[]
+      const ids2 = wrappers2.map(w => w.key).sort()
+      expect(ids2).toEqual(['s2', 's3'])
+
+      // Switch back to s2: s3 stays mounted (no unmount on tab switch).
+      const stateBackToS2: any = {
+        ...stateActiveS3,
+        activeSessionId: 's2',
+      }
+      ;(panel as any).props = {
+        ...(panel as any).props,
+        state: stateBackToS2,
+      }
+      panel.componentDidUpdate({
+        ...(panel as any).props,
+        state: stateActiveS3,
+      } as any)
+      const tree3: any = panel.render()
+      const wrappers3 = tree3.props.children[3].props.children[1] as any[]
+      const ids3 = wrappers3.map(w => w.key).sort()
+      expect(ids3).toEqual(['s2', 's3'])
+    })
+
+    it('drops removed session ids from the mounted set', () => {
+      const s1 = snap({ id: 's1' })
+      const s2 = snap({ id: 's2' })
+      const sessions = new Map([
+        [s1.id, s1],
+        [s2.id, s2],
+      ])
+      const tabsByRepoId = new Map([[1, ['s1', 's2']]])
+      const stateActiveS1: any = {
+        ...baseState,
+        activeSessionId: 's1',
+        sessions,
+        tabsByRepoId,
+      }
+      const { panel } = makePanel(stateActiveS1)
+      // Pre-populate both into mounted set.
+      ;(panel as any).state = {
+        ...(panel as any).state,
+        mountedSessionIds: new Set(['s1', 's2']),
+      }
+
+      // Remove s2 from the store.
+      const stateAfterRemove: any = {
+        ...stateActiveS1,
+        sessions: new Map([[s1.id, s1]]),
+        tabsByRepoId: new Map([[1, ['s1']]]),
+      }
+      ;(panel as any).props = {
+        ...(panel as any).props,
+        state: stateAfterRemove,
+      }
+      panel.componentDidUpdate({
+        ...(panel as any).props,
+        state: stateActiveS1,
+      } as any)
+
+      expect(
+        Array.from((panel as any).state.mountedSessionIds as Set<string>)
+      ).toEqual(['s1'])
     })
   })
 })

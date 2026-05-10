@@ -134,6 +134,8 @@ const defaultClipboard: IClipboard = {
 }
 
 export class XtermView extends React.Component<IXtermViewProps> {
+  private static readonly RESIZE_THROTTLE_MS = 32
+
   private container = React.createRef<HTMLDivElement>()
   private term: IRuntimeTerminal | null = null
   private fitAddon: IRuntimeFitAddon | null = null
@@ -151,6 +153,8 @@ export class XtermView extends React.Component<IXtermViewProps> {
   private incomingHandler: ((event: { data: any }) => void) | null = null
   private boundUsedAddEventListener = false
   private clipboard: IClipboard
+  private pendingResize: { cols: number; rows: number } | null = null
+  private resizeTimer: ReturnType<typeof setTimeout> | null = null
 
   public constructor(props: IXtermViewProps) {
     super(props)
@@ -222,6 +226,11 @@ export class XtermView extends React.Component<IXtermViewProps> {
     this.webLinksAddon = null
     this.searchAddon = null
     this.deregisterFileLinkMatcher()
+    if (this.resizeTimer !== null) {
+      clearTimeout(this.resizeTimer)
+      this.resizeTimer = null
+    }
+    this.pendingResize = null
     this.term?.dispose()
     this.term = null
   }
@@ -594,12 +603,28 @@ export class XtermView extends React.Component<IXtermViewProps> {
     if (this.boundPort === null) {
       return
     }
-    const cols = Math.max(1, Math.floor(size.cols))
-    const rows = Math.max(1, Math.floor(size.rows))
-    try {
-      this.boundPort.postMessage({ type: 'resize', cols, rows })
-    } catch {
-      // Port may have closed between checks; not actionable.
+    this.pendingResize = {
+      cols: Math.max(1, Math.floor(size.cols)),
+      rows: Math.max(1, Math.floor(size.rows)),
+    }
+    if (this.resizeTimer === null) {
+      this.resizeTimer = setTimeout(() => {
+        this.resizeTimer = null
+        const out = this.pendingResize
+        this.pendingResize = null
+        if (out === null || this.boundPort === null) {
+          return
+        }
+        try {
+          this.boundPort.postMessage({
+            type: 'resize',
+            cols: out.cols,
+            rows: out.rows,
+          })
+        } catch {
+          // port can close between schedule and fire — not actionable
+        }
+      }, XtermView.RESIZE_THROTTLE_MS)
     }
   }
 

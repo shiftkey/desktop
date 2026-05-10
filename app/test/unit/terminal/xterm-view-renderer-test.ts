@@ -250,4 +250,54 @@ describe('XtermView renderer fallback', () => {
     }
     view.componentWillUnmount()
   })
+
+  it('debounces resize forwarding within a 32ms window', () => {
+    jest.useFakeTimers()
+    const posted: any[] = []
+    const port: any = {
+      postMessage: (m: any) => posted.push(m),
+      onmessage: null,
+      start: () => undefined,
+    }
+    let onResize: any = null
+    const loaded: string[] = []
+    const { view } = mount({
+      __loaded: loaded,
+      rendererPreference: 'dom',
+      __terminalExtras: {
+        onResize: (cb: any) => {
+          onResize = cb
+          return { dispose: () => undefined }
+        },
+      },
+    })
+    // Bind the fake port; bindPort posts an initial resize from the fake
+    // terminal's cols/rows (80x24). Drain that so we can assert on
+    // subsequent debounced sends.
+    ;(view as any).bindPort(port)
+    jest.advanceTimersByTime(40)
+    posted.length = 0
+
+    // Trigger 3 resize callbacks in rapid succession.
+    onResize({ cols: 90, rows: 30 })
+    onResize({ cols: 91, rows: 30 })
+    onResize({ cols: 92, rows: 30 })
+
+    // No resize messages should have been posted yet.
+    expect(posted.filter(p => p.type === 'resize')).toHaveLength(0)
+
+    // Advance timers past the throttle.
+    jest.advanceTimersByTime(40)
+
+    // Exactly one resize, with the latest values.
+    const resizeMsgs = posted.filter(p => p.type === 'resize')
+    expect(resizeMsgs).toHaveLength(1)
+    expect(resizeMsgs[0]).toMatchObject({ cols: 92, rows: 30 })
+
+    if ((view as any).resizeObserver) {
+      ;(view as any).resizeObserver.disconnect = () => undefined
+    }
+    view.componentWillUnmount()
+    jest.useRealTimers()
+  })
 })

@@ -55,6 +55,14 @@ interface ITerminalPanelState {
   readonly renamingSessionId: string | null
   /** Current draft text for the inline rename input. */
   readonly renameDraft: string
+  /**
+   * Set of session ids whose XtermView has been mounted at least once.
+   * A session is added here the first time it becomes active, and stays
+   * mounted until the session is removed from the store. Inactive
+   * sessions that the user never visited do not pay the xterm DOM init
+   * cost.
+   */
+  readonly mountedSessionIds: ReadonlySet<string>
 }
 
 /**
@@ -88,11 +96,34 @@ export class TerminalPanel extends React.Component<
       findBarVisible: false,
       renamingSessionId: null,
       renameDraft: '',
+      mountedSessionIds:
+        props.state.activeSessionId !== null
+          ? new Set([props.state.activeSessionId])
+          : new Set(),
     }
   }
 
   public componentDidMount(): void {
     window.addEventListener('keydown', this.handleGlobalKeyDown)
+  }
+
+  public componentDidUpdate(_prev: ITerminalPanelProps): void {
+    const active = this.props.state.activeSessionId
+    const sessions = this.props.state.sessions
+    const current = this.state.mountedSessionIds
+    const needsAdd = active !== null && !current.has(active)
+    const stale = Array.from(current).filter(id => !sessions.has(id))
+    if (!needsAdd && stale.length === 0) {
+      return
+    }
+    const next = new Set(current)
+    if (needsAdd) {
+      next.add(active!)
+    }
+    for (const id of stale) {
+      next.delete(id)
+    }
+    this.setState({ mountedSessionIds: next })
   }
 
   public componentWillUnmount(): void {
@@ -162,39 +193,45 @@ export class TerminalPanel extends React.Component<
             display:block↔none — the React tree (and therefore the
             MessagePort) survives, so the PTY keeps running in the
             background.
+
+            Lazy-mount: only sessions that have been activated at least
+            once are rendered. This skips the xterm.js DOM/WebGL init
+            cost for tabs the user never visits in a session.
           */}
-          {Array.from(state.sessions.keys()).map(sid => {
-            const ref = this.refForSession(sid)
-            return (
-              <div
-                key={sid}
-                className="terminal-panel__view"
-                style={{
-                  display: sid === activeId ? 'block' : 'none',
-                  height: '100%',
-                }}
-              >
-                <XtermView
-                  ref={ref}
-                  port={this.props.portFor(sid)}
-                  theme={this.props.theme}
-                  // eslint-disable-next-line react/jsx-no-bind
-                  onFilePathClick={
-                    this.props.onFilePathClick
-                      ? (path, line, col) =>
-                          this.props.onFilePathClick!(
-                            this.props.repositoryId,
-                            sid,
-                            path,
-                            line,
-                            col
-                          )
-                      : undefined
-                  }
-                />
-              </div>
-            )
-          })}
+          {Array.from(state.sessions.keys())
+            .filter(sid => this.state.mountedSessionIds.has(sid))
+            .map(sid => {
+              const ref = this.refForSession(sid)
+              return (
+                <div
+                  key={sid}
+                  className="terminal-panel__view"
+                  style={{
+                    display: sid === activeId ? 'block' : 'none',
+                    height: '100%',
+                  }}
+                >
+                  <XtermView
+                    ref={ref}
+                    port={this.props.portFor(sid)}
+                    theme={this.props.theme}
+                    // eslint-disable-next-line react/jsx-no-bind
+                    onFilePathClick={
+                      this.props.onFilePathClick
+                        ? (path, line, col) =>
+                            this.props.onFilePathClick!(
+                              this.props.repositoryId,
+                              sid,
+                              path,
+                              line,
+                              col
+                            )
+                        : undefined
+                    }
+                  />
+                </div>
+              )
+            })}
         </div>
       </div>
     )
