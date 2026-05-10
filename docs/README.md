@@ -31,6 +31,16 @@ Details about how the team is organizing and shipping GitHub Desktop:
  - **[Pull Requests](process/pull-requests.md)** - how code contributions are submitted and reviewed
  - **[Releasing Updates](process/releasing-updates.md)** - how we deploy things
 
+## Proposals
+
+Implementation-ready plans for upcoming features in this Linux fork:
+
+ - **[Proposals overview](proposals/README.md)** - roadmap and sequencing
+ - **[01 — Integrated Terminal](proposals/01-integrated-terminal.md)**
+ - **[02 — Pull Request Review](proposals/02-pr-review.md)**
+ - **[03 — Stash Manager](proposals/03-stash-manager.md)**
+ - **[04 — Repository Health Dashboard](proposals/04-repo-health-dashboard.md)**
+
 ## Technical
 
 These documents contain more details about the internals of GitHub Desktop

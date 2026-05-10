@@ -10,6 +10,12 @@ export interface IStashEntry {
   /** The SHA of the commit object created as a result of stashing. */
   readonly stashSha: string
 
+  /** The reflog message (raw, includes the Desktop marker if Desktop-created). */
+  readonly message: string
+
+  /** Unix timestamp (seconds) when the stash was created. */
+  readonly stashedAt: number
+
   /** The list of files this stash touches */
   readonly files: StashedFileChanges
 

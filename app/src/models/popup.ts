@@ -96,6 +96,9 @@ export enum PopupType {
   UnknownAuthors = 'UnknownAuthors',
   TestIcons = 'TestIcons',
   ConfirmRestart = 'ConfirmRestart',
+  StashCreate = 'StashCreate',
+  PullRequestReviewSession = 'PullRequestReviewSession',
+  RepoHealthDashboard = 'RepoHealthDashboard',
 }
 
 interface IBasePopup {
@@ -425,5 +428,15 @@ export type PopupDetail =
       type: PopupType.TestIcons
     }
   | { type: PopupType.ConfirmRestart }
+  | {
+      type: PopupType.StashCreate
+      repository: Repository
+    }
+  | {
+      type: PopupType.PullRequestReviewSession
+      repository: Repository
+      prNumber: number
+    }
+  | { type: PopupType.RepoHealthDashboard }
 
 export type Popup = IBasePopup & PopupDetail

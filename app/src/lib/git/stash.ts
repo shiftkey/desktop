@@ -42,12 +42,80 @@ type StashResult = {
  * as well as the total amount of stash entries.
  */
 export async function getStashes(repository: Repository): Promise<StashResult> {
+  const entries = await readStashLog(repository)
+  const desktopEntries: Array<IStashEntry> = []
+  const files: StashedFileChanges = { kind: StashedChangesLoadStates.NotLoaded }
+
+  for (const { name, message, stashSha, tree, parents, stashedAt } of entries) {
+    const branchName = extractBranchFromMessage(message)
+
+    if (branchName !== null) {
+      desktopEntries.push({
+        name,
+        stashSha,
+        branchName,
+        message,
+        stashedAt,
+        tree,
+        parents: parents.length > 0 ? parents.split(' ') : [],
+        files,
+      })
+    }
+  }
+
+  return { desktopEntries, stashEntryCount: entries.length }
+}
+
+/**
+ * Get every stash entry in the repository (Desktop-created and CLI-created),
+ * in LIFO order. Unlike `getStashes`, this does not filter by the Desktop
+ * marker — it powers the stash management UI where users want to see and
+ * manage every stash they have.
+ *
+ * For CLI-created stashes the `branchName` is parsed out of the standard
+ * `WIP on <branch>: ...` / `On <branch>: ...` reflog message. If the branch
+ * cannot be parsed it is reported as an empty string.
+ */
+export async function getAllStashes(
+  repository: Repository
+): Promise<ReadonlyArray<IStashEntry>> {
+  const entries = await readStashLog(repository)
+  const files: StashedFileChanges = { kind: StashedChangesLoadStates.NotLoaded }
+
+  return entries.map(({ name, message, stashSha, tree, parents, stashedAt }) => ({
+    name,
+    stashSha,
+    branchName:
+      extractBranchFromMessage(message) ??
+      extractBranchFromCliMessage(message) ??
+      '',
+    message,
+    stashedAt,
+    tree,
+    parents: parents.length > 0 ? parents.split(' ') : [],
+    files,
+  }))
+}
+
+interface IRawStashLogEntry {
+  readonly name: string
+  readonly stashSha: string
+  readonly message: string
+  readonly tree: string
+  readonly parents: string
+  readonly stashedAt: number
+}
+
+async function readStashLog(
+  repository: Repository
+): Promise<ReadonlyArray<IRawStashLogEntry>> {
   const { formatArgs, parse } = createLogParser({
     name: '%gD',
     stashSha: '%H',
     message: '%gs',
     tree: '%T',
     parents: '%P',
+    stashedAtStr: '%ct',
   })
 
   const result = await git(
@@ -57,33 +125,19 @@ export async function getStashes(repository: Repository): Promise<StashResult> {
     { successExitCodes: new Set([0, 128]) }
   )
 
-  // There's no refs/stashes reflog in the repository or it's not
-  // even a repository. In either case we don't care
+  // There's no refs/stash reflog (no stashes, or not a repo).
   if (result.exitCode === 128) {
-    return { desktopEntries: [], stashEntryCount: 0 }
+    return []
   }
 
-  const desktopEntries: Array<IStashEntry> = []
-  const files: StashedFileChanges = { kind: StashedChangesLoadStates.NotLoaded }
-
-  const entries = parse(result.stdout)
-
-  for (const { name, message, stashSha, tree, parents } of entries) {
-    const branchName = extractBranchFromMessage(message)
-
-    if (branchName !== null) {
-      desktopEntries.push({
-        name,
-        stashSha,
-        branchName,
-        tree,
-        parents: parents.length > 0 ? parents.split(' ') : [],
-        files,
-      })
-    }
-  }
-
-  return { desktopEntries, stashEntryCount: entries.length - 1 }
+  return parse(result.stdout).map(e => ({
+    name: e.name,
+    stashSha: e.stashSha,
+    message: e.message,
+    tree: e.tree,
+    parents: e.parents,
+    stashedAt: parseInt(e.stashedAtStr, 10) || 0,
+  }))
 }
 
 /**
@@ -255,6 +309,91 @@ export async function popStashEntry(
 function extractBranchFromMessage(message: string): string | null {
   const match = desktopStashEntryMessageRe.exec(message)
   return match === null || match[1].length === 0 ? null : match[1]
+}
+
+/**
+ * Parse a CLI-style stash reflog message and return the branch the stash was
+ * created on. Recognized forms (per git stash documentation):
+ *   "WIP on <branch>: <commit-hash> <subject>"
+ *   "On <branch>: <user-message>"
+ */
+const cliStashOnBranchRe = /^(?:WIP on|On) ([^:]+):/
+function extractBranchFromCliMessage(message: string): string | null {
+  const m = cliStashOnBranchRe.exec(message)
+  return m === null || m[1].length === 0 ? null : m[1]
+}
+
+/**
+ * Apply a stash entry without dropping it.
+ *
+ * Returns silently if the SHA does not match any known stash. Throws on merge
+ * conflicts so the caller can route the user into the conflict resolution flow.
+ */
+export async function applyStash(
+  repository: Repository,
+  stashSha: string
+): Promise<void> {
+  const stashes = await getAllStashes(repository)
+  const match = stashes.find(e => e.stashSha === stashSha)
+  if (match === undefined) {
+    return
+  }
+
+  const expectedErrors = new Set<DugiteError>([DugiteError.MergeConflicts])
+  const successExitCodes = new Set<number>([0, 1])
+  const args = ['stash', 'apply', '--quiet', match.name]
+
+  const result = await git(args, repository.path, 'applyStash', {
+    expectedErrors,
+    successExitCodes,
+  })
+
+  // exit 1 with non-empty stderr means a real error (not just conflicts).
+  if (result.exitCode === 1 && result.stderr.length > 0) {
+    throw new GitError(result, args)
+  }
+}
+
+/**
+ * Stash the working directory with a user-provided message.
+ *
+ * @param message            Free-form description shown in the stash list.
+ * @param includeUntracked   When true, passes `--include-untracked` so
+ *                           untracked files are stashed too.
+ * @returns true when a stash entry was created, false when the working
+ *          directory had no changes to stash.
+ */
+export async function createStashWithMessage(
+  repository: Repository,
+  message: string,
+  includeUntracked: boolean
+): Promise<boolean> {
+  const args = ['stash', 'push']
+  if (includeUntracked) {
+    args.push('--include-untracked')
+  }
+  // Always supply -m so callers cannot accidentally inject a flag via message.
+  args.push('-m', message)
+
+  const result = await git(args, repository.path, 'createStashWithMessage', {
+    successExitCodes: new Set<number>([0, 1]),
+  })
+
+  if (result.exitCode === 1) {
+    const errorPrefixRe = /^error: /m
+    if (errorPrefixRe.test(result.stderr)) {
+      throw new GitError(result, args)
+    }
+    log.info(
+      `[createStashWithMessage] stash created but exit code 1 reported. stderr: ${result.stderr}`
+    )
+  }
+
+  if (result.stdout === 'No local changes to save\n') {
+    return false
+  }
+
+  return true
 }
 
 /** Get the files that were changed in the given stash commit */

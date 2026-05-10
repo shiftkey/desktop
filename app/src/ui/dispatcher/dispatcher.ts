@@ -9,6 +9,7 @@ import {
   getDotComAPIEndpoint,
 } from '../../lib/api'
 import { shell } from '../../lib/app-shell'
+import { IPtyOptions } from '../../lib/terminal/pty-types'
 import {
   CompareAction,
   Foldout,
@@ -367,6 +368,18 @@ export class Dispatcher {
    */
   public refreshRepository(repository: Repository): Promise<void> {
     return this.appStore._refreshOrRecoverRepository(repository)
+  }
+
+  /**
+   * Refresh local repository state and, if eligible, also kick off a
+   * background fetch. Used on window focus so users see remote changes
+   * after returning to the app. The fetch is throttled by the same
+   * 30-minute interval used by the periodic background fetcher.
+   */
+  public refreshAndMaybeFetchRepository(
+    repository: Repository
+  ): Promise<void> {
+    return this.appStore._refreshAndMaybeFetchRepository(repository)
   }
 
   /**
@@ -2637,6 +2650,113 @@ export class Dispatcher {
   /** Pop the given stash in the given repository */
   public popStash(repository: Repository, stashEntry: IStashEntry) {
     return this.appStore._popStashEntry(repository, stashEntry)
+  }
+
+  /** Refresh the cached stash list for the given repository. */
+  public loadStashes(repository: Repository): Promise<void> {
+    return this.appStore._loadStashes(repository)
+  }
+
+  /** Apply (without dropping) a stash entry by its commit SHA. */
+  public applyStash(repository: Repository, stashSha: string): Promise<void> {
+    return this.appStore._applyStash(repository, stashSha)
+  }
+
+  /**
+   * Create a new stash with the supplied user message. Returns true if a
+   * stash entry was created, false when the working directory was clean.
+   */
+  public createStash(
+    repository: Repository,
+    message: string,
+    includeUntracked: boolean
+  ): Promise<boolean> {
+    return this.appStore._createStash(repository, message, includeUntracked)
+  }
+
+  /** Toggle the integrated terminal panel. */
+  public toggleTerminal(): Promise<void> {
+    return this.appStore._toggleTerminal()
+  }
+
+  /** Persist a new terminal panel height. */
+  public setTerminalHeight(px: number): void {
+    this.appStore._setTerminalHeight(px)
+  }
+
+  /** Spawn a terminal session for the given repository. */
+  public spawnTerminal(
+    repositoryId: number,
+    options: IPtyOptions
+  ): Promise<string> {
+    return this.appStore._spawnTerminal(repositoryId, options)
+  }
+
+  /** Kill the given terminal session. */
+  public killTerminal(sessionId: string): Promise<void> {
+    return this.appStore._killTerminal(sessionId)
+  }
+
+  /** Resize the given terminal session. */
+  public resizeTerminal(
+    sessionId: string,
+    cols: number,
+    rows: number
+  ): Promise<void> {
+    return this.appStore._resizeTerminal(sessionId, cols, rows)
+  }
+
+  /** Get the per-session MessagePort for an XtermView. */
+  public getTerminalPort(sessionId: string): any {
+    return this.appStore._getTerminalPort(sessionId)
+  }
+
+  // --- Pull Request Review (in-app) ---
+
+  public openPullRequestReview(
+    repository: Repository,
+    prNumber: number
+  ): Promise<void> {
+    return this.appStore._openPullRequestReview(repository, prNumber)
+  }
+
+  public closePullRequestReview(): void {
+    this.appStore._closePullRequestReview()
+  }
+
+  public addReviewDraft(
+    path: string,
+    line: number,
+    side: 'LEFT' | 'RIGHT',
+    body: string
+  ): void {
+    this.appStore._addReviewDraft(path, line, side, body)
+  }
+
+  public discardReviewDraft(draftId: string): void {
+    this.appStore._discardReviewDraft(draftId)
+  }
+
+  public setReviewVerdict(verdict: import('../../models/pull-request-review').ReviewVerdict): void {
+    this.appStore._setReviewVerdict(verdict)
+  }
+
+  public setReviewSummary(summary: string): void {
+    this.appStore._setReviewSummary(summary)
+  }
+
+  public submitReview(owner: string, repo: string): Promise<boolean> {
+    return this.appStore._submitReview(owner, repo)
+  }
+
+  // --- Repo Health Dashboard ---
+
+  public refreshRepoHealth(force: boolean = false): Promise<void> {
+    return this.appStore._refreshRepoHealth(force)
+  }
+
+  public refreshSingleRepoHealth(repository: Repository): Promise<void> {
+    return this.appStore._refreshSingleRepoHealth(repository)
   }
 
   /**

@@ -10,6 +10,9 @@ import {
   dropDesktopStashEntry,
   popStashEntry,
   getStashes,
+  getAllStashes,
+  applyStash,
+  createStashWithMessage,
 } from '../../../src/lib/git/stash'
 import { getStatusOrThrow } from '../../helpers/status'
 import { AppFileStatusKind } from '../../../src/models/status'
@@ -195,6 +198,8 @@ describe('git/stash', () => {
         name: 'refs/stash@{0}',
         branchName: 'master',
         stashSha: 'xyz',
+        message: '!!GitHub_Desktop<master>',
+        stashedAt: 0,
         tree: 'xyz',
         parents: ['abc'],
         files: { kind: StashedChangesLoadStates.NotLoaded },
@@ -215,6 +220,8 @@ describe('git/stash', () => {
         name: 'refs/stash@{4}',
         branchName: 'master',
         stashSha: 'xyz',
+        message: '!!GitHub_Desktop<master>',
+        stashedAt: 0,
         tree: 'xyz',
         parents: ['abc'],
         files: { kind: StashedChangesLoadStates.NotLoaded },
@@ -308,6 +315,202 @@ describe('git/stash', () => {
       })
     })
   })
+
+  describe('getAllStashes', () => {
+    let repository: Repository
+    let readme: string
+
+    beforeEach(async () => {
+      repository = await setupEmptyRepository()
+      readme = path.join(repository.path, 'README.md')
+      await FSE.writeFile(readme, '')
+      await exec(['add', 'README.md'], repository.path)
+      await exec(['commit', '-m', 'initial commit'], repository.path)
+    })
+
+    it('returns empty list for an unborn repo', async () => {
+      const repo = await setupEmptyRepository()
+      const all = await getAllStashes(repo)
+      expect(all).toHaveLength(0)
+    })
+
+    it('returns empty list when no stash entries exist', async () => {
+      const all = await getAllStashes(repository)
+      expect(all).toHaveLength(0)
+    })
+
+    it('includes both Desktop-created and CLI-created stashes', async () => {
+      // Two Desktop, one CLI-style
+      await generateTestStashEntry(repository, 'master', true)
+      await generateTestStashEntry(repository, 'master', true)
+      await generateTestStashEntry(repository, 'master', false)
+
+      const all = await getAllStashes(repository)
+      expect(all).toHaveLength(3)
+    })
+
+    it('returns entries in LIFO order (newest first)', async () => {
+      await generateTestStashEntryWithMessage(repository, 'oldest')
+      await generateTestStashEntryWithMessage(repository, 'middle')
+      await generateTestStashEntryWithMessage(repository, 'newest')
+
+      const all = await getAllStashes(repository)
+      expect(all[0].name).toBe('refs/stash@{0}')
+      expect(all[0].message).toContain('newest')
+      expect(all[2].message).toContain('oldest')
+    })
+
+    it('extracts branch name from CLI-style "WIP on" reflog message', async () => {
+      // git stash push (no -m) generates "WIP on <branch>: <sha> <subject>"
+      await FSE.appendFile(readme, generateString())
+      const result = await exec(['stash', 'push'], repository.path)
+      if (result.exitCode !== 0) throw new Error(result.stderr)
+
+      const all = await getAllStashes(repository)
+      expect(all).toHaveLength(1)
+      expect(all[0].branchName).toBe('master')
+    })
+
+    it('captures the stashedAt timestamp', async () => {
+      const before = Math.floor(Date.now() / 1000)
+      await generateTestStashEntry(repository, 'master', true)
+      const after = Math.floor(Date.now() / 1000)
+
+      const all = await getAllStashes(repository)
+      expect(all).toHaveLength(1)
+      expect(all[0].stashedAt).toBeGreaterThanOrEqual(before)
+      expect(all[0].stashedAt).toBeLessThanOrEqual(after + 1)
+    })
+
+    it('preserves the raw reflog message', async () => {
+      await generateTestStashEntryWithMessage(repository, 'my custom message')
+      const all = await getAllStashes(repository)
+      expect(all[0].message).toContain('my custom message')
+    })
+  })
+
+  describe('applyStash', () => {
+    let repository: Repository
+    let readme: string
+
+    beforeEach(async () => {
+      repository = await setupEmptyRepository()
+      readme = path.join(repository.path, 'README.md')
+      await FSE.writeFile(readme, '')
+      await exec(['add', 'README.md'], repository.path)
+      await exec(['commit', '-m', 'initial commit'], repository.path)
+    })
+
+    it('restores changes back to the working directory', async () => {
+      await generateTestStashEntry(repository, 'master', true)
+      const stashes = await getAllStashes(repository)
+      expect(stashes).toHaveLength(1)
+
+      let status = await getStatusOrThrow(repository)
+      expect(status.workingDirectory.files).toHaveLength(0)
+
+      await applyStash(repository, stashes[0].stashSha)
+
+      status = await getStatusOrThrow(repository)
+      expect(status.workingDirectory.files).toHaveLength(1)
+    })
+
+    it('does NOT drop the stash entry after applying', async () => {
+      await generateTestStashEntry(repository, 'master', true)
+      const before = await getAllStashes(repository)
+      expect(before).toHaveLength(1)
+
+      await applyStash(repository, before[0].stashSha)
+
+      const after = await getAllStashes(repository)
+      expect(after).toHaveLength(1)
+      expect(after[0].stashSha).toBe(before[0].stashSha)
+    })
+
+    it('returns silently when the SHA is unknown', async () => {
+      let didFail = false
+      try {
+        await applyStash(repository, 'sha-that-does-not-exist')
+      } catch {
+        didFail = true
+      }
+      expect(didFail).toBe(false)
+    })
+
+    it('throws on real apply errors (unrecoverable conflict)', async () => {
+      await generateTestStashEntry(repository, 'master', true)
+      const stashes = await getAllStashes(repository)
+
+      // Create a conflicting unstaged change
+      await FSE.writeFile(readme, generateString())
+
+      await expect(
+        applyStash(repository, stashes[0].stashSha)
+      ).rejects.toThrowError()
+    })
+  })
+
+  describe('createStashWithMessage', () => {
+    let repository: Repository
+    let readme: string
+
+    beforeEach(async () => {
+      repository = await setupEmptyRepository()
+      readme = path.join(repository.path, 'README.md')
+      await FSE.writeFile(readme, '')
+      await exec(['add', 'README.md'], repository.path)
+      await exec(['commit', '-m', 'initial commit'], repository.path)
+    })
+
+    it('returns false when there are no local changes to stash', async () => {
+      const created = await createStashWithMessage(
+        repository,
+        'nothing to stash',
+        false
+      )
+      expect(created).toBe(false)
+
+      const all = await getAllStashes(repository)
+      expect(all).toHaveLength(0)
+    })
+
+    it('creates a stash with the supplied message', async () => {
+      await FSE.appendFile(readme, 'tracked change')
+
+      const created = await createStashWithMessage(
+        repository,
+        'WIP on something',
+        false
+      )
+      expect(created).toBe(true)
+
+      const all = await getAllStashes(repository)
+      expect(all).toHaveLength(1)
+      expect(all[0].message).toContain('WIP on something')
+    })
+
+    it('does NOT include untracked files when includeUntracked is false', async () => {
+      await FSE.appendFile(readme, 'tracked change')
+      const untracked = path.join(repository.path, 'untracked.txt')
+      await FSE.writeFile(untracked, 'new file')
+
+      await createStashWithMessage(repository, 'tracked only', false)
+
+      // Untracked file should still be on disk
+      expect(await FSE.pathExists(untracked)).toBe(true)
+    })
+
+    it('includes untracked files when includeUntracked is true', async () => {
+      await FSE.appendFile(readme, 'tracked change')
+      const untracked = path.join(repository.path, 'untracked.txt')
+      await FSE.writeFile(untracked, 'new file')
+
+      await createStashWithMessage(repository, 'with untracked', true)
+
+      // After stash --include-untracked, the untracked file is gone from disk.
+      expect(await FSE.pathExists(untracked)).toBe(false)
+    })
+  })
 })
 
 /**
@@ -341,4 +544,23 @@ async function generateTestStashEntry(
   const readme = path.join(repository.path, 'README.md')
   await FSE.appendFile(readme, generateString())
   await stash(repository, branchName, message)
+}
+
+/**
+ * Creates a CLI-style stash entry with the supplied custom message.
+ * (No Desktop marker — just the user's text passed via -m.)
+ */
+async function generateTestStashEntryWithMessage(
+  repository: Repository,
+  message: string
+): Promise<void> {
+  const readme = path.join(repository.path, 'README.md')
+  await FSE.appendFile(readme, generateString())
+  const result = await exec(
+    ['stash', 'push', '-m', message],
+    repository.path
+  )
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr)
+  }
 }

@@ -72,6 +72,11 @@ import { AppMenuBar } from './app-menu'
 import { UpdateAvailable, renderBanner } from './banners'
 import { Preferences } from './preferences'
 import { ConfirmRestart } from './preferences/confirm-restart'
+import { StashCreateDialog } from './stashes/stash-create-dialog'
+import { TerminalPanel } from './terminal/terminal-panel'
+import { getTerminalTheme } from '../lib/terminal/terminal-theme'
+import { PRReviewDialog } from './pull-request-review/pr-review-dialog'
+import { RepoHealthDashboardDialog } from './repo-health/repo-health-dashboard-dialog'
 import { RepositorySettings } from './repository-settings'
 import { AppError } from './app-error'
 import { MissingRepository } from './missing-repository'
@@ -1225,6 +1230,18 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
 
     if (event.defaultPrevented) {
+      return
+    }
+
+    // Ctrl+` (Cmd+` on macOS) toggles the integrated terminal panel.
+    if (
+      event.key === '`' &&
+      (event.ctrlKey || event.metaKey) &&
+      !event.shiftKey &&
+      !event.altKey
+    ) {
+      this.props.dispatcher.toggleTerminal()
+      event.preventDefault()
       return
     }
 
@@ -2676,6 +2693,62 @@ export class App extends React.Component<IAppProps, IAppState> {
       case PopupType.ConfirmRestart: {
         return <ConfirmRestart onDismissed={onPopupDismissedFn} />
       }
+      case PopupType.StashCreate: {
+        return (
+          <StashCreateDialog
+            key="stash-create"
+            dispatcher={this.props.dispatcher}
+            repository={popup.repository}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
+      case PopupType.RepoHealthDashboard: {
+        // Kick a refresh on first render.
+        this.props.dispatcher.refreshRepoHealth()
+        const repos = this.state.repositories.filter(
+          (r): r is Repository => r instanceof Repository
+        )
+        return (
+          <RepoHealthDashboardDialog
+            key="repo-health-dashboard"
+            repositories={repos}
+            snapshot={this.state.repoHealth}
+            onSelectRepository={r => {
+              this.props.dispatcher.selectRepository(r)
+              onPopupDismissedFn()
+            }}
+            onRefreshClick={() => this.props.dispatcher.refreshRepoHealth(true)}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
+      case PopupType.PullRequestReviewSession: {
+        // Kick off the load if we don't yet have a session bound to this PR.
+        const session = this.state.pullRequestReviewSession
+        if (
+          session === null ||
+          session.prNumber !== popup.prNumber ||
+          session.repoId !== popup.repository.id
+        ) {
+          this.props.dispatcher.openPullRequestReview(
+            popup.repository,
+            popup.prNumber
+          )
+        }
+        return (
+          <PRReviewDialog
+            key={`pr-review-${popup.prNumber}`}
+            dispatcher={this.props.dispatcher}
+            repository={popup.repository}
+            session={this.state.pullRequestReviewSession}
+            onDismissed={() => {
+              this.props.dispatcher.closePullRequestReview()
+              onPopupDismissedFn()
+            }}
+          />
+        )
+      }
       default:
         return assertNever(popup, `Unknown popup type: ${popup}`)
     }
@@ -3431,6 +3504,13 @@ export class App extends React.Component<IAppProps, IAppState> {
           showCommitLengthWarning={this.state.showCommitLengthWarning}
           onCherryPick={this.startCherryPickWithoutBranch}
           pullRequestSuggestedNextAction={state.pullRequestSuggestedNextAction}
+          stashEntries={
+            state.stashesByRepoId.get(selectedState.repository.id)?.entries ?? []
+          }
+          stashesLoading={
+            state.stashesByRepoId.get(selectedState.repository.id)?.loading ??
+            false
+          }
         />
       )
     } else if (selectedState.type === SelectionType.CloningRepository) {
@@ -3491,9 +3571,29 @@ export class App extends React.Component<IAppProps, IAppState> {
         {this.state.showWelcomeFlow
           ? this.renderWelcomeFlow()
           : this.renderApp()}
+        {this.renderTerminalPanel()}
         {this.renderZoomInfo()}
         {this.renderFullScreenInfo()}
       </div>
+    )
+  }
+
+  private renderTerminalPanel() {
+    if (this.state.showWelcomeFlow) return null
+    return (
+      <TerminalPanel
+        state={this.state.terminal}
+        theme={getTerminalTheme(
+          this.state.currentTheme === ApplicationTheme.Dark
+            ? ApplicationTheme.Dark
+            : ApplicationTheme.Light
+        )}
+        portFor={sessionId =>
+          this.props.dispatcher.getTerminalPort(sessionId)
+        }
+        onResize={px => this.props.dispatcher.setTerminalHeight(px)}
+        onCloseClick={() => this.props.dispatcher.toggleTerminal()}
+      />
     )
   }
 

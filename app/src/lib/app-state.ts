@@ -7,6 +7,10 @@ import { Tip } from '../models/tip'
 import { Commit } from '../models/commit'
 import { CommittedFileChange, WorkingDirectoryStatus } from '../models/status'
 import { CloningRepository } from '../models/cloning-repository'
+import { IRepoStashState } from './stores/stash-store'
+import { ITerminalState } from './stores/terminal-store'
+import { IPRReviewSession } from '../models/pull-request-review'
+import { IRepoHealthSnapshot } from './repo-health/types'
 import { IMenu } from '../models/app-menu'
 import { IRemote } from '../models/remote'
 import { CloneRepositoryTab } from '../models/clone-repository-tab'
@@ -76,6 +80,14 @@ export interface IAppState {
   readonly accounts: ReadonlyArray<Account>
   /** Maps endpoint → active user id for multi-account switching. */
   readonly activeAccountByEndpoint: ReadonlyMap<string, number>
+  /** Cached stash entries for each repository (powers the Stashes tab). */
+  readonly stashesByRepoId: ReadonlyMap<number, IRepoStashState>
+  /** Integrated terminal panel state. */
+  readonly terminal: ITerminalState
+  /** Active PR review dialog session, or null when closed. */
+  readonly pullRequestReviewSession: IPRReviewSession | null
+  /** Cross-repo health dashboard snapshot. */
+  readonly repoHealth: IRepoHealthSnapshot
   /**
    * The current list of repositories tracked in the application
    */
@@ -409,6 +421,7 @@ export type Foldout =
 export enum RepositorySectionTab {
   Changes,
   History,
+  Stashes,
 }
 
 /**

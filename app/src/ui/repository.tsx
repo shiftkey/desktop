@@ -24,7 +24,9 @@ import { FocusContainer } from './lib/focus-container'
 import { ImageDiffType } from '../models/diff'
 import { IMenu } from '../models/app-menu'
 import { StashDiffViewer } from './stashing'
-import { StashedChangesLoadStates } from '../models/stash-entry'
+import { StashedChangesLoadStates, IStashEntry } from '../models/stash-entry'
+import { StashList } from './stashes/stash-list'
+import { PopupType } from '../models/popup'
 import { TutorialPanel, TutorialWelcome, TutorialDone } from './tutorial'
 import { TutorialStep, isValidTutorialStep } from '../models/tutorial-step'
 import { openFile } from './lib/open-file'
@@ -108,16 +110,22 @@ interface IRepositoryViewProps {
 
   /** The user's preference of pull request suggested next action to use **/
   readonly pullRequestSuggestedNextAction?: PullRequestSuggestedNextAction
+
+  /** Cached stash entries for this repository (Stashes tab). */
+  readonly stashEntries: ReadonlyArray<IStashEntry>
+  readonly stashesLoading: boolean
 }
 
 interface IRepositoryViewState {
   readonly changesListScrollTop: number
   readonly compareListScrollTop: number
+  readonly selectedStashSha: string | null
 }
 
 const enum Tab {
   Changes = 0,
   History = 1,
+  Stashes = 2,
 }
 
 export class RepositoryView extends React.Component<
@@ -143,6 +151,7 @@ export class RepositoryView extends React.Component<
     this.state = {
       changesListScrollTop: 0,
       compareListScrollTop: 0,
+      selectedStashSha: null,
     }
   }
 
@@ -182,10 +191,13 @@ export class RepositoryView extends React.Component<
   }
 
   private renderTabs(): JSX.Element {
+    const section = this.props.state.selectedSection
     const selectedTab =
-      this.props.state.selectedSection === RepositorySectionTab.Changes
+      section === RepositorySectionTab.Changes
         ? Tab.Changes
-        : Tab.History
+        : section === RepositorySectionTab.History
+        ? Tab.History
+        : Tab.Stashes
 
     return (
       <TabBar selectedIndex={selectedTab} onTabClicked={this.onTabClicked}>
@@ -196,6 +208,10 @@ export class RepositoryView extends React.Component<
 
         <div className="with-indicator" id="history-tab">
           <span>History</span>
+        </div>
+
+        <div className="with-indicator" id="stashes-tab">
+          <span>Stashes</span>
         </div>
       </TabBar>
     )
@@ -328,9 +344,34 @@ export class RepositoryView extends React.Component<
       return this.renderChangesSidebar()
     } else if (selectedSection === RepositorySectionTab.History) {
       return this.renderCompareSidebar()
+    } else if (selectedSection === RepositorySectionTab.Stashes) {
+      return this.renderStashesSidebar()
     } else {
       return assertNever(selectedSection, 'Unknown repository section')
     }
+  }
+
+  private renderStashesSidebar(): JSX.Element {
+    return (
+      <StashList
+        entries={this.props.stashEntries}
+        loading={this.props.stashesLoading}
+        selectedSha={this.state.selectedStashSha}
+        onSelect={this.onSelectStash}
+        onCreateClick={this.onCreateStashClick}
+      />
+    )
+  }
+
+  private onSelectStash = (entry: IStashEntry) => {
+    this.setState({ selectedStashSha: entry.stashSha })
+  }
+
+  private onCreateStashClick = () => {
+    this.props.dispatcher.showPopup({
+      type: PopupType.StashCreate,
+      repository: this.props.repository,
+    })
   }
 
   private handleSidebarWidthReset = () => {
@@ -573,9 +614,62 @@ export class RepositoryView extends React.Component<
       return this.renderContentForChanges()
     } else if (selectedSection === RepositorySectionTab.History) {
       return this.renderContentForHistory()
+    } else if (selectedSection === RepositorySectionTab.Stashes) {
+      return this.renderContentForStashes()
     } else {
       return assertNever(selectedSection, 'Unknown repository section')
     }
+  }
+
+  private renderContentForStashes(): JSX.Element {
+    const sha = this.state.selectedStashSha
+    const entry =
+      sha === null
+        ? null
+        : this.props.stashEntries.find(e => e.stashSha === sha) ?? null
+    if (entry === null) {
+      return (
+        <div className="stash-empty-pane">
+          {this.props.stashEntries.length === 0
+            ? 'No stashes to view.'
+            : 'Select a stash to view its details.'}
+        </div>
+      )
+    }
+    return (
+      <div className="stash-detail-pane">
+        <h3>{entry.message}</h3>
+        <div className="stash-detail-pane__meta">
+          <span>Branch: {entry.branchName || '(unknown)'}</span>
+          <span>SHA: {entry.stashSha.slice(0, 8)}</span>
+        </div>
+        <div className="stash-detail-pane__actions">
+          <button onClick={() => this.applySelectedStash(entry)}>
+            Apply (keep)
+          </button>
+          <button onClick={() => this.popSelectedStash(entry)}>
+            Pop (apply &amp; drop)
+          </button>
+          <button onClick={() => this.dropSelectedStash(entry)}>
+            Drop&hellip;
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  private applySelectedStash = (entry: IStashEntry) => {
+    this.props.dispatcher.applyStash(this.props.repository, entry.stashSha)
+  }
+
+  private popSelectedStash = (entry: IStashEntry) => {
+    this.props.dispatcher.popStash(this.props.repository, entry)
+    this.setState({ selectedStashSha: null })
+  }
+
+  private dropSelectedStash = (entry: IStashEntry) => {
+    this.props.dispatcher.dropStash(this.props.repository, entry)
+    this.setState({ selectedStashSha: null })
   }
 
   public render() {
@@ -639,28 +733,36 @@ export class RepositoryView extends React.Component<
   }
 
   private changeTab() {
-    const section =
-      this.props.state.selectedSection === RepositorySectionTab.History
-        ? RepositorySectionTab.Changes
-        : RepositorySectionTab.History
-
-    this.props.dispatcher.changeRepositorySection(
-      this.props.repository,
-      section
-    )
+    const order = [
+      RepositorySectionTab.Changes,
+      RepositorySectionTab.History,
+      RepositorySectionTab.Stashes,
+    ]
+    const current = this.props.state.selectedSection
+    const idx = order.indexOf(current)
+    const next = order[(idx + 1) % order.length]
+    this.props.dispatcher.changeRepositorySection(this.props.repository, next)
+    if (next === RepositorySectionTab.Stashes) {
+      this.props.dispatcher.loadStashes(this.props.repository)
+    }
   }
 
   private onTabClicked = (tab: Tab) => {
     const section =
       tab === Tab.History
         ? RepositorySectionTab.History
+        : tab === Tab.Stashes
+        ? RepositorySectionTab.Stashes
         : RepositorySectionTab.Changes
 
     this.props.dispatcher.changeRepositorySection(
       this.props.repository,
       section
     )
-    if (!!section) {
+    if (section === RepositorySectionTab.Stashes) {
+      this.props.dispatcher.loadStashes(this.props.repository)
+    }
+    if (section === RepositorySectionTab.History) {
       this.props.dispatcher.updateCompareForm(this.props.repository, {
         showBranchList: false,
       })

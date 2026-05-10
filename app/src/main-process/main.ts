@@ -38,6 +38,8 @@ import { installAuthenticatedImageFilter } from './authenticated-image-filter'
 import { installAliveOriginFilter } from './alive-origin-filter'
 import { installSameOriginFilter } from './same-origin-filter'
 import * as ipcMain from './ipc-main'
+import { ipcMain as electronIpcMain } from 'electron'
+import { registerTerminalIpc } from './terminal/terminal-ipc'
 import {
   getArchitecture,
   isAppRunningUnderARM64Translation,
@@ -351,6 +353,11 @@ app.on('ready', () => {
       askForConfirmationOnForcePush: false,
     })
   )
+
+  // Wire integrated terminal IPC. node-pty is loaded lazily so failure to
+  // build the native binding does not crash the app — the renderer will get
+  // a friendly error when it tries to spawn.
+  registerTerminalIpc(electronIpcMain as any)
 
   ipcMain.on('update-accounts', (_, accounts) => updateAccounts(accounts))
 

@@ -238,6 +238,21 @@ import {
 } from '../local-storage'
 import { ExternalEditorError, suggestedExternalEditor } from '../editors/shared'
 import { ApiRepositoriesStore } from './api-repositories-store'
+import { StashStore } from './stash-store'
+import { TerminalStore } from './terminal-store'
+import { PullRequestReviewStore } from './pull-request-review-store'
+import { makeAccountHttpClient } from '../api/account-http-client'
+import { ReviewVerdict } from '../../models/pull-request-review'
+import { RepoHealthStore } from './repo-health-store'
+import { IRepoHealthProbes } from '../repo-health/collect-health'
+import { getStatus } from '../git/status'
+import { getAheadBehind } from '../git/rev-list'
+import {
+  spawnTerminal as spawnTerminalIpc,
+  killTerminal as killTerminalIpc,
+  resizeTerminal as resizeTerminalIpc,
+} from '../terminal/terminal-client'
+import { IPtyOptions } from '../terminal/pty-types'
 import {
   updateChangedFiles,
   updateConflictState,
@@ -254,6 +269,8 @@ import {
   popStashEntry,
   dropDesktopStashEntry,
   moveStashEntry,
+  applyStash,
+  createStashWithMessage,
 } from '../git/stash'
 import {
   UncommittedChangesStrategy,
@@ -450,6 +467,20 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   private accounts: ReadonlyArray<Account> = new Array<Account>()
   private activeAccountByEndpoint: ReadonlyMap<string, number> = new Map()
+  private readonly stashStore: StashStore = new StashStore()
+  private readonly terminalStore: TerminalStore =
+    typeof window !== 'undefined'
+      ? new TerminalStore(window.localStorage)
+      : new TerminalStore()
+  /** MessagePorts keyed by sessionId — not stored in TerminalStore (not serializable). */
+  private readonly terminalPorts: Map<string, any> = new Map()
+  /** Lazily created when a review opens — needs an Account for auth. */
+  private prReviewStore: PullRequestReviewStore | null = null
+  private readonly repoHealthStore: RepoHealthStore = new RepoHealthStore({
+    collectorOptions: {
+      probes: makeDefaultRepoHealthProbes(),
+    },
+  })
   private repositories: ReadonlyArray<Repository> = new Array<Repository>()
   private recentRepositories: ReadonlyArray<number> = new Array<number>()
 
@@ -910,6 +941,15 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     this.apiRepositoriesStore.onDidUpdate(() => this.emitUpdate())
     this.apiRepositoriesStore.onDidError(error => this.emitError(error))
+
+    this.stashStore.onDidUpdate(() => this.emitUpdate())
+    this.stashStore.onDidError(error => this.emitError(error))
+
+    this.terminalStore.onDidUpdate(() => this.emitUpdate())
+    this.terminalStore.onDidError(error => this.emitError(error))
+
+    this.repoHealthStore.onDidUpdate(() => this.emitUpdate())
+    this.repoHealthStore.onDidError(error => this.emitError(error))
   }
 
   /** Load the emoji from disk. */
@@ -1010,6 +1050,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
     return {
       accounts: this.accounts,
       activeAccountByEndpoint: this.activeAccountByEndpoint,
+      stashesByRepoId: this.stashStore.getAllState(),
+      terminal: this.terminalStore.getState(),
+      pullRequestReviewSession: this.prReviewStore?.getSession() ?? null,
+      repoHealth: this.repoHealthStore.getSnapshot(),
       repositories,
       recentRepositories: this.recentRepositories,
       localRepositoryStateLookup: this.localRepositoryStateLookup,
@@ -3453,6 +3497,28 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
   }
 
+  /** This shouldn't be called directly. See `Dispatcher`. */
+  public async _refreshAndMaybeFetchRepository(
+    repository: Repository
+  ): Promise<void> {
+    await this._refreshOrRecoverRepository(repository)
+
+    if (!repository.gitHubRepository) {
+      return
+    }
+
+    // Throttled by BackgroundFetchMinimumInterval (30m) inside
+    // shouldBackgroundFetch, so frequent focus events don't spam the API.
+    const shouldFetch = await this.shouldBackgroundFetch(repository, null)
+    if (!shouldFetch) {
+      return
+    }
+
+    this._fetch(repository, FetchType.BackgroundTask).catch(e => {
+      log.error('Error performing focus-triggered fetch', e)
+    })
+  }
+
   private async recoverMissingRepository(
     repository: Repository
   ): Promise<Repository> {
@@ -3513,6 +3579,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
         includingStatus: false,
         clearPartialState: false,
       })
+    } else if (section === RepositorySectionTab.Stashes) {
+      // Stashes section pulls its own data from the StashStore lazily on
+      // tab activation; piggy-back on this refresh to keep it warm.
+      refreshSectionPromise = this.stashStore.loadStashes(repository)
     } else {
       return assertNever(section, `Unknown section: ${section}`)
     }
@@ -6874,6 +6944,164 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     this.statsStore.increment('stashDiscardCount')
     await gitStore.loadStashEntries()
+    await this.stashStore.loadStashes(repository)
+  }
+
+  /** Refresh the cached stash list for the given repository. */
+  public async _loadStashes(repository: Repository): Promise<void> {
+    await this.stashStore.loadStashes(repository)
+  }
+
+  /** Get the current cached stash state for the given repository. */
+  public _getStashState(repository: Repository) {
+    return this.stashStore.getState(repository)
+  }
+
+  /** This shouldn't be called directly. See `Dispatcher`. */
+  public async _applyStash(
+    repository: Repository,
+    stashSha: string
+  ): Promise<void> {
+    const gitStore = this.gitStoreCache.get(repository)
+    await gitStore.performFailableOperation(() =>
+      applyStash(repository, stashSha)
+    )
+    log.info(`[AppStore. _applyStash] applied stash ${stashSha}`)
+    this.statsStore.increment('stashRestoreCount')
+    await this._refreshRepository(repository)
+    await this.stashStore.loadStashes(repository)
+  }
+
+  /** This shouldn't be called directly. See `Dispatcher`. */
+  public async _createStash(
+    repository: Repository,
+    message: string,
+    includeUntracked: boolean
+  ): Promise<boolean> {
+    const gitStore = this.gitStoreCache.get(repository)
+    const created = await gitStore.performFailableOperation(() =>
+      createStashWithMessage(repository, message, includeUntracked)
+    )
+    log.info(`[AppStore. _createStash] created=${created}`)
+    if (created) {
+      this.statsStore.increment('stashEntriesCreatedOutsideDesktop')
+    }
+    await this._refreshRepository(repository)
+    await this.stashStore.loadStashes(repository)
+    return created ?? false
+  }
+
+  /** Toggle the integrated terminal panel visibility. */
+  public _toggleTerminal(): Promise<void> {
+    this.terminalStore.toggle()
+    return Promise.resolve()
+  }
+
+  public _setTerminalHeight(px: number): void {
+    this.terminalStore.setHeight(px)
+  }
+
+  /** Get the per-session MessagePort. Used by XtermView. */
+  public _getTerminalPort(sessionId: string): any {
+    return this.terminalPorts.get(sessionId) ?? null
+  }
+
+  /**
+   * Spawn a terminal for the given repository and bind the resulting
+   * MessagePort. Returns the session id.
+   */
+  public async _spawnTerminal(
+    repositoryId: number,
+    options: IPtyOptions
+  ): Promise<string> {
+    const { sessionId, port } = await spawnTerminalIpc(repositoryId, options)
+    this.terminalPorts.set(sessionId, port)
+    this.terminalStore.registerSession({
+      id: sessionId,
+      repositoryId,
+      cwd: options.cwd,
+      shell: options.shell,
+      cols: options.cols,
+      rows: options.rows,
+      createdAt: Date.now(),
+      status: 'running',
+      exitCode: null,
+    })
+    return sessionId
+  }
+
+  public async _killTerminal(sessionId: string): Promise<void> {
+    await killTerminalIpc(sessionId)
+    this.terminalPorts.delete(sessionId)
+    this.terminalStore.removeSession(sessionId)
+  }
+
+  public async _resizeTerminal(
+    sessionId: string,
+    cols: number,
+    rows: number
+  ): Promise<void> {
+    await resizeTerminalIpc(sessionId, cols, rows)
+  }
+
+  /** Open a PR review dialog. Loads threads from the API. */
+  public async _openPullRequestReview(
+    repository: Repository,
+    prNumber: number
+  ): Promise<void> {
+    const ghr = repository.gitHubRepository
+    if (!ghr) return
+    const account = getAccountForEndpoint(this.accounts, ghr.endpoint)
+    if (!account) return
+    const client = makeAccountHttpClient(account)
+    if (this.prReviewStore === null) {
+      this.prReviewStore = new PullRequestReviewStore(client)
+      this.prReviewStore.onDidUpdate(() => this.emitUpdate())
+      this.prReviewStore.onDidError(error => this.emitError(error))
+    }
+    await this.prReviewStore.open(repository.id, ghr.owner.login, ghr.name, prNumber)
+  }
+
+  public _closePullRequestReview(): void {
+    this.prReviewStore?.close()
+  }
+
+  public _addReviewDraft(
+    path: string,
+    line: number,
+    side: 'LEFT' | 'RIGHT',
+    body: string
+  ): void {
+    this.prReviewStore?.addDraft(path, line, side, body)
+  }
+
+  public _discardReviewDraft(draftId: string): void {
+    this.prReviewStore?.discardDraft(draftId)
+  }
+
+  public _setReviewVerdict(verdict: ReviewVerdict): void {
+    this.prReviewStore?.setVerdict(verdict)
+  }
+
+  public _setReviewSummary(summary: string): void {
+    this.prReviewStore?.setSummary(summary)
+  }
+
+  public async _submitReview(owner: string, repo: string): Promise<boolean> {
+    if (this.prReviewStore === null) return false
+    return this.prReviewStore.submit(owner, repo)
+  }
+
+  /** Refresh dashboard health for the current repository list. */
+  public _refreshRepoHealth(force: boolean = false): Promise<void> {
+    return this.repoHealthStore.refreshAll(
+      this.repositories.filter((r): r is Repository => r instanceof Repository),
+      force
+    )
+  }
+
+  public _refreshSingleRepoHealth(repository: Repository): Promise<void> {
+    return this.repoHealthStore.refreshOne(repository)
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
@@ -8211,5 +8439,32 @@ function constrain(
     value: typeof value === 'number' ? value : value.value,
     min,
     max: constrainedMax,
+  }
+}
+
+
+/**
+ * Default per-repo health probes for the dashboard.
+ *
+ * Pure git-only signals for v1: working tree count + ahead/behind.
+ * GitHub-side signals (PR count, CI status) and history-derived ones
+ * (last activity, stale branches) return zeros for now and can be wired
+ * in incrementally without breaking the contract.
+ */
+function makeDefaultRepoHealthProbes(): IRepoHealthProbes {
+  return {
+    uncommittedCount: async repo => {
+      const status = await getStatus(repo)
+      return status?.workingDirectory.files.length ?? 0
+    },
+    aheadBehind: async repo => {
+      const ab = await getAheadBehind(repo, "@{u}").catch(() => null)
+      if (ab === null) return { ahead: 0, behind: 0 }
+      return { ahead: ab.ahead, behind: ab.behind }
+    },
+    defaultBranchStatus: async () => "unknown",
+    openPullRequestCount: async () => 0,
+    lastActivityUnix: async () => 0,
+    staleBranchCount: async () => 0,
   }
 }
