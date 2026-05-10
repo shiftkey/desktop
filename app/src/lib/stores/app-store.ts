@@ -7016,6 +7016,17 @@ export class AppStore extends TypedBaseStore<IAppState> {
   ): Promise<string> {
     const { sessionId, port } = await spawnTerminalIpc(repositoryId, options)
     this.terminalPorts.set(sessionId, port)
+
+    // Auto-cleanup when the shell exits on its own (user typed `exit`,
+    // shell crashed). Main posts {type:'exit'} then closes the port; without
+    // this, the port + store entry would leak across the session lifetime.
+    port.addEventListener('message', (event: MessageEvent) => {
+      if (event.data?.type === 'exit') {
+        this.terminalPorts.delete(sessionId)
+        this.terminalStore.removeSession(sessionId)
+      }
+    })
+
     this.terminalStore.registerSession({
       id: sessionId,
       repositoryId,

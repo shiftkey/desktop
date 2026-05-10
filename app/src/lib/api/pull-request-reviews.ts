@@ -76,10 +76,14 @@ export function buildThreads(
   for (const c of comments) {
     if (c.inReplyToId === null) continue
     // Walk up to the root of the chain in case replies-of-replies exist.
+    // Track visited ids so a corrupt API response with a cycle can't hang
+    // the renderer in an infinite loop.
+    const visited = new Set<number>([c.id])
     let current = c
     while (current.inReplyToId !== null) {
       const parent = byId.get(current.inReplyToId)
-      if (parent === undefined) break
+      if (parent === undefined || visited.has(parent.id)) break
+      visited.add(parent.id)
       current = parent
     }
     const list = childrenByRoot.get(current.id)

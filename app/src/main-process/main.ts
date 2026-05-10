@@ -357,7 +357,8 @@ app.on('ready', () => {
   // Wire integrated terminal IPC. node-pty is loaded lazily so failure to
   // build the native binding does not crash the app — the renderer will get
   // a friendly error when it tries to spawn.
-  registerTerminalIpc(electronIpcMain as any)
+  const terminalIpc = registerTerminalIpc(electronIpcMain as any)
+  app.on('before-quit', () => terminalIpc.dispose())
 
   ipcMain.on('update-accounts', (_, accounts) => updateAccounts(accounts))
 

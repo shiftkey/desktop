@@ -183,13 +183,10 @@ export class PtySession {
 }
 
 function chunkToBytes(chunk: string | Buffer): Uint8Array {
-  if (typeof chunk === 'string') {
-    // Use Node's Buffer (always available in main process and jest env) so we
-    // don't depend on the runtime providing a global TextEncoder.
-    const buf = Buffer.from(chunk, 'utf8')
-    return new Uint8Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength))
-  }
-  // Buffer is a Uint8Array but we want a clean copy so the PTY can reuse its
-  // own buffer pool freely.
-  return new Uint8Array(chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength))
+  // postMessage's structured-clone copies synchronously before returning,
+  // so a zero-copy view is safe — node-pty can reuse its buffer pool the
+  // moment our caller invokes postMessage. Avoids one allocation+copy per
+  // PTY data frame on the hot path.
+  const buf = typeof chunk === 'string' ? Buffer.from(chunk, 'utf8') : chunk
+  return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
 }
