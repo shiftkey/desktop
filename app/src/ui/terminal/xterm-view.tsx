@@ -56,6 +56,14 @@ export interface IXtermViewProps {
   readonly webglAddonFactory?: () => any
   /** Test injection: produce a Canvas addon. */
   readonly canvasAddonFactory?: () => any
+  /** Test injection: produce a Unicode11 addon. */
+  readonly unicode11AddonFactory?: () => any
+  /** Test injection: produce a Ligatures addon. */
+  readonly ligaturesAddonFactory?: () => any
+  /** Test injection: produce a WebLinks addon. */
+  readonly webLinksAddonFactory?: () => any
+  /** Test injection: produce a Search addon. */
+  readonly searchAddonFactory?: () => any
 }
 
 /** Runtime contract for the xterm instance the view manipulates. */
@@ -117,6 +125,10 @@ export class XtermView extends React.Component<IXtermViewProps> {
   private fitAddon: IRuntimeFitAddon | null = null
   private webglAddon: any | null = null
   private canvasAddon: any | null = null
+  private unicode11Addon: any | null = null
+  private ligaturesAddon: any | null = null
+  private webLinksAddon: any | null = null
+  private searchAddon: any | null = null
   private dataDispose: { dispose(): void } | null = null
   private resizeDispose: { dispose(): void } | null = null
   private resizeObserver: ResizeObserver | null = null
@@ -140,6 +152,7 @@ export class XtermView extends React.Component<IXtermViewProps> {
       this.term.loadAddon(this.fitAddon)
     }
     this.installRenderer(this.props.rendererPreference ?? 'webgl')
+    this.installPassiveAddons()
     this.term.attachCustomKeyEventHandler(this.handleKeyEvent)
     this.term.open(this.container.current)
     this.applyTheme(this.props.theme)
@@ -184,8 +197,46 @@ export class XtermView extends React.Component<IXtermViewProps> {
     this.canvasAddon?.dispose?.()
     this.webglAddon = null
     this.canvasAddon = null
+    this.unicode11Addon?.dispose?.()
+    this.ligaturesAddon?.dispose?.()
+    this.webLinksAddon?.dispose?.()
+    this.searchAddon?.dispose?.()
+    this.unicode11Addon = null
+    this.ligaturesAddon = null
+    this.webLinksAddon = null
+    this.searchAddon = null
     this.term?.dispose()
     this.term = null
+  }
+
+  /**
+   * Find the next occurrence of `text` in the terminal buffer. Returns
+   * `false` when the search addon failed to load or threw.
+   */
+  public findNext(text: string): boolean {
+    if (this.searchAddon === null) {
+      return false
+    }
+    try {
+      return Boolean(this.searchAddon.findNext(text))
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Find the previous occurrence of `text` in the terminal buffer. Returns
+   * `false` when the search addon failed to load or threw.
+   */
+  public findPrevious(text: string): boolean {
+    if (this.searchAddon === null) {
+      return false
+    }
+    try {
+      return Boolean(this.searchAddon.findPrevious(text))
+    } catch {
+      return false
+    }
   }
 
   public render() {
@@ -300,6 +351,79 @@ export class XtermView extends React.Component<IXtermViewProps> {
       this.canvasAddon = addon
     } catch (err) {
       log.warn('[xterm] canvas init failed; using DOM renderer', err as Error)
+    }
+  }
+
+  private installPassiveAddons(): void {
+    if (!this.term) {
+      return
+    }
+    this.unicode11Addon = this.makePassiveAddon(
+      'unicode11',
+      this.props.unicode11AddonFactory,
+      () => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { Unicode11Addon } = require('@xterm/addon-unicode11')
+        return new Unicode11Addon()
+      }
+    )
+    if (this.unicode11Addon !== null) {
+      // Activate Unicode 11 width tables on the terminal so emoji and CJK
+      // glyphs measure correctly.
+      try {
+        const t = this.term as any
+        if (t.unicode) {
+          t.unicode.activeVersion = '11'
+        }
+      } catch {
+        // older xterm builds may not expose .unicode — non-fatal
+      }
+    }
+    this.ligaturesAddon = this.makePassiveAddon(
+      'ligatures',
+      this.props.ligaturesAddonFactory,
+      () => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { LigaturesAddon } = require('@xterm/addon-ligatures')
+        return new LigaturesAddon()
+      }
+    )
+    this.webLinksAddon = this.makePassiveAddon(
+      'web-links',
+      this.props.webLinksAddonFactory,
+      () => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { WebLinksAddon } = require('@xterm/addon-web-links')
+        return new WebLinksAddon()
+      }
+    )
+    this.searchAddon = this.makePassiveAddon(
+      'search',
+      this.props.searchAddonFactory,
+      () => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { SearchAddon } = require('@xterm/addon-search')
+        return new SearchAddon()
+      }
+    )
+  }
+
+  private makePassiveAddon(
+    label: string,
+    injected: (() => any) | undefined,
+    defaultFactory: () => any
+  ): any | null {
+    if (!this.term) {
+      return null
+    }
+    try {
+      const factory = injected ?? defaultFactory
+      const addon = factory()
+      this.term.loadAddon(addon)
+      return addon
+    } catch (err) {
+      log.warn(`[xterm] ${label} addon failed`, err as Error)
+      return null
     }
   }
 

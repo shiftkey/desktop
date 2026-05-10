@@ -122,4 +122,79 @@ describe('XtermView renderer fallback', () => {
     }
     view.componentWillUnmount()
   })
+
+  it('loads unicode11, ligatures, web-links, and search addons', () => {
+    const loaded: string[] = []
+    const unicode11Addon = { name: 'unicode11', dispose: () => undefined }
+    const ligaturesAddon = { name: 'ligatures', dispose: () => undefined }
+    const webLinksAddon = { name: 'web-links', dispose: () => undefined }
+    const searchAddon = {
+      name: 'search',
+      findNext: () => true,
+      findPrevious: () => true,
+      dispose: () => undefined,
+    }
+    const { view } = mount({
+      __loaded: loaded,
+      rendererPreference: 'dom',
+      unicode11AddonFactory: () => unicode11Addon,
+      ligaturesAddonFactory: () => ligaturesAddon,
+      webLinksAddonFactory: () => webLinksAddon,
+      searchAddonFactory: () => searchAddon,
+    })
+    expect(loaded).toContain('unicode11')
+    expect(loaded).toContain('ligatures')
+    expect(loaded).toContain('web-links')
+    expect(loaded).toContain('search')
+    if ((view as any).resizeObserver) {
+      ;(view as any).resizeObserver.disconnect = () => undefined
+    }
+    view.componentWillUnmount()
+  })
+
+  it('exposes findNext / findPrevious via ref delegating to search addon', () => {
+    const loaded: string[] = []
+    const calls: string[] = []
+    const searchAddon = {
+      name: 'search',
+      findNext: (t: string) => {
+        calls.push('next:' + t)
+        return true
+      },
+      findPrevious: (t: string) => {
+        calls.push('prev:' + t)
+        return true
+      },
+      dispose: () => undefined,
+    }
+    const { view } = mount({
+      __loaded: loaded,
+      rendererPreference: 'dom',
+      searchAddonFactory: () => searchAddon,
+    })
+    expect(view.findNext('hello')).toBe(true)
+    expect(view.findPrevious('hello')).toBe(true)
+    expect(calls).toEqual(['next:hello', 'prev:hello'])
+    if ((view as any).resizeObserver) {
+      ;(view as any).resizeObserver.disconnect = () => undefined
+    }
+    view.componentWillUnmount()
+  })
+
+  it('findNext / findPrevious return false when search addon failed to load', () => {
+    const loaded: string[] = []
+    const { view } = mount({
+      __loaded: loaded,
+      rendererPreference: 'dom',
+      searchAddonFactory: () => {
+        throw new Error('boom')
+      },
+    })
+    expect(view.findNext('hello')).toBe(false)
+    expect(view.findPrevious('hello')).toBe(false)
+    if ((view as any).resizeObserver) {
+      ;(view as any).resizeObserver.disconnect = () => undefined
+    }
+    view.componentWillUnmount()
+  })
 })
