@@ -282,4 +282,45 @@ describe('TerminalStore', () => {
       expect(store.getState().activeSessionId).toBeNull()
     })
   })
+
+  describe('mergeMeta / markActivity', () => {
+    it('mergeMeta updates liveCwd / lastExitCode without touching tabs', () => {
+      const s = new TerminalStore()
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.mergeMeta('s1', { liveCwd: '/tmp/x' })
+      expect(s.getState().sessions.get('s1')!.liveCwd).toBe('/tmp/x')
+      expect(s.getState().tabsByRepoId.get(7)).toEqual(['s1'])
+      s.mergeMeta('s1', { lastExitCode: 1 })
+      expect(s.getState().sessions.get('s1')!.lastExitCode).toBe(1)
+      // liveCwd still set (per-field merge)
+      expect(s.getState().sessions.get('s1')!.liveCwd).toBe('/tmp/x')
+    })
+
+    it('mergeMeta is a no-op for unknown ids', () => {
+      const s = new TerminalStore()
+      let updates = 0
+      s.onDidUpdate(() => updates++)
+      s.mergeMeta('ghost', { liveCwd: '/tmp' })
+      expect(updates).toBe(0)
+    })
+
+    it('markActivity flips hasActivity for inactive tabs only', () => {
+      const s = new TerminalStore()
+      s.registerSession(snap({ id: 's1', repositoryId: 7 })) // becomes active
+      s.registerSession(snap({ id: 's2', repositoryId: 7 })) // becomes active, s1 inactive
+      s.markActivity('s1')
+      expect(s.getState().sessions.get('s1')!.hasActivity).toBe(true)
+      s.markActivity('s2') // already active — no-op
+      expect(s.getState().sessions.get('s2')!.hasActivity).toBe(false)
+    })
+
+    it('selecting a session clears its activity flag', () => {
+      const s = new TerminalStore()
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.registerSession(snap({ id: 's2', repositoryId: 7 }))
+      s.markActivity('s1')
+      s.selectSession('s1')
+      expect(s.getState().sessions.get('s1')!.hasActivity).toBe(false)
+    })
+  })
 })

@@ -28,7 +28,9 @@ export interface IIpcRenderer {
 let cachedIpc: IIpcRenderer | null = null
 
 function getIpcRenderer(): IIpcRenderer {
-  if (cachedIpc !== null) {return cachedIpc}
+  if (cachedIpc !== null) {
+    return cachedIpc
+  }
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { ipcRenderer } = require('electron')
   cachedIpc = ipcRenderer as IIpcRenderer
@@ -41,6 +43,98 @@ export function _setIpcRenderer(ipc: IIpcRenderer | null) {
   portListenerInstalled = null
   pendingPorts.clear()
   arrivedPorts.clear()
+  lastActivityMark.clear()
+}
+
+/**
+ * Subset of the renderer-side TerminalStore that the OSC/activity wiring
+ * needs. Kept structural so tests can pass a tiny fake.
+ */
+export interface ITerminalStoreSink {
+  mergeMeta(
+    sessionId: string,
+    patch: {
+      liveCwd?: string
+      lastExitCode?: number
+      title?: string
+      hasActivity?: boolean
+    }
+  ): void
+  markActivity(sessionId: string): void
+}
+
+/** Subset of `MessagePort` we listen on. */
+export interface IPortLike {
+  onmessage?: ((event: { data: any }) => void) | null
+  addEventListener?(event: 'message', cb: (event: { data: any }) => void): void
+  start?(): void
+}
+
+const lastActivityMark = new Map<string, number>()
+const ACTIVITY_THROTTLE_MS = 250
+
+function markActivityThrottled(
+  store: ITerminalStoreSink,
+  sessionId: string,
+  now: number = Date.now()
+): void {
+  const last = lastActivityMark.get(sessionId) ?? 0
+  if (now - last < ACTIVITY_THROTTLE_MS) {
+    return
+  }
+  lastActivityMark.set(sessionId, now)
+  store.markActivity(sessionId)
+}
+
+/**
+ * Attach a store-update listener to a per-session terminal port.
+ *
+ * Routes `{type:'meta'}` frames from the main-process OSC parser into
+ * `store.mergeMeta` and pings `store.markActivity` (throttled to one
+ * call per `ACTIVITY_THROTTLE_MS` per session) on every `{type:'data'}`
+ * frame so inactive tabs can show an unread-output indicator without
+ * being spammed during heavy output.
+ *
+ * The byte forwarding to xterm.js lives in `XtermView.bindPort` — this
+ * helper is a side-channel listener and does NOT consume the data
+ * frames.
+ */
+export function attachStoreToPort(
+  store: ITerminalStoreSink,
+  sessionId: string,
+  port: IPortLike
+): void {
+  const handler = (event: { data: any }) => {
+    const data = event?.data
+    if (data === null || typeof data !== 'object') {
+      return
+    }
+    if (data.type === 'meta') {
+      store.mergeMeta(sessionId, {
+        liveCwd: data.liveCwd,
+        title: data.title,
+        lastExitCode: data.lastExitCode,
+        hasActivity: data.hasActivity,
+      })
+      return
+    }
+    if (data.type === 'data') {
+      markActivityThrottled(store, sessionId)
+      return
+    }
+  }
+  if (typeof port.addEventListener === 'function') {
+    port.addEventListener('message', handler)
+  } else {
+    // Tests / fakes that only expose onmessage.
+    port.onmessage = handler
+  }
+  port.start?.()
+}
+
+/** Test-only: clear the per-session throttle map. */
+export function _resetActivityThrottle(): void {
+  lastActivityMark.clear()
 }
 
 /** Per-IPC-instance flag so tests with a fresh stub re-install. */
@@ -49,7 +143,9 @@ const pendingPorts = new Map<string, (port: any) => void>()
 const arrivedPorts = new Map<string, any>()
 
 function ensurePortListener(ipc: IIpcRenderer): void {
-  if (portListenerInstalled === ipc) {return}
+  if (portListenerInstalled === ipc) {
+    return
+  }
   portListenerInstalled = ipc
   ipc.on(TERMINAL_IPC.PORT_TRANSFER, (event: any, payload: any) => {
     if (
@@ -60,7 +156,9 @@ function ensurePortListener(ipc: IIpcRenderer): void {
       return
     }
     const port = Array.isArray(event?.ports) ? event.ports[0] : null
-    if (port === null || port === undefined) {return}
+    if (port === null || port === undefined) {
+      return
+    }
     const sid: string = payload.sessionId
     const cb = pendingPorts.get(sid)
     if (cb !== undefined) {

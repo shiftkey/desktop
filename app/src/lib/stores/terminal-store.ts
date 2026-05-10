@@ -106,7 +106,9 @@ export class TerminalStore extends BaseStore {
    */
   public setHeight(px: number): void {
     const next = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, Math.floor(px)))
-    if (next === this.state.height) {return}
+    if (next === this.state.height) {
+      return
+    }
     this.storage.setItem(HEIGHT_KEY, String(next))
     this.update({ height: next })
   }
@@ -132,12 +134,67 @@ export class TerminalStore extends BaseStore {
 
   /** Make the given session the active one (e.g., user clicked a tab). */
   public selectSession(sessionId: string): void {
-    if (!this.state.sessions.has(sessionId)) {return}
-    if (this.state.activeSessionId === sessionId) {return}
+    if (!this.state.sessions.has(sessionId)) {
+      return
+    }
+    if (this.state.activeSessionId === sessionId) {
+      return
+    }
     const session = this.state.sessions.get(sessionId)!
+    // Clear the activity dot on the tab the user just looked at.
+    const sessions = new Map(this.state.sessions)
+    sessions.set(sessionId, { ...session, hasActivity: false })
     const activeByRepoId = new Map(this.state.activeByRepoId)
     activeByRepoId.set(session.repositoryId, sessionId)
-    this.update({ activeSessionId: sessionId, activeByRepoId })
+    this.update({ sessions, activeSessionId: sessionId, activeByRepoId })
+  }
+
+  /**
+   * Merge a partial OSC-derived patch into a session snapshot. Only the
+   * fields present in `patch` are touched; everything else is preserved.
+   * No-op when the session is unknown.
+   */
+  public mergeMeta(
+    sessionId: string,
+    patch: {
+      liveCwd?: string
+      lastExitCode?: number
+      title?: string
+      hasActivity?: boolean
+    }
+  ): void {
+    if (!this.state.sessions.has(sessionId)) {
+      return
+    }
+    const sessions = new Map(this.state.sessions)
+    const cur = sessions.get(sessionId)!
+    sessions.set(sessionId, {
+      ...cur,
+      ...(patch.liveCwd !== undefined ? { liveCwd: patch.liveCwd } : {}),
+      ...(patch.lastExitCode !== undefined
+        ? { lastExitCode: patch.lastExitCode }
+        : {}),
+      ...(patch.title !== undefined ? { title: patch.title } : {}),
+      ...(patch.hasActivity !== undefined
+        ? { hasActivity: patch.hasActivity }
+        : {}),
+    })
+    this.update({ sessions })
+  }
+
+  /**
+   * Flip `hasActivity` on a non-active session so its tab can show an
+   * unread-output indicator. No-op when the session is unknown or is
+   * already the active one (the user is looking at it).
+   */
+  public markActivity(sessionId: string): void {
+    if (!this.state.sessions.has(sessionId)) {
+      return
+    }
+    if (this.state.activeSessionId === sessionId) {
+      return
+    }
+    this.mergeMeta(sessionId, { hasActivity: true })
   }
 
   /** Remember a freshly spawned session and make it the active one. */
@@ -164,7 +221,9 @@ export class TerminalStore extends BaseStore {
 
   /** Update an existing session (resize, status flip). No-op when unknown. */
   public updateSession(snapshot: ITerminalSessionSnapshot): void {
-    if (!this.state.sessions.has(snapshot.id)) {return}
+    if (!this.state.sessions.has(snapshot.id)) {
+      return
+    }
     const sessions = new Map(this.state.sessions)
     sessions.set(snapshot.id, snapshot)
     this.update({ sessions })
@@ -176,7 +235,9 @@ export class TerminalStore extends BaseStore {
    * tab was active.
    */
   public removeSession(sessionId: string): void {
-    if (!this.state.sessions.has(sessionId)) {return}
+    if (!this.state.sessions.has(sessionId)) {
+      return
+    }
     const removed = this.state.sessions.get(sessionId)!
 
     const sessions = new Map(this.state.sessions)

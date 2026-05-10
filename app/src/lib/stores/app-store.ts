@@ -252,6 +252,7 @@ import {
   spawnTerminal as spawnTerminalIpc,
   killTerminal as killTerminalIpc,
   resizeTerminal as resizeTerminalIpc,
+  attachStoreToPort as attachTerminalStoreToPort,
 } from '../terminal/terminal-client'
 import { IPtyOptions } from '../terminal/pty-types'
 import { detectShell } from '../terminal/shell-detection'
@@ -7019,10 +7020,14 @@ export class AppStore extends TypedBaseStore<IAppState> {
     const wasVisible = this.terminalStore.getState().visible
     this.terminalStore.toggle()
 
-    if (wasVisible) {return}
+    if (wasVisible) {
+      return
+    }
 
     const repo = this.selectedRepository
-    if (!(repo instanceof Repository)) {return}
+    if (!(repo instanceof Repository)) {
+      return
+    }
 
     const state = this.terminalStore.getState()
     const existing = state.tabsByRepoId.get(repo.id)
@@ -7044,7 +7049,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
       repositoryId === undefined
         ? this.selectedRepository
         : this.repositories.find(r => r.id === repositoryId) ?? null
-    if (!(repo instanceof Repository)) {return}
+    if (!(repo instanceof Repository)) {
+      return
+    }
     await this.spawnTerminalForRepo(repo)
     if (!this.terminalStore.getState().visible) {
       this.terminalStore.show()
@@ -7126,6 +7133,11 @@ export class AppStore extends TypedBaseStore<IAppState> {
       }
     })
 
+    // Side-channel listener: route OSC meta into the store and ping
+    // markActivity (throttled) on data frames so inactive tabs can show
+    // an unread-output indicator.
+    attachTerminalStoreToPort(this.terminalStore, sessionId, port)
+
     this.terminalStore.registerSession({
       id: sessionId,
       repositoryId,
@@ -7164,9 +7176,13 @@ export class AppStore extends TypedBaseStore<IAppState> {
     prNumber: number
   ): Promise<void> {
     const ghr = repository.gitHubRepository
-    if (!ghr) {return}
+    if (!ghr) {
+      return
+    }
     const account = getAccountForEndpoint(this.accounts, ghr.endpoint)
-    if (!account) {return}
+    if (!account) {
+      return
+    }
     const client = makeAccountHttpClient(account)
     if (this.prReviewStore === null) {
       this.prReviewStore = new PullRequestReviewStore(client)
@@ -7207,7 +7223,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   public async _submitReview(owner: string, repo: string): Promise<boolean> {
-    if (this.prReviewStore === null) {return false}
+    if (this.prReviewStore === null) {
+      return false
+    }
     return this.prReviewStore.submit(owner, repo)
   }
 
@@ -7237,14 +7255,20 @@ export class AppStore extends TypedBaseStore<IAppState> {
       },
       aheadBehind: async repo => {
         const ab = await getAheadBehind(repo, '@{u}').catch(() => null)
-        if (ab === null) {return { ahead: 0, behind: 0 }}
+        if (ab === null) {
+          return { ahead: 0, behind: 0 }
+        }
         return { ahead: ab.ahead, behind: ab.behind }
       },
       defaultBranchStatus: async repo => {
         const ghr = repo.gitHubRepository
-        if (!ghr) {return 'unknown'}
+        if (!ghr) {
+          return 'unknown'
+        }
         const account = getAccountForEndpoint(this.accounts, ghr.endpoint)
-        if (!account) {return 'unknown'}
+        if (!account) {
+          return 'unknown'
+        }
         const cached = this.repositoryStateCache.get(repo)
         const branch = cached.branchesState.defaultBranch?.name ?? 'main'
         try {
@@ -7254,7 +7278,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
             ghr.name,
             branch
           )
-          if (status === null) {return 'unknown'}
+          if (status === null) {
+            return 'unknown'
+          }
           switch (status.state) {
             case 'success':
               return 'success'
@@ -7270,7 +7296,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
         }
       },
       openPullRequestCount: async repo => {
-        if (!repo.gitHubRepository) {return 0}
+        if (!repo.gitHubRepository) {
+          return 0
+        }
         try {
           const prs = await this.pullRequestCoordinator.getAllPullRequests(
             repo as RepositoryWithGitHubRepository
@@ -7288,7 +7316,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
             'lastActivity',
             { successExitCodes: new Set([0, 128, 129]) }
           )
-          if (r.exitCode !== 0) {return 0}
+          if (r.exitCode !== 0) {
+            return 0
+          }
           const t = parseInt(r.stdout.trim(), 10)
           return Number.isFinite(t) ? t : 0
         } catch {
@@ -7304,7 +7334,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
             'staleBranches',
             { successExitCodes: new Set([0, 128]) }
           )
-          if (r.exitCode !== 0) {return 0}
+          if (r.exitCode !== 0) {
+            return 0
+          }
           const lines = r.stdout
             .split('\n')
             .map(l => l.trim())
@@ -7312,7 +7344,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
           let stale = 0
           for (const l of lines) {
             const t = parseInt(l, 10)
-            if (Number.isFinite(t) && t > 0 && t < cutoff) {stale++}
+            if (Number.isFinite(t) && t > 0 && t < cutoff) {
+              stale++
+            }
           }
           return stale
         } catch {
@@ -8685,7 +8719,9 @@ function staleCutoffUnix(): number {
 function makeTerminalEnv(): Record<string, string> {
   const env: Record<string, string> = {}
   for (const [k, v] of Object.entries(process.env)) {
-    if (typeof v === 'string') {env[k] = v}
+    if (typeof v === 'string') {
+      env[k] = v
+    }
   }
   env.TERM = env.TERM ?? 'xterm-256color'
   env.COLORTERM = env.COLORTERM ?? 'truecolor'

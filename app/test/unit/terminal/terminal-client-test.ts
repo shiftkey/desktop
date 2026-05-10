@@ -3,8 +3,11 @@ import {
   killTerminal,
   resizeTerminal,
   makePendingSnapshot,
+  attachStoreToPort,
   IIpcRenderer,
+  ITerminalStoreSink,
   _setIpcRenderer,
+  _resetActivityThrottle,
 } from '../../../src/lib/terminal/terminal-client'
 import { TERMINAL_IPC } from '../../../src/lib/terminal/ipc-channels'
 import { IPtyOptions } from '../../../src/lib/terminal/pty-types'
@@ -35,10 +38,15 @@ class FakeIpc implements IIpcRenderer {
       const event = { ports: [this.portToDeliver] }
       const fire = () => {
         const listeners = this.listeners.get(TERMINAL_IPC.PORT_TRANSFER) ?? []
-        for (const l of listeners) {l(event, { sessionId: sid })}
+        for (const l of listeners) {
+          l(event, { sessionId: sid })
+        }
       }
-      if (this.deliverBeforeInvokeResolves) {fire()}
-      else {queueMicrotask(fire)}
+      if (this.deliverBeforeInvokeResolves) {
+        fire()
+      } else {
+        queueMicrotask(fire)
+      }
     }
     return this.response
   }
@@ -156,6 +164,121 @@ describe('terminal-client', () => {
       const after = Date.now()
       expect(snap.createdAt).toBeGreaterThanOrEqual(before)
       expect(snap.createdAt).toBeLessThanOrEqual(after)
+    })
+  })
+
+  describe('attachStoreToPort', () => {
+    class FakePort {
+      public listeners: Array<(event: { data: any }) => void> = []
+      public started = 0
+      public addEventListener(
+        _event: 'message',
+        cb: (event: { data: any }) => void
+      ) {
+        this.listeners.push(cb)
+      }
+      public start() {
+        this.started++
+      }
+      public emit(data: any) {
+        for (const l of this.listeners) {
+          l({ data })
+        }
+      }
+    }
+
+    class FakeStore implements ITerminalStoreSink {
+      public mergeCalls: Array<{ id: string; patch: any }> = []
+      public activityCalls: string[] = []
+      public mergeMeta(sessionId: string, patch: any) {
+        this.mergeCalls.push({ id: sessionId, patch })
+      }
+      public markActivity(sessionId: string) {
+        this.activityCalls.push(sessionId)
+      }
+    }
+
+    beforeEach(() => {
+      _resetActivityThrottle()
+    })
+
+    it('routes meta frames into store.mergeMeta', () => {
+      const port = new FakePort()
+      const store = new FakeStore()
+      attachStoreToPort(store, 's1', port)
+      port.emit({
+        type: 'meta',
+        liveCwd: '/tmp/x',
+        title: 'docs',
+        lastExitCode: 0,
+        hasActivity: true,
+      })
+      expect(store.mergeCalls).toHaveLength(1)
+      expect(store.mergeCalls[0]).toEqual({
+        id: 's1',
+        patch: {
+          liveCwd: '/tmp/x',
+          title: 'docs',
+          lastExitCode: 0,
+          hasActivity: true,
+        },
+      })
+    })
+
+    it('starts the port (so paused MessagePorts deliver)', () => {
+      const port = new FakePort()
+      const store = new FakeStore()
+      attachStoreToPort(store, 's1', port)
+      expect(port.started).toBe(1)
+    })
+
+    it('throttles markActivity to one call per 250ms per session', () => {
+      const port = new FakePort()
+      const store = new FakeStore()
+      attachStoreToPort(store, 's1', port)
+      // Simulate 5 rapid data frames in the same tick.
+      for (let i = 0; i < 5; i++) {
+        port.emit({ type: 'data', bytes: new Uint8Array([1]) })
+      }
+      expect(store.activityCalls).toEqual(['s1'])
+    })
+
+    it('does not throttle across distinct sessions', () => {
+      const portA = new FakePort()
+      const portB = new FakePort()
+      const store = new FakeStore()
+      attachStoreToPort(store, 'a', portA)
+      attachStoreToPort(store, 'b', portB)
+      portA.emit({ type: 'data', bytes: new Uint8Array() })
+      portB.emit({ type: 'data', bytes: new Uint8Array() })
+      expect(store.activityCalls).toEqual(['a', 'b'])
+    })
+
+    it('ignores unknown message types without crashing', () => {
+      const port = new FakePort()
+      const store = new FakeStore()
+      attachStoreToPort(store, 's1', port)
+      port.emit({ type: 'exit', exitCode: 0 })
+      port.emit(null)
+      port.emit('not-an-object')
+      expect(store.mergeCalls).toEqual([])
+      expect(store.activityCalls).toEqual([])
+    })
+
+    it('falls back to onmessage when addEventListener is unavailable', () => {
+      const store = new FakeStore()
+      const port: any = {
+        onmessage: null as null | ((event: { data: any }) => void),
+        start: () => undefined,
+      }
+      attachStoreToPort(store, 's1', port)
+      expect(typeof port.onmessage).toBe('function')
+      port.onmessage?.({
+        data: { type: 'meta', liveCwd: '/x' },
+      })
+      expect(store.mergeCalls).toHaveLength(1)
+      expect(store.mergeCalls[0].id).toBe('s1')
+      expect(store.mergeCalls[0].patch.liveCwd).toBe('/x')
     })
   })
 })
