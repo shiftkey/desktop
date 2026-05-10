@@ -4,6 +4,7 @@ import { ITerminalThemeColors } from '../../lib/terminal/terminal-theme'
 import { XtermView, IXtermViewPort } from './xterm-view'
 import { TerminalFindBar } from './terminal-find-bar'
 import { TerminalEmptyState } from './terminal-empty-state'
+import { PasteConfirmDialog } from './paste-confirm-dialog'
 import {
   formatTabLabel,
   shouldShowActivityDot,
@@ -81,6 +82,11 @@ interface ITerminalPanelState {
    * cost.
    */
   readonly mountedSessionIds: ReadonlySet<string>
+  /**
+   * Text pending paste confirmation. Non-null when the bracketed-paste
+   * guard dialog is visible.
+   */
+  readonly pendingPasteText: string | null
 }
 
 /**
@@ -122,6 +128,7 @@ export class TerminalPanel extends React.Component<
         props.state.activeSessionId !== null
           ? new Set([props.state.activeSessionId])
           : new Set(),
+      pendingPasteText: null,
     }
   }
 
@@ -263,10 +270,18 @@ export class TerminalPanel extends React.Component<
                             )
                         : undefined
                     }
+                    onPasteConfirmRequired={this.onPasteConfirmRequired}
                   />
                 </div>
               )
             })}
+          {this.state.pendingPasteText !== null && (
+            <PasteConfirmDialog
+              text={this.state.pendingPasteText}
+              onConfirm={this.onPasteConfirmed}
+              onCancel={this.onPasteCancelled}
+            />
+          )}
         </div>
       </div>
     )
@@ -309,6 +324,32 @@ export class TerminalPanel extends React.Component<
       return
     }
     this.props.onRestartTerminal?.(sid)
+  }
+
+  private onPasteConfirmRequired = (text: string) => {
+    this.setState({ pendingPasteText: text })
+  }
+
+  private onPasteConfirmed = (text: string) => {
+    this.setState({ pendingPasteText: null })
+    const sid = this.props.state.activeSessionId
+    if (sid === null) {
+      return
+    }
+    const port = this.props.portFor(sid)
+    if (port !== null) {
+      const bytes = new TextEncoder().encode(text)
+      port.postMessage({ type: 'input', bytes })
+    } else {
+      // Fallback: write directly via the XtermView ref if the port isn't
+      // available (e.g. local echo mode in tests).
+      const ref = this.xtermRefs.get(sid)
+      ref?.current?.pasteText(text)
+    }
+  }
+
+  private onPasteCancelled = () => {
+    this.setState({ pendingPasteText: null })
   }
 
   private renderTab(sessionId: string, active: boolean) {

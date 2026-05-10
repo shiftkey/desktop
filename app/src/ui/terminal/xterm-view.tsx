@@ -88,6 +88,13 @@ export interface IXtermViewProps {
     line: number,
     column: number | null
   ) => void
+  /**
+   * Called instead of a direct paste when the pasted text meets the
+   * multi-line / long-line threshold. The caller is expected to show a
+   * confirmation dialog and, if confirmed, call `this.terminal.paste(text)`
+   * or send the text via the session port.
+   */
+  readonly onPasteConfirmRequired?: (text: string) => void
 }
 
 /** Runtime contract for the xterm instance the view manipulates. */
@@ -165,6 +172,7 @@ export class XtermView extends React.Component<IXtermViewProps> {
   private clipboard: IClipboard
   private pendingResize: { cols: number; rows: number } | null = null
   private resizeTimer: ReturnType<typeof setTimeout> | null = null
+  private pasteHandler: ((e: ClipboardEvent) => void) | null = null
 
   public constructor(props: IXtermViewProps) {
     super(props)
@@ -198,6 +206,7 @@ export class XtermView extends React.Component<IXtermViewProps> {
       this.resizeObserver.observe(this.container.current)
     }
     this.bindPort(this.props.port)
+    this.attachPasteInterceptor()
   }
 
   public componentDidUpdate(prevProps: IXtermViewProps): void {
@@ -265,8 +274,18 @@ export class XtermView extends React.Component<IXtermViewProps> {
       this.resizeTimer = null
     }
     this.pendingResize = null
+    this.detachPasteInterceptor()
     this.term?.dispose()
     this.term = null
+  }
+
+  /**
+   * Paste `text` directly into the terminal (bypasses the paste-guard).
+   * Used by TerminalPanel after the user confirms a bracketed-paste dialog
+   * when no session port is available.
+   */
+  public pasteText(text: string): void {
+    this.term?.paste(text)
   }
 
   /**
@@ -663,6 +682,50 @@ export class XtermView extends React.Component<IXtermViewProps> {
   }
 
   /**
+   * Returns true when `text` exceeds the bracketed-paste guard threshold:
+   * any paste with more than one newline, or a single-newline paste whose
+   * total character count exceeds 80.
+   */
+  private static needsPasteConfirm(text: string): boolean {
+    if (!text.includes('\n')) {
+      return false
+    }
+    const newlineCount = (text.match(/\n/g) ?? []).length
+    return newlineCount > 1 || text.length > 80
+  }
+
+  private attachPasteInterceptor(): void {
+    const el = this.container.current
+    if (el === null) {
+      return
+    }
+    this.pasteHandler = (e: ClipboardEvent) => {
+      const text = e.clipboardData?.getData('text') ?? ''
+      if (text.length === 0) {
+        return
+      }
+      if (
+        XtermView.needsPasteConfirm(text) &&
+        this.props.onPasteConfirmRequired
+      ) {
+        e.preventDefault()
+        e.stopPropagation()
+        this.props.onPasteConfirmRequired(text)
+      }
+      // Otherwise let the event fall through to xterm's own paste handling.
+    }
+    el.addEventListener('paste', this.pasteHandler)
+  }
+
+  private detachPasteInterceptor(): void {
+    const el = this.container.current
+    if (el !== null && this.pasteHandler !== null) {
+      el.removeEventListener('paste', this.pasteHandler)
+    }
+    this.pasteHandler = null
+  }
+
+  /**
    * Custom key handler.
    *
    * Returning `false` prevents xterm from consuming the event so the
@@ -693,7 +756,14 @@ export class XtermView extends React.Component<IXtermViewProps> {
     if (e.key === 'V' || e.key === 'v') {
       const text = this.clipboard.readText()
       if (text.length > 0 && this.term) {
-        this.term.paste(text)
+        if (
+          XtermView.needsPasteConfirm(text) &&
+          this.props.onPasteConfirmRequired
+        ) {
+          this.props.onPasteConfirmRequired(text)
+        } else {
+          this.term.paste(text)
+        }
       }
       return false
     }
@@ -720,7 +790,14 @@ export class XtermView extends React.Component<IXtermViewProps> {
     }
     const text = this.clipboard.readText()
     if (text.length > 0) {
-      this.term.paste(text)
+      if (
+        XtermView.needsPasteConfirm(text) &&
+        this.props.onPasteConfirmRequired
+      ) {
+        this.props.onPasteConfirmRequired(text)
+      } else {
+        this.term.paste(text)
+      }
     }
   }
 }
