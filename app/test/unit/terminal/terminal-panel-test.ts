@@ -231,10 +231,10 @@ describe('TerminalPanel', () => {
     const tree: any = panel.render()
     // root children: [resize, toolbar, findBar, body]
     const body = tree.props.children[3]
-    // body children: [placeholder?, viewWrappers]. When tabs are present
-    // the placeholder is `false` (JSX short-circuit) and the wrappers are
-    // the array at index 1.
-    const wrappers = body.props.children[1] as any[]
+    // body children: [placeholder?, exitOverlay, viewWrappers, pasteDialog].
+    // When tabs are present the placeholder is `false` (JSX short-circuit),
+    // exitOverlay is null (session is running), and the wrappers are at index 2.
+    const wrappers = body.props.children[2] as any[]
     expect(wrappers).toHaveLength(2)
     // First (id=a) is hidden, second (id=b) is visible.
     expect(wrappers[0].props.style.display).toBe('none')
@@ -267,7 +267,8 @@ describe('TerminalPanel', () => {
     )
     const tree: any = panel.render()
     const body = tree.props.children[3]
-    const wrappers = body.props.children[1] as any[]
+    // body children: [placeholder?, exitOverlay, viewWrappers, pasteDialog]
+    const wrappers = body.props.children[2] as any[]
     expect(wrappers).toHaveLength(1)
     const xtermProps = wrappers[0].props.children.props
     expect(typeof xtermProps.onFilePathClick).toBe('function')
@@ -285,7 +286,8 @@ describe('TerminalPanel', () => {
     })
     const tree: any = panel.render()
     const body = tree.props.children[3]
-    const wrappers = body.props.children[1] as any[]
+    // body children: [placeholder?, exitOverlay, viewWrappers, pasteDialog]
+    const wrappers = body.props.children[2] as any[]
     expect(wrappers[0].props.children.props.onFilePathClick).toBeUndefined()
   })
 
@@ -766,8 +768,9 @@ describe('TerminalPanel', () => {
       const { panel } = makePanel(stateActiveS2)
 
       // First render: only the active session (s2) is mounted.
+      // body children: [placeholder?, exitOverlay, viewWrappers, pasteDialog]
       const tree1: any = panel.render()
-      const wrappers1 = tree1.props.children[3].props.children[1] as any[]
+      const wrappers1 = tree1.props.children[3].props.children[2] as any[]
       expect(wrappers1).toHaveLength(1)
       expect(wrappers1[0].key).toBe('s2')
 
@@ -786,7 +789,7 @@ describe('TerminalPanel', () => {
       } as any)
 
       const tree2: any = panel.render()
-      const wrappers2 = tree2.props.children[3].props.children[1] as any[]
+      const wrappers2 = tree2.props.children[3].props.children[2] as any[]
       const ids2 = wrappers2.map(w => w.key).sort()
       expect(ids2).toEqual(['s2', 's3'])
 
@@ -804,7 +807,7 @@ describe('TerminalPanel', () => {
         state: stateActiveS3,
       } as any)
       const tree3: any = panel.render()
-      const wrappers3 = tree3.props.children[3].props.children[1] as any[]
+      const wrappers3 = tree3.props.children[3].props.children[2] as any[]
       const ids3 = wrappers3.map(w => w.key).sort()
       expect(ids3).toEqual(['s2', 's3'])
     })
