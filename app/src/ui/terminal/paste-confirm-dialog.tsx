@@ -44,6 +44,7 @@ export function PasteConfirmDialog(props: IPasteConfirmDialogProps) {
           </button>
           <button
             type="button"
+            autoFocus={true}
             className="paste-confirm-dialog__confirm"
             onClick={() => onConfirm(text)}
           >

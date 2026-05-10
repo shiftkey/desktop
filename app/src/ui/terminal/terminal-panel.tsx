@@ -83,10 +83,12 @@ interface ITerminalPanelState {
    */
   readonly mountedSessionIds: ReadonlySet<string>
   /**
-   * Text pending paste confirmation. Non-null when the bracketed-paste
-   * guard dialog is visible.
+   * Pending paste confirmation. Non-null when the bracketed-paste guard
+   * dialog is visible. Carries both the text and the originating session
+   * id so the confirmed write targets the right port even if the active
+   * session changes while the dialog is open.
    */
-  readonly pendingPasteText: string | null
+  readonly pendingPaste: { text: string; sessionId: string } | null
 }
 
 /**
@@ -128,7 +130,7 @@ export class TerminalPanel extends React.Component<
         props.state.activeSessionId !== null
           ? new Set([props.state.activeSessionId])
           : new Set(),
-      pendingPasteText: null,
+      pendingPaste: null,
     }
   }
 
@@ -270,14 +272,15 @@ export class TerminalPanel extends React.Component<
                             )
                         : undefined
                     }
-                    onPasteConfirmRequired={this.onPasteConfirmRequired}
+                    // eslint-disable-next-line react/jsx-no-bind
+                    onPasteConfirmRequired={(text) => this.handlePasteConfirmRequired(sid, text)}
                   />
                 </div>
               )
             })}
-          {this.state.pendingPasteText !== null && (
+          {this.state.pendingPaste !== null && (
             <PasteConfirmDialog
-              text={this.state.pendingPasteText}
+              text={this.state.pendingPaste.text}
               onConfirm={this.onPasteConfirmed}
               onCancel={this.onPasteCancelled}
             />
@@ -326,19 +329,24 @@ export class TerminalPanel extends React.Component<
     this.props.onRestartTerminal?.(sid)
   }
 
-  private onPasteConfirmRequired = (text: string) => {
-    this.setState({ pendingPasteText: text })
+  private handlePasteConfirmRequired = (sessionId: string, text: string) => {
+    // Ignore a second paste while the dialog is already open — only one
+    // confirmation at a time.
+    if (this.state.pendingPaste !== null) {
+      return
+    }
+    this.setState({ pendingPaste: { text, sessionId } })
   }
 
   private onPasteConfirmed = (text: string) => {
-    this.setState({ pendingPasteText: null })
-    const sid = this.props.state.activeSessionId
+    const sid = this.state.pendingPaste?.sessionId ?? null
+    this.setState({ pendingPaste: null })
     if (sid === null) {
       return
     }
     const port = this.props.portFor(sid)
     if (port !== null) {
-      const bytes = new TextEncoder().encode(text)
+      const bytes = new Uint8Array(Buffer.from(text, 'utf8'))
       port.postMessage({ type: 'input', bytes })
     } else {
       // Fallback: write directly via the XtermView ref if the port isn't
@@ -349,7 +357,7 @@ export class TerminalPanel extends React.Component<
   }
 
   private onPasteCancelled = () => {
-    this.setState({ pendingPasteText: null })
+    this.setState({ pendingPaste: null })
   }
 
   private renderTab(sessionId: string, active: boolean) {

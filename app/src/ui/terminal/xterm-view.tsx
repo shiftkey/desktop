@@ -173,6 +173,8 @@ export class XtermView extends React.Component<IXtermViewProps> {
   private pendingResize: { cols: number; rows: number } | null = null
   private resizeTimer: ReturnType<typeof setTimeout> | null = null
   private pasteHandler: ((e: ClipboardEvent) => void) | null = null
+  /** Cached element to which `pasteHandler` was attached. Avoids a null-ref at detach time. */
+  private pasteTarget: HTMLDivElement | null = null
 
   public constructor(props: IXtermViewProps) {
     super(props)
@@ -696,9 +698,10 @@ export class XtermView extends React.Component<IXtermViewProps> {
 
   private attachPasteInterceptor(): void {
     const el = this.container.current
-    if (el === null) {
+    if (el === null || this.pasteHandler !== null) {
       return
     }
+    this.pasteTarget = el
     this.pasteHandler = (e: ClipboardEvent) => {
       const text = e.clipboardData?.getData('text') ?? ''
       if (text.length === 0) {
@@ -718,10 +721,11 @@ export class XtermView extends React.Component<IXtermViewProps> {
   }
 
   private detachPasteInterceptor(): void {
-    const el = this.container.current
-    if (el !== null && this.pasteHandler !== null) {
-      el.removeEventListener('paste', this.pasteHandler)
+    if (this.pasteHandler === null) {
+      return
     }
+    this.pasteTarget?.removeEventListener('paste', this.pasteHandler)
+    this.pasteTarget = null
     this.pasteHandler = null
   }
 
