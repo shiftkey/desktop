@@ -2,6 +2,7 @@ import * as React from 'react'
 import { ITerminalState } from '../../lib/stores/terminal-store'
 import { ITerminalThemeColors } from '../../lib/terminal/terminal-theme'
 import { XtermView, IXtermViewPort } from './xterm-view'
+import { TerminalFindBar } from './terminal-find-bar'
 
 interface ITerminalPanelProps {
   readonly state: ITerminalState
@@ -20,6 +21,8 @@ interface ITerminalPanelProps {
 interface ITerminalPanelState {
   /** Drag-in-progress height in CSS px; null = not dragging. */
   readonly dragHeight: number | null
+  /** Whether the inline find bar is currently visible. */
+  readonly findBarVisible: boolean
 }
 
 /**
@@ -41,14 +44,21 @@ export class TerminalPanel extends React.Component<
 > {
   private dragStartY: number | null = null
   private dragStartHeight: number = 0
+  /** Per-session refs to mounted XtermView instances, used to drive search. */
+  private xtermRefs = new Map<string, React.RefObject<XtermView>>()
 
   public constructor(props: ITerminalPanelProps) {
     super(props)
-    this.state = { dragHeight: null }
+    this.state = { dragHeight: null, findBarVisible: false }
+  }
+
+  public componentDidMount(): void {
+    window.addEventListener('keydown', this.handleGlobalKeyDown)
   }
 
   public componentWillUnmount(): void {
     this.detachDragListeners()
+    window.removeEventListener('keydown', this.handleGlobalKeyDown)
   }
 
   public render() {
@@ -95,6 +105,12 @@ export class TerminalPanel extends React.Component<
             ×
           </button>
         </div>
+        <TerminalFindBar
+          visible={this.state.findBarVisible}
+          onClose={this.closeFindBar}
+          onFindNext={this.findNextInActive}
+          onFindPrevious={this.findPreviousInActive}
+        />
         <div className="terminal-panel__body">
           {tabIds.length === 0 && (
             <div className="terminal-panel__placeholder">
@@ -108,21 +124,25 @@ export class TerminalPanel extends React.Component<
             MessagePort) survives, so the PTY keeps running in the
             background.
           */}
-          {Array.from(state.sessions.keys()).map(sid => (
-            <div
-              key={sid}
-              className="terminal-panel__view"
-              style={{
-                display: sid === activeId ? 'block' : 'none',
-                height: '100%',
-              }}
-            >
-              <XtermView
-                port={this.props.portFor(sid)}
-                theme={this.props.theme}
-              />
-            </div>
-          ))}
+          {Array.from(state.sessions.keys()).map(sid => {
+            const ref = this.refForSession(sid)
+            return (
+              <div
+                key={sid}
+                className="terminal-panel__view"
+                style={{
+                  display: sid === activeId ? 'block' : 'none',
+                  height: '100%',
+                }}
+              >
+                <XtermView
+                  ref={ref}
+                  port={this.props.portFor(sid)}
+                  theme={this.props.theme}
+                />
+              </div>
+            )
+          })}
         </div>
       </div>
     )
@@ -214,6 +234,59 @@ export class TerminalPanel extends React.Component<
       document.body.style.userSelect = ''
     }
     this.dragStartY = null
+  }
+
+  // --- find bar ---
+
+  private refForSession(sid: string): React.RefObject<XtermView> {
+    let ref = this.xtermRefs.get(sid)
+    if (ref === undefined) {
+      ref = React.createRef<XtermView>()
+      this.xtermRefs.set(sid, ref)
+    }
+    return ref
+  }
+
+  private toggleFindBar = () => {
+    this.setState(s => ({ findBarVisible: !s.findBarVisible }))
+  }
+
+  private closeFindBar = () => {
+    this.setState({ findBarVisible: false })
+  }
+
+  private findNextInActive = (text: string) => {
+    const sid = this.props.state.activeSessionId
+    if (sid === null) {
+      return
+    }
+    const ref = this.xtermRefs.get(sid)
+    ref?.current?.findNext(text)
+  }
+
+  private findPreviousInActive = (text: string) => {
+    const sid = this.props.state.activeSessionId
+    if (sid === null) {
+      return
+    }
+    const ref = this.xtermRefs.get(sid)
+    ref?.current?.findPrevious(text)
+  }
+
+  private handleGlobalKeyDown = (e: KeyboardEvent) => {
+    // Only react when the terminal panel is visible (otherwise we'd
+    // intercept the same shortcut elsewhere in the app).
+    if (!this.props.state.visible) {
+      return
+    }
+    if (
+      (e.ctrlKey || e.metaKey) &&
+      e.shiftKey &&
+      (e.key === 'F' || e.key === 'f')
+    ) {
+      e.preventDefault()
+      this.toggleFindBar()
+    }
   }
 }
 

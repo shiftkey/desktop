@@ -79,7 +79,8 @@ describe('TerminalPanel', () => {
   it('shows a placeholder body when the current repo has no tabs', () => {
     const { panel } = makePanel(baseState)
     const tree: any = panel.render()
-    const body = tree.props.children[2]
+    // root children: [resize, toolbar, findBar, body]
+    const body = tree.props.children[3]
     // body children: [placeholder?, viewWrappers]. With no tabs the
     // placeholder is at index 0 and the wrappers array is empty.
     const placeholder = body.props.children[0]
@@ -172,7 +173,8 @@ describe('TerminalPanel', () => {
       sid === 'a' ? (fakePortA as any) : (fakePortB as any)
     )
     const tree: any = panel.render()
-    const body = tree.props.children[2]
+    // root children: [resize, toolbar, findBar, body]
+    const body = tree.props.children[3]
     // body children: [placeholder?, viewWrappers]. When tabs are present
     // the placeholder is `false` (JSX short-circuit) and the wrappers are
     // the array at index 1.
