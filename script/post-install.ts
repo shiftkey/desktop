@@ -1,5 +1,6 @@
 #!/usr/bin/env ts-node
 
+import * as Fs from 'fs'
 import * as Path from 'path'
 import { spawnSync, SpawnSyncOptions } from 'child_process'
 
@@ -11,6 +12,45 @@ const root = Path.dirname(__dirname)
 const options: SpawnSyncOptions = {
   cwd: root,
   stdio: 'inherit',
+}
+
+/**
+ * Some packaging containers (notably the Ubuntu 20.04-based image used by
+ * `shiftkey/desktop-ubuntu-amd64-packaging`) ship g++ 9, which only knows
+ * `-std=gnu++2a` and refuses `-std=gnu++20`. node-pty's binding.gyp asks
+ * for the latter even though the source doesn't actually require any
+ * C++20 features. Rewrite the flag in-place after install so the
+ * subsequent gyp rebuild succeeds.
+ */
+function patchNodePtyBindingGyp() {
+  const gyp = Path.join(root, 'app', 'node_modules', 'node-pty', 'binding.gyp')
+  if (!Fs.existsSync(gyp)) {
+    return
+  }
+  const original = Fs.readFileSync(gyp, 'utf8')
+  const patched = original.replace(/-std=gnu\+\+20/g, '-std=gnu++17')
+  if (patched !== original) {
+    Fs.writeFileSync(gyp, patched)
+    console.log('[post-install] patched node-pty binding.gyp -> gnu++17')
+  }
+}
+
+function rebuildNodePty() {
+  const ptyDir = Path.join(root, 'app', 'node_modules', 'node-pty')
+  if (!Fs.existsSync(ptyDir)) {
+    return
+  }
+  // Re-run node-pty's install script (`prebuild || node-gyp rebuild`) now
+  // that binding.gyp is patched. `npm rebuild` resolves node-gyp without
+  // needing to know where it lives in the hoisted tree.
+  const result = spawnSync('npm', ['rebuild', 'node-pty'], {
+    cwd: Path.join(root, 'app'),
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  })
+  if (result.status !== 0) {
+    process.exit(result.status || 1)
+  }
 }
 
 /** Check if the caller has set the OFFLINe environment variable */
@@ -44,10 +84,30 @@ function findYarnVersion(callback: (path: string) => void) {
 }
 
 findYarnVersion(path => {
+  // First pass: install dependencies WITHOUT running their lifecycle scripts,
+  // so we can patch native modules (e.g. node-pty's binding.gyp) before any
+  // gyp rebuild is invoked.
+  const skipScripts = getYarnArgs([
+    path,
+    '--cwd',
+    'app',
+    'install',
+    '--force',
+    '--ignore-scripts',
+  ])
+  let result = spawnSync('node', skipScripts, options)
+  if (result.status !== 0) {
+    process.exit(result.status || 1)
+  }
+
+  patchNodePtyBindingGyp()
+  rebuildNodePty()
+
+  // Second pass: full install with scripts. node-pty is already built, so
+  // its install script will be a no-op. Other packages get their lifecycle
+  // hooks fired normally.
   const installArgs = getYarnArgs([path, '--cwd', 'app', 'install', '--force'])
-
-  let result = spawnSync('node', installArgs, options)
-
+  result = spawnSync('node', installArgs, options)
   if (result.status !== 0) {
     process.exit(result.status || 1)
   }

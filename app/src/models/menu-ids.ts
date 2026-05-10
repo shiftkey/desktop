@@ -13,6 +13,7 @@ export type MenuIDs =
   | 'compare-on-github'
   | 'branch-on-github'
   | 'open-in-shell'
+  | 'toggle-terminal'
   | 'push'
   | 'pull'
   | 'branch'
