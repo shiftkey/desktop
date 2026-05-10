@@ -253,6 +253,7 @@ import {
   resizeTerminal as resizeTerminalIpc,
 } from '../terminal/terminal-client'
 import { IPtyOptions } from '../terminal/pty-types'
+import { detectShell } from '../terminal/shell-detection'
 import {
   updateChangedFiles,
   updateConflictState,
@@ -1892,6 +1893,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
 
     this.selectedRepository = repository
+
+    this.terminalStore.selectRepo(
+      repository instanceof Repository ? repository.id : null
+    )
 
     this.emitUpdate()
     this.stopBackgroundFetching()
@@ -6991,10 +6996,54 @@ export class AppStore extends TypedBaseStore<IAppState> {
     return created ?? false
   }
 
-  /** Toggle the integrated terminal panel visibility. */
-  public _toggleTerminal(): Promise<void> {
+  /**
+   * Toggle the integrated terminal panel visibility. When opening, ensure a
+   * session is bound to the currently selected repository — spawn one if it
+   * doesn't yet exist so the user sees a usable shell instead of the
+   * "No active terminal session" placeholder.
+   */
+  public async _toggleTerminal(): Promise<void> {
+    const wasVisible = this.terminalStore.getState().visible
     this.terminalStore.toggle()
-    return Promise.resolve()
+
+    if (wasVisible) return
+
+    const repo = this.selectedRepository
+    if (!(repo instanceof Repository)) return
+
+    const state = this.terminalStore.getState()
+    const existing = state.sessionByRepoId.get(repo.id)
+    if (existing !== undefined) {
+      this.terminalStore.selectRepo(repo.id)
+      return
+    }
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const fs = require('fs') as typeof import('fs')
+      const detected = detectShell(
+        process.platform,
+        process.env as Record<string, string>,
+        (p: string) => {
+          try {
+            return fs.existsSync(p)
+          } catch {
+            return false
+          }
+        }
+      )
+      await this._spawnTerminal(repo.id, {
+        shell: detected.path,
+        args: detected.args,
+        cwd: repo.path,
+        env: { ...process.env } as Record<string, string>,
+        cols: 80,
+        rows: 24,
+      })
+    } catch (err) {
+      log.error('[AppStore] failed to auto-spawn terminal session', err as Error)
+      this.emitError(err as Error)
+    }
   }
 
   public _setTerminalHeight(px: number): void {

@@ -494,6 +494,8 @@ export class App extends React.Component<IAppProps, IAppState> {
         return this.openIssueCreationOnGitHub()
       case 'open-in-shell':
         return this.openCurrentRepositoryInShell()
+      case 'toggle-terminal':
+        return this.props.dispatcher.toggleTerminal()
       case 'clone-repository':
         return this.showCloneRepo()
       case 'show-about':
@@ -1230,18 +1232,6 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
 
     if (event.defaultPrevented) {
-      return
-    }
-
-    // Ctrl+` (Cmd+` on macOS) toggles the integrated terminal panel.
-    if (
-      event.key === '`' &&
-      (event.ctrlKey || event.metaKey) &&
-      !event.shiftKey &&
-      !event.altKey
-    ) {
-      this.props.dispatcher.toggleTerminal()
-      event.preventDefault()
       return
     }
 

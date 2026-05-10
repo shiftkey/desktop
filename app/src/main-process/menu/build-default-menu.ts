@@ -324,8 +324,16 @@ export function buildDefaultMenu({
           ? `Open in ${selectedShell ?? 'Shell'}`
           : `O&pen in ${selectedShell ?? 'shell'}`,
         id: 'open-in-shell',
-        accelerator: 'Ctrl+`',
+        accelerator: 'CmdOrCtrl+Shift+`',
         click: emit('open-in-shell'),
+      },
+      {
+        label: __DARWIN__
+          ? 'Toggle Integrated Terminal'
+          : 'Toggle integrated &terminal',
+        id: 'toggle-terminal',
+        accelerator: 'CmdOrCtrl+`',
+        click: emit('toggle-terminal'),
       },
       {
         label: __DARWIN__
