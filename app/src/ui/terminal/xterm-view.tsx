@@ -69,6 +69,16 @@ export interface IXtermViewProps {
   /** Test injection: produce a Search addon. */
   readonly searchAddonFactory?: () => any
   /**
+   * Cell font size in CSS px. Applied to xterm options on mount and
+   * re-applied (with a re-fit) when the prop changes. Defaults to 13.
+   */
+  readonly fontSize?: number
+  /**
+   * Maximum scrollback line count retained by xterm. Applied on mount
+   * and on prop change. Defaults to 5000.
+   */
+  readonly scrollback?: number
+  /**
    * Click handler for clickable diagnostic-style file paths printed by
    * the shell (e.g. `src/foo.ts:42:7`). Invoked with the parsed path,
    * line, and column. When unset the matcher is not registered.
@@ -201,6 +211,30 @@ export class XtermView extends React.Component<IXtermViewProps> {
     if (prevProps.theme !== this.props.theme && this.term) {
       this.applyTheme(this.props.theme)
     }
+    if (this.term) {
+      if (
+        prevProps.fontSize !== this.props.fontSize &&
+        this.props.fontSize !== undefined
+      ) {
+        if (this.term.options) {
+          this.term.options.fontSize = this.props.fontSize
+        } else if (this.term.setOption) {
+          this.term.setOption('fontSize', this.props.fontSize)
+        }
+        // Re-fit so cell math updates after the font size change.
+        this.fitNow()
+      }
+      if (
+        prevProps.scrollback !== this.props.scrollback &&
+        this.props.scrollback !== undefined
+      ) {
+        if (this.term.options) {
+          this.term.options.scrollback = this.props.scrollback
+        } else if (this.term.setOption) {
+          this.term.setOption('scrollback', this.props.scrollback)
+        }
+      }
+    }
   }
 
   public componentWillUnmount(): void {
@@ -288,9 +322,9 @@ export class XtermView extends React.Component<IXtermViewProps> {
       Terminal: new (opts?: any) => IRuntimeTerminal
     }
     return new Terminal({
-      fontSize: 13,
+      fontSize: this.props.fontSize ?? 13,
       fontFamily: '"SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
-      scrollback: 5000,
+      scrollback: this.props.scrollback ?? 5000,
       allowProposedApi: true,
       cursorBlink: true,
       // Keep selection visible after copy so the user can reselect.

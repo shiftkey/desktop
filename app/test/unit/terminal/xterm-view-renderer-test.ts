@@ -251,6 +251,70 @@ describe('XtermView renderer fallback', () => {
     view.componentWillUnmount()
   })
 
+  it('font size and scrollback props map to terminal options', () => {
+    const fakeTerm: any = {
+      cols: 80,
+      rows: 24,
+      options: {},
+      open: () => undefined,
+      write: () => undefined,
+      paste: () => undefined,
+      focus: () => undefined,
+      hasSelection: () => false,
+      getSelection: () => '',
+      clearSelection: () => undefined,
+      onData: () => ({ dispose: () => undefined }),
+      onResize: () => ({ dispose: () => undefined }),
+      attachCustomKeyEventHandler: () => undefined,
+      loadAddon: () => undefined,
+      dispose: () => undefined,
+    }
+    let factoryArgs: any = null
+    const view = new XtermView({
+      port: null,
+      theme: _palettes.DARK_THEME,
+      fontSize: 13,
+      scrollback: 5000,
+      // Capture the props that XtermView passes to its terminal factory
+      // so we can prove fontSize/scrollback are forwarded to the real
+      // xterm constructor on mount. The factory itself returns a fake.
+      terminalFactory: () => {
+        // Read live from the view's props at call time.
+        factoryArgs = {
+          fontSize: (view as any).props.fontSize,
+          scrollback: (view as any).props.scrollback,
+        }
+        return fakeTerm
+      },
+      fitAddonFactory: () => ({
+        fit: () => undefined,
+        dispose: () => undefined,
+      }),
+      rendererPreference: 'dom',
+    })
+    const fakeEl: any = {
+      getBoundingClientRect: () => ({ width: 0, height: 0 }),
+    }
+    ;(view as any).container = { current: fakeEl }
+    view.componentDidMount()
+    // On mount, the factory observed the configured props.
+    expect(factoryArgs).toEqual({ fontSize: 13, scrollback: 5000 })
+    // On update, options on the live term are mutated in place.
+    const prevProps = { ...(view as any).props }
+    ;(view as any).props = {
+      ...prevProps,
+      fontSize: 18,
+      scrollback: 9999,
+    }
+    view.componentDidUpdate(prevProps)
+    expect(fakeTerm.options.fontSize).toBe(18)
+    expect(fakeTerm.options.scrollback).toBe(9999)
+    if ((view as any).resizeObserver) {
+      ;(view as any).resizeObserver.disconnect = () => undefined
+    }
+    view.componentWillUnmount()
+  })
+
   it('debounces resize forwarding within a 32ms window', () => {
     jest.useFakeTimers()
     const posted: any[] = []

@@ -3605,6 +3605,19 @@ export class App extends React.Component<IAppProps, IAppState> {
             ? ApplicationTheme.Dark
             : ApplicationTheme.Light
         )}
+        // Theme always follows the active app theme via `getTerminalTheme`
+        // above. The `themeFollowsApp` setting is persisted in
+        // TerminalSettings but currently a no-op — flipping it off would
+        // require AppStore to remember the palette snapshot at toggle
+        // time so swaps are frozen. Out of scope for v1.
+        fontSize={this.state.terminalFontSize}
+        scrollback={this.state.terminalScrollback}
+        // eslint-disable-next-line react/jsx-no-bind
+        onAdjustFontSize={delta =>
+          this.props.dispatcher.adjustTerminalFontSize(delta)
+        }
+        // eslint-disable-next-line react/jsx-no-bind
+        onResetFontSize={() => this.props.dispatcher.resetTerminalFontSize()}
         portFor={sessionId => this.props.dispatcher.getTerminalPort(sessionId)}
         onResize={px => this.props.dispatcher.setTerminalHeight(px)}
         onCloseClick={() => this.props.dispatcher.toggleTerminal()}

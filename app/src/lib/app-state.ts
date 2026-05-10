@@ -84,6 +84,10 @@ export interface IAppState {
   readonly stashesByRepoId: ReadonlyMap<number, IRepoStashState>
   /** Integrated terminal panel state. */
   readonly terminal: ITerminalState
+  /** Terminal cell font size in CSS px (Ctrl+= / Ctrl+- / Ctrl+0). */
+  readonly terminalFontSize: number
+  /** Maximum scrollback line count retained by xterm. */
+  readonly terminalScrollback: number
   /** Active PR review dialog session, or null when closed. */
   readonly pullRequestReviewSession: IPRReviewSession | null
   /** Cross-repo health dashboard snapshot. */

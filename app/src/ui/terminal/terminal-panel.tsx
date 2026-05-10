@@ -44,6 +44,17 @@ interface ITerminalPanelProps {
   readonly onRenameTab?: (sessionId: string, title: string) => void
   /** Quick-switch by index (Ctrl+1..9). */
   readonly onFocusTabByIndex?: (repositoryId: number, index: number) => void
+  /** Cell font size in CSS px, forwarded to every mounted XtermView. */
+  readonly fontSize: number
+  /** Scrollback line cap, forwarded to every mounted XtermView. */
+  readonly scrollback: number
+  /**
+   * Increment/decrement the font size (positive grows, negative shrinks).
+   * Wired to Ctrl+= / Ctrl+-.
+   */
+  readonly onAdjustFontSize?: (delta: number) => void
+  /** Reset the font size to the default. Wired to Ctrl+0. */
+  readonly onResetFontSize?: () => void
 }
 
 interface ITerminalPanelState {
@@ -215,6 +226,8 @@ export class TerminalPanel extends React.Component<
                     ref={ref}
                     port={this.props.portFor(sid)}
                     theme={this.props.theme}
+                    fontSize={this.props.fontSize}
+                    scrollback={this.props.scrollback}
                     // eslint-disable-next-line react/jsx-no-bind
                     onFilePathClick={
                       this.props.onFilePathClick
@@ -517,7 +530,7 @@ export class TerminalPanel extends React.Component<
       return
     }
     // Ctrl+1..9 (no Shift, no Alt) → quick-switch tab inside the
-    // current repo. Ctrl+0 is reserved for font-size reset (Task 17).
+    // current repo. Ctrl+0 / Ctrl+= / Ctrl+- handle font zoom (Task 17).
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
       if (e.key >= '1' && e.key <= '9') {
         const idx = parseInt(e.key, 10) - 1
@@ -526,6 +539,34 @@ export class TerminalPanel extends React.Component<
           e.preventDefault()
           this.props.onFocusTabByIndex(repoId, idx)
         }
+        return
+      }
+      // Font zoom in: Ctrl+= and Ctrl++ (the unshifted and shifted glyph
+      // on the same physical key — different keyboard layouts emit one
+      // or the other).
+      if (e.key === '=' || e.key === '+') {
+        if (this.props.onAdjustFontSize) {
+          e.preventDefault()
+          this.props.onAdjustFontSize(1)
+        }
+        return
+      }
+      // Font zoom out: Ctrl+- (and Ctrl+_ on layouts that send the
+      // shifted glyph despite shiftKey being false somehow — defensive).
+      if (e.key === '-' || e.key === '_') {
+        if (this.props.onAdjustFontSize) {
+          e.preventDefault()
+          this.props.onAdjustFontSize(-1)
+        }
+        return
+      }
+      // Font zoom reset.
+      if (e.key === '0') {
+        if (this.props.onResetFontSize) {
+          e.preventDefault()
+          this.props.onResetFontSize()
+        }
+        return
       }
     }
   }

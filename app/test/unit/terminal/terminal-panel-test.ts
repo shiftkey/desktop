@@ -39,6 +39,8 @@ function makePanel(
     onReorderTab?: jest.Mock
     onRenameTab?: jest.Mock
     onFocusTabByIndex?: jest.Mock
+    onAdjustFontSize?: jest.Mock
+    onResetFontSize?: jest.Mock
     homedir?: string
   } = {}
 ) {
@@ -54,6 +56,8 @@ function makePanel(
     state,
     repositoryId,
     theme: _palettes.DARK_THEME,
+    fontSize: 13,
+    scrollback: 5000,
     portFor,
     onResize,
     onCloseClick,
@@ -64,6 +68,8 @@ function makePanel(
     onReorderTab: extras.onReorderTab,
     onRenameTab: extras.onRenameTab,
     onFocusTabByIndex: extras.onFocusTabByIndex,
+    onAdjustFontSize: extras.onAdjustFontSize,
+    onResetFontSize: extras.onResetFontSize,
   })
   // Override homedir so tests get deterministic label output regardless
   // of CI user's $HOME.
@@ -605,6 +611,83 @@ describe('TerminalPanel', () => {
         preventDefault: jest.fn(),
       })
       expect(onFocusTabByIndex).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('font zoom keybindings', () => {
+    it('Ctrl+= calls onAdjustFontSize(1) when panel is visible', () => {
+      const onAdjustFontSize = jest.fn()
+      const { panel } = makePanel(baseState, 1, { onAdjustFontSize })
+      const preventDefault = jest.fn()
+      ;(panel as any).handleGlobalKeyDown({
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        key: '=',
+        preventDefault,
+      })
+      expect(onAdjustFontSize).toHaveBeenCalledWith(1)
+      expect(preventDefault).toHaveBeenCalled()
+    })
+
+    it('Ctrl+- calls onAdjustFontSize(-1) when panel is visible', () => {
+      const onAdjustFontSize = jest.fn()
+      const { panel } = makePanel(baseState, 1, { onAdjustFontSize })
+      const preventDefault = jest.fn()
+      ;(panel as any).handleGlobalKeyDown({
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        key: '-',
+        preventDefault,
+      })
+      expect(onAdjustFontSize).toHaveBeenCalledWith(-1)
+      expect(preventDefault).toHaveBeenCalled()
+    })
+
+    it('Ctrl+0 calls onResetFontSize when panel is visible', () => {
+      const onResetFontSize = jest.fn()
+      const { panel } = makePanel(baseState, 1, { onResetFontSize })
+      const preventDefault = jest.fn()
+      ;(panel as any).handleGlobalKeyDown({
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        key: '0',
+        preventDefault,
+      })
+      expect(onResetFontSize).toHaveBeenCalled()
+      expect(preventDefault).toHaveBeenCalled()
+    })
+
+    it('font zoom keys are ignored when panel is hidden', () => {
+      const onAdjustFontSize = jest.fn()
+      const onResetFontSize = jest.fn()
+      const { panel } = makePanel({ ...baseState, visible: false }, 1, {
+        onAdjustFontSize,
+        onResetFontSize,
+      })
+      ;(panel as any).handleGlobalKeyDown({
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        key: '=',
+        preventDefault: jest.fn(),
+      })
+      ;(panel as any).handleGlobalKeyDown({
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        key: '0',
+        preventDefault: jest.fn(),
+      })
+      expect(onAdjustFontSize).not.toHaveBeenCalled()
+      expect(onResetFontSize).not.toHaveBeenCalled()
     })
   })
 

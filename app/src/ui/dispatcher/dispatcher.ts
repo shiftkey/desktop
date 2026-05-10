@@ -2731,6 +2731,25 @@ export class Dispatcher {
     this.appStore._setTerminalHeight(px)
   }
 
+  /** Set the terminal font size (in CSS px). Clamped inside the store. */
+  public setTerminalFontSize(px: number): void {
+    this.appStore._setTerminalFontSize(px)
+  }
+
+  /** Reset the terminal font size to its default (Ctrl+0). */
+  public resetTerminalFontSize(): void {
+    this.appStore._resetTerminalFontSize()
+  }
+
+  /**
+   * Increment / decrement the terminal font size by `delta` px.
+   * Convenience wrapper for the Ctrl+= / Ctrl+- bindings.
+   */
+  public adjustTerminalFontSize(delta: number): void {
+    const cur = this.appStore.getState().terminalFontSize
+    this.appStore._setTerminalFontSize(cur + delta)
+  }
+
   /** Spawn a terminal session for the given repository. */
   public spawnTerminal(
     repositoryId: number,

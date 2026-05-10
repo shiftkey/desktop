@@ -240,6 +240,10 @@ import { ExternalEditorError, suggestedExternalEditor } from '../editors/shared'
 import { ApiRepositoriesStore } from './api-repositories-store'
 import { StashStore } from './stash-store'
 import { TerminalStore } from './terminal-store'
+import {
+  TerminalSettings,
+  DEFAULT_FONT_SIZE,
+} from '../terminal/terminal-settings'
 import { PullRequestReviewStore } from './pull-request-review-store'
 import { makeAccountHttpClient } from '../api/account-http-client'
 import { ReviewVerdict } from '../../models/pull-request-review'
@@ -477,6 +481,15 @@ export class AppStore extends TypedBaseStore<IAppState> {
       : new TerminalStore()
   /** MessagePorts keyed by sessionId — not stored in TerminalStore (not serializable). */
   private readonly terminalPorts: Map<string, any> = new Map()
+  /**
+   * Persisted terminal preferences (font size, scrollback, theme-follow,
+   * renderer). Same `localStorage`-shaped storage pattern as
+   * TerminalStore — both read/write a small set of string keys.
+   */
+  private readonly terminalSettings: TerminalSettings =
+    typeof window !== 'undefined'
+      ? new TerminalSettings(window.localStorage)
+      : new TerminalSettings()
   /** Lazily created when a review opens — needs an Account for auth. */
   private prReviewStore: PullRequestReviewStore | null = null
   private readonly repoHealthStore: RepoHealthStore = new RepoHealthStore({
@@ -951,6 +964,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
     this.terminalStore.onDidUpdate(() => this.emitUpdate())
     this.terminalStore.onDidError(error => this.emitError(error))
 
+    this.terminalSettings.onDidChange(() => this.emitUpdate())
+
     this.repoHealthStore.onDidUpdate(() => this.emitUpdate())
     this.repoHealthStore.onDidError(error => this.emitError(error))
   }
@@ -1055,6 +1070,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
       activeAccountByEndpoint: this.activeAccountByEndpoint,
       stashesByRepoId: this.stashStore.getAllState(),
       terminal: this.terminalStore.getState(),
+      terminalFontSize: this.terminalSettings.getFontSize(),
+      terminalScrollback: this.terminalSettings.getScrollback(),
       pullRequestReviewSession: this.prReviewStore?.getSession() ?? null,
       repoHealth: this.repoHealthStore.getSnapshot(),
       repositories,
@@ -7188,6 +7205,16 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   public _setTerminalHeight(px: number): void {
     this.terminalStore.setHeight(px)
+  }
+
+  /** Set the terminal font size (clamped to MIN/MAX inside TerminalSettings). */
+  public _setTerminalFontSize(px: number): void {
+    this.terminalSettings.setFontSize(px)
+  }
+
+  /** Reset the terminal font size to the default (Ctrl+0 binding). */
+  public _resetTerminalFontSize(): void {
+    this.terminalSettings.setFontSize(DEFAULT_FONT_SIZE)
   }
 
   /** Get the per-session MessagePort. Used by XtermView. */
