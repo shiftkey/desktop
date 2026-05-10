@@ -26,6 +26,9 @@ export interface IXtermViewPort {
   addEventListener?(event: 'message', cb: (event: { data: any }) => void): void
 }
 
+/** Renderer backend selection for the xterm.js view. */
+export type RendererPreference = 'webgl' | 'canvas' | 'dom'
+
 export interface IXtermViewProps {
   /** Active session port; null = render placeholder. */
   readonly port: IXtermViewPort | null
@@ -42,6 +45,17 @@ export interface IXtermViewProps {
    * Electron's native `clipboard` module.
    */
   readonly clipboard?: IClipboard
+  /**
+   * Renderer preference. Default `'webgl'` with auto-fallback to canvas
+   * on WebGL context loss or load failure. `'canvas'` skips WebGL and
+   * loads the canvas addon directly. `'dom'` loads neither, leaving
+   * xterm's built-in DOM renderer in place.
+   */
+  readonly rendererPreference?: RendererPreference
+  /** Test injection: produce a WebGL addon. */
+  readonly webglAddonFactory?: () => any
+  /** Test injection: produce a Canvas addon. */
+  readonly canvasAddonFactory?: () => any
 }
 
 /** Runtime contract for the xterm instance the view manipulates. */
@@ -101,6 +115,8 @@ export class XtermView extends React.Component<IXtermViewProps> {
   private container = React.createRef<HTMLDivElement>()
   private term: IRuntimeTerminal | null = null
   private fitAddon: IRuntimeFitAddon | null = null
+  private webglAddon: any | null = null
+  private canvasAddon: any | null = null
   private dataDispose: { dispose(): void } | null = null
   private resizeDispose: { dispose(): void } | null = null
   private resizeObserver: ResizeObserver | null = null
@@ -123,6 +139,7 @@ export class XtermView extends React.Component<IXtermViewProps> {
     if (this.fitAddon !== null) {
       this.term.loadAddon(this.fitAddon)
     }
+    this.installRenderer(this.props.rendererPreference ?? 'webgl')
     this.term.attachCustomKeyEventHandler(this.handleKeyEvent)
     this.term.open(this.container.current)
     this.applyTheme(this.props.theme)
@@ -163,6 +180,10 @@ export class XtermView extends React.Component<IXtermViewProps> {
     this.unbindPort()
     this.fitAddon?.dispose?.()
     this.fitAddon = null
+    this.webglAddon?.dispose?.()
+    this.canvasAddon?.dispose?.()
+    this.webglAddon = null
+    this.canvasAddon = null
     this.term?.dispose()
     this.term = null
   }
@@ -213,6 +234,72 @@ export class XtermView extends React.Component<IXtermViewProps> {
     } catch {
       // FitAddon is a dep but its native binding fallback is best-effort.
       return null
+    }
+  }
+
+  private installRenderer(pref: RendererPreference): void {
+    if (!this.term) {
+      return
+    }
+    if (pref === 'dom') {
+      return
+    }
+    if (pref === 'canvas') {
+      this.installCanvas()
+      return
+    }
+    this.installWebgl()
+  }
+
+  private installWebgl(): void {
+    try {
+      const factory =
+        this.props.webglAddonFactory ??
+        (() => {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const { WebglAddon } = require('@xterm/addon-webgl')
+          return new WebglAddon()
+        })
+      const addon = factory()
+      this.term!.loadAddon(addon)
+      this.webglAddon = addon
+      if (typeof addon.onContextLoss === 'function') {
+        addon.onContextLoss(() => {
+          try {
+            addon.dispose?.()
+          } catch {
+            // ignore
+          }
+          this.webglAddon = null
+          this.installCanvas()
+        })
+      }
+    } catch (err) {
+      log.warn(
+        '[xterm] webgl init failed; falling back to canvas',
+        err as Error
+      )
+      this.installCanvas()
+    }
+  }
+
+  private installCanvas(): void {
+    if (this.canvasAddon !== null) {
+      return
+    }
+    try {
+      const factory =
+        this.props.canvasAddonFactory ??
+        (() => {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const { CanvasAddon } = require('@xterm/addon-canvas')
+          return new CanvasAddon()
+        })
+      const addon = factory()
+      this.term!.loadAddon(addon)
+      this.canvasAddon = addon
+    } catch (err) {
+      log.warn('[xterm] canvas init failed; using DOM renderer', err as Error)
     }
   }
 
