@@ -1463,6 +1463,21 @@ export class Dispatcher {
   }
 
   /**
+   * Open a file referenced from terminal output. If the resolved path
+   * lives inside `repository`, the app switches to that repo (a precise
+   * scroll-to-line in the diff viewer is a follow-up). Otherwise, the
+   * path is handed to the OS shell.
+   */
+  public openTerminalFileLink(
+    repository: Repository,
+    path: string,
+    line: number,
+    column: number | null
+  ): Promise<void> {
+    return this.appStore._openTerminalFileLink(repository, path, line, column)
+  }
+
+  /**
    * Persist the given content to the repository's root .gitignore.
    *
    * If the repository root doesn't contain a .gitignore file one

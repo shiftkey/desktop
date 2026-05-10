@@ -3611,6 +3611,12 @@ export class App extends React.Component<IAppProps, IAppState> {
         onNewTab={() => this.props.dispatcher.spawnNewTerminalTab()}
         onSelectTab={sid => this.props.dispatcher.selectTerminalTab(sid)}
         onCloseTab={sid => this.props.dispatcher.closeTerminalTab(sid)}
+        onFilePathClick={(_repoId, _sessionId, p, line, col) => {
+          const r = this.getRepository()
+          if (r instanceof Repository) {
+            this.props.dispatcher.openTerminalFileLink(r, p, line, col)
+          }
+        }}
       />
     )
   }

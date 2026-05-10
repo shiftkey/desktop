@@ -5768,6 +5768,60 @@ export class AppStore extends TypedBaseStore<IAppState> {
     return this._refreshRepository(repository)
   }
 
+  /**
+   * Resolve a `path[:line[:col]]` reference clicked in the terminal,
+   * then either switch to the owning repository or hand the path off to
+   * the OS shell.
+   *
+   * Resolution rules:
+   *   1. Absolute paths are taken as-is.
+   *   2. Relative paths are resolved against the active session's
+   *      `liveCwd` (set by OSC 7) when present, otherwise against the
+   *      repository root.
+   *
+   * The "switch + scroll-to-line in the diff viewer" plumbing is a
+   * follow-up; for now we surface the intended target via `log.info` so
+   * the click chain is verifiable end-to-end.
+   */
+  public async _openTerminalFileLink(
+    repository: Repository,
+    relativeOrAbsolutePath: string,
+    line: number,
+    column: number | null
+  ): Promise<void> {
+    const termState = this.terminalStore.getState()
+    const activeSid =
+      termState.activeByRepoId.get(repository.id) ?? termState.activeSessionId
+    const session =
+      activeSid !== null ? termState.sessions.get(activeSid) : undefined
+    const cwd = session?.liveCwd ?? repository.path
+
+    const absolute = Path.isAbsolute(relativeOrAbsolutePath)
+      ? relativeOrAbsolutePath
+      : Path.resolve(cwd, relativeOrAbsolutePath)
+
+    const repoNormalized = Path.resolve(repository.path)
+    const insideRepo =
+      absolute === repoNormalized ||
+      absolute.startsWith(repoNormalized + Path.sep)
+
+    if (insideRepo) {
+      await this._selectRepository(repository)
+      log.info(
+        `[terminal] open file link: ${absolute}:${line}` +
+          (column !== null ? `:${column}` : '') +
+          ' (would scroll to line in diff viewer)'
+      )
+      return
+    }
+
+    try {
+      await shell.openPath(absolute)
+    } catch (err) {
+      log.warn('[terminal] shell.openPath failed', err as Error)
+    }
+  }
+
   /** Set whether the user has opted out of stats reporting. */
   public async setStatsOptOut(
     optOut: boolean,

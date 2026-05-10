@@ -1,7 +1,7 @@
 import { XtermView } from '../../../src/ui/terminal/xterm-view'
 import { _palettes } from '../../../src/lib/terminal/terminal-theme'
 
-function makeFakeTerminal(loaded: string[]): any {
+function makeFakeTerminal(loaded: string[], extras: any = {}): any {
   return {
     cols: 80,
     rows: 24,
@@ -18,6 +18,7 @@ function makeFakeTerminal(loaded: string[]): any {
     attachCustomKeyEventHandler: () => undefined,
     loadAddon: (a: any) => loaded.push(a.name ?? 'unknown'),
     dispose: () => undefined,
+    ...extras,
   }
 }
 
@@ -29,7 +30,8 @@ function mount(props: any): {
   const view = new XtermView({
     port: null,
     theme: _palettes.DARK_THEME,
-    terminalFactory: () => makeFakeTerminal(loaded),
+    terminalFactory: () =>
+      makeFakeTerminal(loaded, props.__terminalExtras ?? {}),
     fitAddonFactory: () => ({ fit: () => undefined, dispose: () => undefined }),
     ...props,
   })
@@ -175,6 +177,57 @@ describe('XtermView renderer fallback', () => {
     expect(view.findNext('hello')).toBe(true)
     expect(view.findPrevious('hello')).toBe(true)
     expect(calls).toEqual(['next:hello', 'prev:hello'])
+    if ((view as any).resizeObserver) {
+      ;(view as any).resizeObserver.disconnect = () => undefined
+    }
+    view.componentWillUnmount()
+  })
+
+  it('registers a file-path link matcher routing to onFilePathClick', () => {
+    const loaded: string[] = []
+    let registered: {
+      regex: RegExp
+      handler: (e: MouseEvent, matched: string) => void
+    } | null = null
+    const onFilePathClick = jest.fn()
+    const { view } = mount({
+      __loaded: loaded,
+      rendererPreference: 'dom',
+      onFilePathClick,
+      __terminalExtras: {
+        registerLinkMatcher: (
+          regex: RegExp,
+          handler: (e: MouseEvent, matched: string) => void
+        ) => {
+          registered = { regex, handler }
+          return 7
+        },
+        deregisterLinkMatcher: () => undefined,
+      },
+    })
+    expect(registered).not.toBeNull()
+    const reg = registered as unknown as {
+      regex: RegExp
+      handler: (e: MouseEvent, matched: string) => void
+    }
+    reg.handler({} as MouseEvent, 'src/foo.ts:42:7')
+    expect(onFilePathClick).toHaveBeenCalledWith('src/foo.ts', 42, 7)
+    if ((view as any).resizeObserver) {
+      ;(view as any).resizeObserver.disconnect = () => undefined
+    }
+    view.componentWillUnmount()
+  })
+
+  it('skips file-path matcher when xterm exposes no registerLinkMatcher', () => {
+    const loaded: string[] = []
+    const onFilePathClick = jest.fn()
+    const { view } = mount({
+      __loaded: loaded,
+      rendererPreference: 'dom',
+      onFilePathClick,
+    })
+    // No registerLinkMatcher on the fake terminal -> no crash, no calls.
+    expect(onFilePathClick).not.toHaveBeenCalled()
     if ((view as any).resizeObserver) {
       ;(view as any).resizeObserver.disconnect = () => undefined
     }

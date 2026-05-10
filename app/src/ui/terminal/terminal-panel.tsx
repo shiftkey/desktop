@@ -16,6 +16,19 @@ interface ITerminalPanelProps {
   readonly onNewTab: () => void
   readonly onSelectTab: (sessionId: string) => void
   readonly onCloseTab: (sessionId: string) => void
+  /**
+   * Click handler for diagnostic-style file paths (`src/foo.ts:42:7`)
+   * detected in the terminal output. Receives the originating
+   * repository + session ids so the resolver can pick the right cwd
+   * when the path is relative.
+   */
+  readonly onFilePathClick?: (
+    repositoryId: number | null,
+    sessionId: string,
+    path: string,
+    line: number,
+    column: number | null
+  ) => void
 }
 
 interface ITerminalPanelState {
@@ -139,6 +152,19 @@ export class TerminalPanel extends React.Component<
                   ref={ref}
                   port={this.props.portFor(sid)}
                   theme={this.props.theme}
+                  // eslint-disable-next-line react/jsx-no-bind
+                  onFilePathClick={
+                    this.props.onFilePathClick
+                      ? (path, line, col) =>
+                          this.props.onFilePathClick!(
+                            this.props.repositoryId,
+                            sid,
+                            path,
+                            line,
+                            col
+                          )
+                      : undefined
+                  }
                 />
               </div>
             )

@@ -1,5 +1,9 @@
 import * as React from 'react'
 import { ITerminalThemeColors } from '../../lib/terminal/terminal-theme'
+import {
+  filePathRegex,
+  parseFilePathMatch,
+} from '../../lib/terminal/link-matchers'
 
 /**
  * Thin React wrapper that mounts an xterm.js Terminal into a div ref and
@@ -64,6 +68,16 @@ export interface IXtermViewProps {
   readonly webLinksAddonFactory?: () => any
   /** Test injection: produce a Search addon. */
   readonly searchAddonFactory?: () => any
+  /**
+   * Click handler for clickable diagnostic-style file paths printed by
+   * the shell (e.g. `src/foo.ts:42:7`). Invoked with the parsed path,
+   * line, and column. When unset the matcher is not registered.
+   */
+  readonly onFilePathClick?: (
+    path: string,
+    line: number,
+    column: number | null
+  ) => void
 }
 
 /** Runtime contract for the xterm instance the view manipulates. */
@@ -129,6 +143,7 @@ export class XtermView extends React.Component<IXtermViewProps> {
   private ligaturesAddon: any | null = null
   private webLinksAddon: any | null = null
   private searchAddon: any | null = null
+  private fileLinkMatcherId: number | null = null
   private dataDispose: { dispose(): void } | null = null
   private resizeDispose: { dispose(): void } | null = null
   private resizeObserver: ResizeObserver | null = null
@@ -153,6 +168,7 @@ export class XtermView extends React.Component<IXtermViewProps> {
     }
     this.installRenderer(this.props.rendererPreference ?? 'webgl')
     this.installPassiveAddons()
+    this.installFileLinkMatcher()
     this.term.attachCustomKeyEventHandler(this.handleKeyEvent)
     this.term.open(this.container.current)
     this.applyTheme(this.props.theme)
@@ -205,6 +221,7 @@ export class XtermView extends React.Component<IXtermViewProps> {
     this.ligaturesAddon = null
     this.webLinksAddon = null
     this.searchAddon = null
+    this.deregisterFileLinkMatcher()
     this.term?.dispose()
     this.term = null
   }
@@ -425,6 +442,61 @@ export class XtermView extends React.Component<IXtermViewProps> {
       log.warn(`[xterm] ${label} addon failed`, err as Error)
       return null
     }
+  }
+
+  /**
+   * Register a custom link matcher for diagnostic-style file paths
+   * (e.g. `src/foo.ts:42:7`). Routes matches to `onFilePathClick`.
+   *
+   * Uses xterm's older `registerLinkMatcher` API. Newer xterm versions
+   * removed this in favor of `registerLinkProvider`; if the API isn't
+   * available we silently no-op — file paths just won't be clickable
+   * until the link-provider migration lands.
+   */
+  private installFileLinkMatcher(): void {
+    if (this.term === null || this.props.onFilePathClick === undefined) {
+      return
+    }
+    const handler = this.props.onFilePathClick
+    try {
+      const t = this.term as any
+      if (typeof t.registerLinkMatcher !== 'function') {
+        log.debug(
+          '[xterm] registerLinkMatcher unavailable; file-path links disabled'
+        )
+        return
+      }
+      // Per-instance regex (no shared `g` state across calls).
+      const regex = new RegExp(filePathRegex.source, 'g')
+      this.fileLinkMatcherId = t.registerLinkMatcher(
+        regex,
+        (_event: MouseEvent, matched: string) => {
+          const m = parseFilePathMatch(matched)
+          if (m === null) {
+            return
+          }
+          handler(m.path, m.line, m.column)
+        }
+      )
+    } catch (err) {
+      log.warn('[xterm] file-link matcher failed', err as Error)
+    }
+  }
+
+  private deregisterFileLinkMatcher(): void {
+    if (this.term === null || this.fileLinkMatcherId === null) {
+      this.fileLinkMatcherId = null
+      return
+    }
+    try {
+      const t = this.term as any
+      if (typeof t.deregisterLinkMatcher === 'function') {
+        t.deregisterLinkMatcher(this.fileLinkMatcherId)
+      }
+    } catch {
+      // best-effort
+    }
+    this.fileLinkMatcherId = null
   }
 
   private applyTheme(theme: ITerminalThemeColors) {

@@ -31,7 +31,13 @@ const snap = (
   ...over,
 })
 
-function makePanel(state: ITerminalState, repositoryId: number | null = 1) {
+function makePanel(
+  state: ITerminalState,
+  repositoryId: number | null = 1,
+  extras: {
+    onFilePathClick?: jest.Mock
+  } = {}
+) {
   const onResize = jest.fn()
   const onCloseClick = jest.fn()
   const onNewTab = jest.fn()
@@ -50,6 +56,7 @@ function makePanel(state: ITerminalState, repositoryId: number | null = 1) {
     onNewTab,
     onSelectTab,
     onCloseTab,
+    onFilePathClick: extras.onFilePathClick,
   })
   return {
     panel,
@@ -194,6 +201,43 @@ describe('TerminalPanel', () => {
     const closeButton = tree.props.children[1].props.children[1]
     closeButton.props.onClick()
     expect(onCloseClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('forwards onFilePathClick from XtermView with (repoId, sessionId, …)', () => {
+    const a = snap({ id: 'a', repositoryId: 7 })
+    const onFilePathClick = jest.fn()
+    const { panel } = makePanel(
+      {
+        ...baseState,
+        activeSessionId: 'a',
+        sessions: new Map([[a.id, a]]),
+        tabsByRepoId: new Map([[7, ['a']]]),
+      },
+      7,
+      { onFilePathClick }
+    )
+    const tree: any = panel.render()
+    const body = tree.props.children[3]
+    const wrappers = body.props.children[1] as any[]
+    expect(wrappers).toHaveLength(1)
+    const xtermProps = wrappers[0].props.children.props
+    expect(typeof xtermProps.onFilePathClick).toBe('function')
+    xtermProps.onFilePathClick('src/foo.ts', 42, 7)
+    expect(onFilePathClick).toHaveBeenCalledWith(7, 'a', 'src/foo.ts', 42, 7)
+  })
+
+  it('omits onFilePathClick on XtermView when prop is undefined', () => {
+    const a = snap({ id: 'a' })
+    const { panel } = makePanel({
+      ...baseState,
+      activeSessionId: 'a',
+      sessions: new Map([[a.id, a]]),
+      tabsByRepoId: new Map([[1, ['a']]]),
+    })
+    const tree: any = panel.render()
+    const body = tree.props.children[3]
+    const wrappers = body.props.children[1] as any[]
+    expect(wrappers[0].props.children.props.onFilePathClick).toBeUndefined()
   })
 
   it('renders no tabs when repositoryId is null', () => {
