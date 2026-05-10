@@ -41,6 +41,7 @@ function makePanel(
     onFocusTabByIndex?: jest.Mock
     onAdjustFontSize?: jest.Mock
     onResetFontSize?: jest.Mock
+    onRestartTerminal?: jest.Mock
     homedir?: string
   } = {}
 ) {
@@ -70,6 +71,7 @@ function makePanel(
     onFocusTabByIndex: extras.onFocusTabByIndex,
     onAdjustFontSize: extras.onAdjustFontSize,
     onResetFontSize: extras.onResetFontSize,
+    onRestartTerminal: extras.onRestartTerminal,
   })
   // Override homedir so tests get deterministic label output regardless
   // of CI user's $HOME.

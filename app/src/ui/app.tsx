@@ -3639,6 +3639,13 @@ export class App extends React.Component<IAppProps, IAppState> {
             this.props.dispatcher.openTerminalFileLink(r, p, line, col)
           }
         }}
+        // eslint-disable-next-line react/jsx-no-bind
+        onRestartTerminal={sid => {
+          const r = this.getRepository()
+          if (r instanceof Repository) {
+            this.props.dispatcher.restartTerminal(r, sid)
+          }
+        }}
       />
     )
   }

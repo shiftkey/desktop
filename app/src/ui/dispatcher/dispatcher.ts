@@ -2726,6 +2726,17 @@ export class Dispatcher {
     return this.appStore._closeTerminalTab(sessionId)
   }
 
+  /**
+   * Restart an exited terminal session in-place — spawns a new PTY for
+   * the same repo and swaps it into the dead session's tab slot.
+   */
+  public restartTerminal(
+    repository: Repository,
+    sessionId: string
+  ): Promise<void> {
+    return this.appStore._restartTerminalSession(repository, sessionId)
+  }
+
   /** Persist a new terminal panel height. */
   public setTerminalHeight(px: number): void {
     this.appStore._setTerminalHeight(px)

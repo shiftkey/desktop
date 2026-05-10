@@ -56,6 +56,12 @@ interface ITerminalPanelProps {
   readonly onAdjustFontSize?: (delta: number) => void
   /** Reset the font size to the default. Wired to Ctrl+0. */
   readonly onResetFontSize?: () => void
+  /**
+   * Restart an exited terminal session — spawns a fresh PTY in the same
+   * tab slot. Wired to the exit-overlay button and to window-level Enter
+   * when the active session has `status === 'exited'`.
+   */
+  readonly onRestartTerminal?: (sessionId: string) => void
 }
 
 interface ITerminalPanelState {
@@ -224,6 +230,7 @@ export class TerminalPanel extends React.Component<
             once are rendered. This skips the xterm.js DOM/WebGL init
             cost for tabs the user never visits in a session.
           */}
+          {this.renderExitOverlay()}
           {Array.from(state.sessions.keys())
             .filter(sid => this.state.mountedSessionIds.has(sid))
             .map(sid => {
@@ -263,6 +270,45 @@ export class TerminalPanel extends React.Component<
         </div>
       </div>
     )
+  }
+
+  private renderExitOverlay() {
+    const sid = this.props.state.activeSessionId
+    if (sid === null) {
+      return null
+    }
+    const session = this.props.state.sessions.get(sid)
+    if (session === undefined || session.status !== 'exited') {
+      return null
+    }
+    return (
+      <div
+        className="terminal-panel__exit-overlay"
+        role="alert"
+        key="exit-overlay"
+      >
+        <span className="terminal-panel__exit-overlay-text">
+          Process exited (code {session.exitCode ?? 0}) · Press Enter to restart
+        </span>
+        {this.props.onRestartTerminal && (
+          <button
+            type="button"
+            className="terminal-panel__exit-overlay-btn"
+            onClick={this.onRestartActiveSession}
+          >
+            Restart
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  private onRestartActiveSession = () => {
+    const sid = this.props.state.activeSessionId
+    if (sid === null) {
+      return
+    }
+    this.props.onRestartTerminal?.(sid)
   }
 
   private renderTab(sessionId: string, active: boolean) {
@@ -561,6 +607,30 @@ export class TerminalPanel extends React.Component<
     // intercept the same shortcut elsewhere in the app).
     if (!this.props.state.visible) {
       return
+    }
+    // Enter on an exited tab triggers a restart. Crucially, we ONLY
+    // intercept Enter when the active session is exited — otherwise
+    // Enter must reach the xterm so user typing isn't blocked.
+    if (
+      e.key === 'Enter' &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.shiftKey &&
+      !e.altKey
+    ) {
+      const sid = this.props.state.activeSessionId
+      if (sid !== null) {
+        const session = this.props.state.sessions.get(sid)
+        if (
+          session !== undefined &&
+          session.status === 'exited' &&
+          this.props.onRestartTerminal
+        ) {
+          e.preventDefault()
+          this.props.onRestartTerminal(sid)
+          return
+        }
+      }
     }
     if (
       (e.ctrlKey || e.metaKey) &&

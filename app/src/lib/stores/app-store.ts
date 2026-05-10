@@ -258,7 +258,7 @@ import {
   resizeTerminal as resizeTerminalIpc,
   attachStoreToPort as attachTerminalStoreToPort,
 } from '../terminal/terminal-client'
-import { IPtyOptions } from '../terminal/pty-types'
+import { IPtyOptions, ITerminalSessionSnapshot } from '../terminal/pty-types'
 import { detectShell } from '../terminal/shell-detection'
 import {
   updateChangedFiles,
@@ -7230,16 +7230,36 @@ export class AppStore extends TypedBaseStore<IAppState> {
     repositoryId: number,
     options: IPtyOptions
   ): Promise<string> {
+    const snapshot = await this._spawnTerminalCore(repositoryId, options)
+    this.terminalStore.registerSession(snapshot)
+    return snapshot.id
+  }
+
+  /**
+   * Internal spawn helper: invokes the spawn IPC, wires the port's exit
+   * + OSC listeners, and returns a fresh snapshot WITHOUT touching the
+   * store. Callers (`_spawnTerminal`, `_restartTerminalSession`) decide
+   * whether to `registerSession` or `replaceSession` so the tab strip
+   * stays consistent.
+   */
+  private async _spawnTerminalCore(
+    repositoryId: number,
+    options: IPtyOptions
+  ): Promise<ITerminalSessionSnapshot> {
     const { sessionId, port } = await spawnTerminalIpc(repositoryId, options)
     this.terminalPorts.set(sessionId, port)
 
-    // Auto-cleanup when the shell exits on its own (user typed `exit`,
-    // shell crashed). Main posts {type:'exit'} then closes the port; without
-    // this, the port + store entry would leak across the session lifetime.
+    // When the shell exits on its own (user typed `exit`, shell crashed)
+    // main posts {type:'exit'} then closes the port. We keep the session
+    // in the store with status='exited' so the panel can show a restart
+    // prompt (`_restartTerminalSession`); the user-initiated close path
+    // (`_killTerminal`) is what actually drops the tab.
     port.addEventListener('message', (event: MessageEvent) => {
       if (event.data?.type === 'exit') {
+        const exitCode =
+          typeof event.data.exitCode === 'number' ? event.data.exitCode : 0
         this.terminalPorts.delete(sessionId)
-        this.terminalStore.removeSession(sessionId)
+        this.terminalStore.markExited(sessionId, exitCode)
       }
     })
 
@@ -7248,7 +7268,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     // an unread-output indicator.
     attachTerminalStoreToPort(this.terminalStore, sessionId, port)
 
-    this.terminalStore.registerSession({
+    return {
       id: sessionId,
       repositoryId,
       cwd: options.cwd,
@@ -7262,14 +7282,73 @@ export class AppStore extends TypedBaseStore<IAppState> {
       hasActivity: false,
       lastExitCode: null,
       title: null,
-    })
-    return sessionId
+    }
   }
 
   public async _killTerminal(sessionId: string): Promise<void> {
     await killTerminalIpc(sessionId)
     this.terminalPorts.delete(sessionId)
     this.terminalStore.removeSession(sessionId)
+  }
+
+  /**
+   * Restart an exited terminal session: spawn a fresh PTY (inheriting
+   * cols/rows of the dead session) and swap it into the same tab slot
+   * via `replaceSession`. The user-supplied title is preserved.
+   * No-op when the old session is unknown.
+   */
+  public async _restartTerminalSession(
+    repository: Repository,
+    oldSessionId: string
+  ): Promise<void> {
+    const oldSession = this.terminalStore
+      .getState()
+      .sessions.get(oldSessionId)
+    if (oldSession === undefined) {
+      return
+    }
+    // Best-effort: if the PTY hasn't actually exited yet (unlikely but
+    // possible if the user races the restart), kill it before respawning.
+    // Failures here are non-fatal — the dead PTY is harmless.
+    try {
+      await killTerminalIpc(oldSessionId)
+    } catch {
+      // ignore
+    }
+    this.terminalPorts.delete(oldSessionId)
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const fs = require('fs') as typeof import('fs')
+      const detected = detectShell(
+        process.platform,
+        process.env as Record<string, string>,
+        (p: string) => {
+          try {
+            return fs.existsSync(p)
+          } catch {
+            return false
+          }
+        }
+      )
+      const snapshot = await this._spawnTerminalCore(repository.id, {
+        shell: detected.path,
+        args: detected.args,
+        cwd: repository.path,
+        env: makeTerminalEnv(),
+        cols: oldSession.cols,
+        rows: oldSession.rows,
+      })
+      // Preserve user-supplied tab title across the restart.
+      const finalSnapshot =
+        oldSession.title !== null
+          ? { ...snapshot, title: oldSession.title }
+          : snapshot
+      this.terminalStore.replaceSession(oldSessionId, finalSnapshot)
+    } catch (err) {
+      log.error('[AppStore] failed to restart terminal session', err as Error)
+      this.emitError(err as Error)
+    }
   }
 
   public async _resizeTerminal(

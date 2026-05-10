@@ -247,6 +247,49 @@ describe('TerminalStore', () => {
     })
   })
 
+  describe('markExited / replaceSession', () => {
+    const memStore = () => new FakeHeightStore()
+
+    it('on exit the session stays in the store with status=exited', () => {
+      const s = new TerminalStore(memStore())
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.markExited('s1', 137)
+      const sess = s.getState().sessions.get('s1')!
+      expect(sess.status).toBe('exited')
+      expect(sess.exitCode).toBe(137)
+      expect(s.getState().tabsByRepoId.get(7)).toEqual(['s1'])
+    })
+
+    it('replaceSession swaps a session in-place preserving its tab position', () => {
+      const s = new TerminalStore(memStore())
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.registerSession(snap({ id: 's2', repositoryId: 7 }))
+      s.registerSession(snap({ id: 's3', repositoryId: 7 }))
+      // s2 is the middle tab. Replace it with a fresh snapshot id 'sNew'.
+      s.markExited('s2', 1)
+      s.replaceSession('s2', snap({ id: 'sNew', repositoryId: 7 }))
+      expect(s.getState().tabsByRepoId.get(7)).toEqual(['s1', 'sNew', 's3'])
+      // The replaced session is gone:
+      expect(s.getState().sessions.has('s2')).toBe(false)
+      expect(s.getState().sessions.get('sNew')!.id).toBe('sNew')
+    })
+
+    it('replaceSession updates activeSessionId when the active was replaced', () => {
+      const s = new TerminalStore(memStore())
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.markExited('s1', 1)
+      s.replaceSession('s1', snap({ id: 'sNew', repositoryId: 7 }))
+      expect(s.getState().activeSessionId).toBe('sNew')
+      expect(s.getState().activeByRepoId.get(7)).toBe('sNew')
+    })
+
+    it('markExited is a no-op for an unknown session id', () => {
+      const s = new TerminalStore(memStore())
+      s.markExited('unknown', 1)
+      expect(s.getState().sessions.size).toBe(0)
+    })
+  })
+
   describe('selectRepo', () => {
     it('switches activeSessionId to the last-active session for that repo', () => {
       const store = new TerminalStore()

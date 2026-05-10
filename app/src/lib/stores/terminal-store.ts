@@ -230,6 +230,60 @@ export class TerminalStore extends BaseStore {
   }
 
   /**
+   * Mark a session as exited (the underlying PTY died) without removing
+   * it from the store. The tab survives so the user can see the exit
+   * code and choose to restart. No-op when the session is unknown.
+   */
+  public markExited(sessionId: string, exitCode: number): void {
+    if (!this.state.sessions.has(sessionId)) {
+      return
+    }
+    const sessions = new Map(this.state.sessions)
+    const cur = sessions.get(sessionId)!
+    sessions.set(sessionId, { ...cur, status: 'exited', exitCode })
+    this.update({ sessions })
+  }
+
+  /**
+   * Swap an exited session out for a fresh one in the same tab slot. The
+   * new snapshot inherits the position the old one held in the per-repo
+   * tab strip and any active references that pointed at the old id are
+   * redirected to the new one. No-op when the old session is unknown.
+   */
+  public replaceSession(
+    oldSessionId: string,
+    newSnapshot: ITerminalSessionSnapshot
+  ): void {
+    const cur = this.state.sessions.get(oldSessionId)
+    if (cur === undefined) {
+      return
+    }
+    const sessions = new Map(this.state.sessions)
+    sessions.delete(oldSessionId)
+    sessions.set(newSnapshot.id, newSnapshot)
+
+    const tabsByRepoId = new Map(this.state.tabsByRepoId)
+    const tabs = tabsByRepoId.get(cur.repositoryId) ?? []
+    const ix = tabs.indexOf(oldSessionId)
+    if (ix !== -1) {
+      const next = tabs.slice()
+      next[ix] = newSnapshot.id
+      tabsByRepoId.set(cur.repositoryId, next)
+    }
+
+    const activeByRepoId = new Map(this.state.activeByRepoId)
+    if (activeByRepoId.get(cur.repositoryId) === oldSessionId) {
+      activeByRepoId.set(cur.repositoryId, newSnapshot.id)
+    }
+    let activeSessionId = this.state.activeSessionId
+    if (activeSessionId === oldSessionId) {
+      activeSessionId = newSnapshot.id
+    }
+
+    this.update({ sessions, tabsByRepoId, activeByRepoId, activeSessionId })
+  }
+
+  /**
    * Remove a session (process exited, user closed the tab). Picks the
    * adjacent tab in the same repo as the new active one when the closed
    * tab was active.
