@@ -16,6 +16,12 @@
 
     width: 100%;
     height: 100%;
+
+    // Reserve space for the integrated terminal panel, which overlays
+    // the bottom edge with `position: fixed; bottom: 0`. The variable is
+    // set inline from `App.render()` and defaults to 0 so layout is
+    // unchanged when the terminal is hidden or unmounted (welcome flow).
+    padding-bottom: var(--terminal-reserved-height, 0);
   }
 
   // main non-window chrome wrapper

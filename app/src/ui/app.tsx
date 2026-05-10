@@ -3561,12 +3561,23 @@ export class App extends React.Component<IAppProps, IAppState> {
 
     const currentTabSize = this.state.selectedTabSize
 
+    // Reserve vertical space for the integrated terminal panel so its
+    // `position: fixed; bottom: 0` overlay does not cover the commit
+    // area / sidebar / file lists. The chrome root applies this as
+    // `padding-bottom` (via the CSS variable in app.scss), which combined
+    // with `box-sizing: border-box` and `height: 100%` shrinks the inner
+    // flex column by exactly the panel's effective height.
+    const terminalReservedHeight =
+      !this.state.showWelcomeFlow && this.state.terminal.visible
+        ? this.state.terminal.height
+        : 0
+    const chromeStyle = {
+      tabSize: currentTabSize,
+      ['--terminal-reserved-height' as any]: `${terminalReservedHeight}px`,
+    } as React.CSSProperties
+
     return (
-      <div
-        id="desktop-app-chrome"
-        className={className}
-        style={{ tabSize: currentTabSize }}
-      >
+      <div id="desktop-app-chrome" className={className} style={chromeStyle}>
         <AppTheme theme={currentTheme} />
         {this.renderTitlebar()}
         {this.state.showWelcomeFlow
