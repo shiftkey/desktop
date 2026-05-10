@@ -93,6 +93,10 @@ export class TerminalPanel extends React.Component<
   ITerminalPanelProps,
   ITerminalPanelState
 > {
+  private static readonly RESIZE_KEY_STEP = 16
+  private static readonly RESIZE_MIN = 120
+  private static readonly RESIZE_MAX = 1200
+
   private dragStartY: number | null = null
   private dragStartHeight: number = 0
   /** Per-session refs to mounted XtermView instances, used to drive search. */
@@ -159,12 +163,24 @@ export class TerminalPanel extends React.Component<
         role="region"
         aria-label="Terminal"
       >
+        {/*
+          The resize gutter has role="separator" + tabIndex=0 + key/mouse
+          handlers so it's both keyboard-focusable and drag-resizable.
+          ESLint's a11y rules flag interactive listeners on <div>, but the
+          element is intentionally interactive via its ARIA role.
+        */}
+        {/* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
         <div
           className="terminal-panel__resize"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize terminal panel"
+          tabIndex={0}
           onMouseDown={this.onResizeMouseDown}
-          aria-hidden={true}
+          onKeyDown={this.onResizeKeyDown}
           title="Drag to resize"
         />
+        {/* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
         <div className="terminal-panel__toolbar">
           <div className="terminal-panel__tabs" role="tablist">
             {tabIds.map(sid => this.renderTab(sid, sid === activeId))}
@@ -454,8 +470,35 @@ export class TerminalPanel extends React.Component<
     }
     // Dragging up (smaller clientY) grows the panel — bottom-anchored.
     const delta = this.dragStartY - e.clientY
-    const next = clamp(this.dragStartHeight + delta, 120, 1200)
+    const next = clamp(
+      this.dragStartHeight + delta,
+      TerminalPanel.RESIZE_MIN,
+      TerminalPanel.RESIZE_MAX
+    )
     this.setState({ dragHeight: next })
+  }
+
+  private onResizeKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const STEP = TerminalPanel.RESIZE_KEY_STEP
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      this.props.onResize(
+        clamp(
+          this.props.state.height + STEP,
+          TerminalPanel.RESIZE_MIN,
+          TerminalPanel.RESIZE_MAX
+        )
+      )
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      this.props.onResize(
+        clamp(
+          this.props.state.height - STEP,
+          TerminalPanel.RESIZE_MIN,
+          TerminalPanel.RESIZE_MAX
+        )
+      )
+    }
   }
 
   private onResizeEnd = (_e: MouseEvent) => {

@@ -691,6 +691,50 @@ describe('TerminalPanel', () => {
     })
   })
 
+  describe('resize gutter keyboard', () => {
+    it('arrow up on the resize gutter increases height by 16px', () => {
+      const { panel, onResize } = makePanel({ ...baseState, height: 280 })
+      const tree: any = panel.render()
+      const gutter = tree.props.children[0]
+      expect(gutter.props.className).toBe('terminal-panel__resize')
+      expect(gutter.props.role).toBe('separator')
+      expect(gutter.props['aria-orientation']).toBe('horizontal')
+      expect(gutter.props.tabIndex).toBe(0)
+      const preventDefault = jest.fn()
+      gutter.props.onKeyDown({ key: 'ArrowUp', preventDefault })
+      expect(preventDefault).toHaveBeenCalled()
+      expect(onResize).toHaveBeenCalledWith(296)
+    })
+
+    it('arrow down on the resize gutter decreases height by 16px', () => {
+      const { panel, onResize } = makePanel({ ...baseState, height: 280 })
+      const tree: any = panel.render()
+      const gutter = tree.props.children[0]
+      const preventDefault = jest.fn()
+      gutter.props.onKeyDown({ key: 'ArrowDown', preventDefault })
+      expect(preventDefault).toHaveBeenCalled()
+      expect(onResize).toHaveBeenCalledWith(264)
+    })
+
+    it('arrow keys are clamped to the [120, 1200] range', () => {
+      const high = makePanel({ ...baseState, height: 1190 })
+      const treeH: any = high.panel.render()
+      treeH.props.children[0].props.onKeyDown({
+        key: 'ArrowUp',
+        preventDefault: jest.fn(),
+      })
+      expect(high.onResize).toHaveBeenCalledWith(1200)
+
+      const low = makePanel({ ...baseState, height: 130 })
+      const treeL: any = low.panel.render()
+      treeL.props.children[0].props.onKeyDown({
+        key: 'ArrowDown',
+        preventDefault: jest.fn(),
+      })
+      expect(low.onResize).toHaveBeenCalledWith(120)
+    })
+  })
+
   describe('lazy mount', () => {
     it('lazy-mounts XtermView only for sessions that have been activated', () => {
       const s1 = snap({ id: 's1' })

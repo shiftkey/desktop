@@ -21,9 +21,30 @@
     background: transparent;
     transition: background 120ms ease;
 
+    // 4px hover hit-zone — extends the interactive area without
+    // bumping the visible height. Stacks on top of the existing 6px
+    // gutter so the gutter is easy to land on with the mouse.
+    &::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: 0;
+      right: 0;
+      bottom: -2px;
+    }
+
     &:hover,
     &:active {
       background: var(--link-button-color);
+    }
+
+    &:focus {
+      outline: 2px solid var(--focus-color, #58a6ff);
+      outline-offset: -2px;
+    }
+
+    &:focus:not(:focus-visible) {
+      outline: none;
     }
   }
 
