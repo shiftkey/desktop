@@ -376,9 +376,7 @@ export class Dispatcher {
    * after returning to the app. The fetch is throttled by the same
    * 30-minute interval used by the periodic background fetcher.
    */
-  public refreshAndMaybeFetchRepository(
-    repository: Repository
-  ): Promise<void> {
+  public refreshAndMaybeFetchRepository(repository: Repository): Promise<void> {
     return this.appStore._refreshAndMaybeFetchRepository(repository)
   }
 
@@ -2679,6 +2677,21 @@ export class Dispatcher {
     return this.appStore._toggleTerminal()
   }
 
+  /** Open a new terminal tab for the current (or given) repository. */
+  public spawnNewTerminalTab(repositoryId?: number): Promise<void> {
+    return this.appStore._spawnNewTerminalTab(repositoryId)
+  }
+
+  /** Make the given session id the active terminal tab. */
+  public selectTerminalTab(sessionId: string): void {
+    this.appStore._selectTerminalTab(sessionId)
+  }
+
+  /** Close a terminal tab (kills the PTY behind it). */
+  public closeTerminalTab(sessionId: string): Promise<void> {
+    return this.appStore._closeTerminalTab(sessionId)
+  }
+
   /** Persist a new terminal panel height. */
   public setTerminalHeight(px: number): void {
     this.appStore._setTerminalHeight(px)
@@ -2737,7 +2750,9 @@ export class Dispatcher {
     this.appStore._discardReviewDraft(draftId)
   }
 
-  public setReviewVerdict(verdict: import('../../models/pull-request-review').ReviewVerdict): void {
+  public setReviewVerdict(
+    verdict: import('../../models/pull-request-review').ReviewVerdict
+  ): void {
     this.appStore._setReviewVerdict(verdict)
   }
 

@@ -63,7 +63,7 @@ describe('RepoHealthStore', () => {
     expect(calls).toBe(2)
   })
 
-  it('coalesces concurrent refreshAll calls onto a single in-flight promise', async () => {
+  it('coalesces concurrent refreshAll calls when the second is a subset', async () => {
     let calls = 0
     const p: IRepoHealthProbes = {
       ...probes(),
@@ -74,15 +74,37 @@ describe('RepoHealthStore', () => {
       },
     }
     const store = new RepoHealthStore({ collectorOptions: { probes: p } })
+    const a = store.refreshAll([repo(1), repo(2)])
+    const b = store.refreshAll([repo(1)])
+    await Promise.all([a, b])
+    // B is a subset of A — should not trigger a second collection.
+    expect(calls).toBe(2)
+  })
+
+  it('runs a follow-up when the second refresh asks for repos the first did not cover', async () => {
+    let calls = 0
+    const p: IRepoHealthProbes = {
+      ...probes(),
+      uncommittedCount: async r => {
+        calls++
+        await new Promise(res => setTimeout(res, 5))
+        return r.id
+      },
+    }
+    const store = new RepoHealthStore({ collectorOptions: { probes: p } })
     const a = store.refreshAll([repo(1)])
     const b = store.refreshAll([repo(2)])
     await Promise.all([a, b])
-    // Only the first call's repos got collected.
-    expect(calls).toBe(1)
+    // First run picked up repo(1); follow-up picks up repo(2).
+    expect(calls).toBe(2)
+    expect(store.getSnapshot().statuses.get(1)?.uncommittedCount).toBe(1)
+    expect(store.getSnapshot().statuses.get(2)?.uncommittedCount).toBe(2)
   })
 
   it('refreshOne updates only the specified repo and emits twice', async () => {
-    const store = new RepoHealthStore({ collectorOptions: { probes: probes(5) } })
+    const store = new RepoHealthStore({
+      collectorOptions: { probes: probes(5) },
+    })
     let updates = 0
     store.onDidUpdate(() => updates++)
     await store.refreshOne(repo(7))
@@ -92,7 +114,9 @@ describe('RepoHealthStore', () => {
   })
 
   it('forget removes a single repo', async () => {
-    const store = new RepoHealthStore({ collectorOptions: { probes: probes() } })
+    const store = new RepoHealthStore({
+      collectorOptions: { probes: probes() },
+    })
     await store.refreshAll([repo(1), repo(2)])
     let updates = 0
     store.onDidUpdate(() => updates++)
@@ -103,7 +127,9 @@ describe('RepoHealthStore', () => {
   })
 
   it('forget is a no-op for unknown ids', () => {
-    const store = new RepoHealthStore({ collectorOptions: { probes: probes() } })
+    const store = new RepoHealthStore({
+      collectorOptions: { probes: probes() },
+    })
     let updates = 0
     store.onDidUpdate(() => updates++)
     store.forget(999)
@@ -111,7 +137,9 @@ describe('RepoHealthStore', () => {
   })
 
   it('clear empties the snapshot and emits one update', async () => {
-    const store = new RepoHealthStore({ collectorOptions: { probes: probes() } })
+    const store = new RepoHealthStore({
+      collectorOptions: { probes: probes() },
+    })
     await store.refreshAll([repo(1), repo(2)])
     let updates = 0
     store.onDidUpdate(() => updates++)
@@ -123,7 +151,9 @@ describe('RepoHealthStore', () => {
   })
 
   it('clear is a no-op when state is already empty', () => {
-    const store = new RepoHealthStore({ collectorOptions: { probes: probes() } })
+    const store = new RepoHealthStore({
+      collectorOptions: { probes: probes() },
+    })
     let updates = 0
     store.onDidUpdate(() => updates++)
     store.clear()
@@ -157,7 +187,7 @@ describe('RepoHealthStore', () => {
     })
     store2.onDidUpdate(() => {
       const live = [...store2.getSnapshot().refreshing]
-      if (live.length > peakRefreshing.length) peakRefreshing = live
+      if (live.length > peakRefreshing.length) {peakRefreshing = live}
     })
     await store2.refreshAll([repo(1)])
     expect(peakRefreshing).toEqual([1])

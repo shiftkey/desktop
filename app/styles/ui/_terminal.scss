@@ -10,39 +10,113 @@
   border-top: var(--base-border);
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
 
+  &__resize {
+    position: absolute;
+    top: -3px;
+    left: 0;
+    right: 0;
+    height: 6px;
+    cursor: ns-resize;
+    z-index: 1;
+    background: transparent;
+    transition: background 120ms ease;
+
+    &:hover,
+    &:active {
+      background: var(--link-button-color);
+    }
+  }
+
   &__toolbar {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--spacing-half) var(--spacing);
+    align-items: stretch;
+    padding: 0 var(--spacing-half) 0 0;
     border-bottom: var(--base-border);
     flex: 0 0 auto;
     background: var(--toolbar-background-color);
     font-size: var(--font-size-sm);
     color: var(--text-secondary-color);
+    min-height: 32px;
   }
 
-  &__title {
-    font-weight: var(--font-weight-semibold);
+  &__tabs {
+    display: flex;
+    align-items: stretch;
+    flex: 1 1 auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
   }
 
+  &__tab {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-half);
+    padding: 0 var(--spacing-half) 0 var(--spacing);
+    cursor: pointer;
+    border-right: var(--base-border);
+    user-select: none;
+    color: var(--text-secondary-color);
+    background: transparent;
+    transition: background 120ms ease;
+    max-width: 200px;
+
+    &:hover {
+      background: var(--list-item-hover-background-color);
+      color: var(--text-color);
+    }
+
+    &.active {
+      background: var(--background-color);
+      color: var(--text-color);
+      box-shadow: inset 0 -2px 0 var(--link-button-color);
+    }
+  }
+
+  &__tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__tab-close,
+  &__new-tab,
   &__close {
     background: none;
     border: none;
     color: inherit;
     font-size: var(--font-size-md);
+    line-height: 1;
     cursor: pointer;
-    padding: 0 var(--spacing-half);
+    padding: var(--spacing-third) var(--spacing-half);
+    border-radius: var(--border-radius);
 
     &:hover {
+      background: var(--list-item-hover-background-color);
       color: var(--text-color);
     }
+  }
+
+  &__new-tab {
+    align-self: center;
+    margin: 0 var(--spacing-half);
+    font-weight: bold;
+  }
+
+  &__close {
+    align-self: center;
   }
 
   &__body {
     flex: 1 1 auto;
     overflow: hidden;
+    position: relative;
     padding: var(--spacing-half);
+  }
+
+  &__view {
+    width: 100%;
+    height: 100%;
   }
 
   &__placeholder {

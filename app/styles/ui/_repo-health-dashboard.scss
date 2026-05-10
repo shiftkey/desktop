@@ -1,0 +1,269 @@
+// Override Dialog default sizing for the dashboard — give it real estate.
+#repo-health-dashboard-dialog {
+  width: 90vw;
+  max-width: 1200px;
+  height: 85vh;
+  max-height: 900px;
+
+  // The Dialog's content area was constrained; let the dashboard fill it.
+  .dialog-content {
+    flex: 1 1 auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+  }
+}
+
+.repo-health-dashboard {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  overflow: hidden;
+  font-size: var(--font-size);
+
+  &__summary {
+    display: flex;
+    align-items: stretch;
+    gap: var(--spacing);
+    padding: var(--spacing);
+    border-bottom: var(--base-border);
+    flex: 0 0 auto;
+    background: var(--box-alt-background-color);
+  }
+
+  &__stat {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-third);
+    padding: var(--spacing-half) var(--spacing);
+    border-radius: var(--border-radius);
+    min-width: 110px;
+    background: var(--background-color);
+    border: var(--base-border);
+
+    &.tone-warn {
+      border-color: var(--warning-color);
+    }
+    &.tone-bad {
+      border-color: var(--error-color);
+    }
+  }
+
+  &__stat-value {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color);
+    line-height: 1.1;
+  }
+
+  &__stat-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+  }
+
+  &__last-refresh {
+    align-self: center;
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+  }
+
+  &__controls {
+    display: flex;
+    gap: var(--spacing-half);
+    padding: var(--spacing-half) var(--spacing);
+    border-bottom: var(--base-border);
+    flex: 0 0 auto;
+    align-items: center;
+    background: var(--toolbar-background-color);
+
+    select,
+    button,
+    input {
+      font-size: var(--font-size-sm);
+      padding: var(--spacing-third) var(--spacing-half);
+      border-radius: var(--border-radius);
+      border: var(--base-border);
+      background: var(--background-color);
+      color: var(--text-color);
+    }
+
+    select {
+      cursor: pointer;
+    }
+
+    button {
+      cursor: pointer;
+      &:hover:not(:disabled) {
+        background: var(--list-item-hover-background-color);
+      }
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  &__search {
+    flex: 1 1 auto;
+    min-width: 180px;
+  }
+
+  &__refresh {
+    margin-left: auto;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--spacing);
+    padding: var(--spacing);
+    overflow-y: auto;
+    flex: 1 1 auto;
+    align-content: start;
+  }
+
+  &__empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 auto;
+    color: var(--text-secondary-color);
+    padding: var(--spacing-double);
+  }
+}
+
+.repo-health-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-half);
+  padding: var(--spacing);
+  border: var(--base-border);
+  border-radius: var(--border-radius);
+  background: var(--background-color);
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+  outline: none;
+  min-height: 180px;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--link-button-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+  }
+
+  &.tier-high {
+    border-left: 3px solid var(--error-color);
+  }
+  &.tier-mid {
+    border-left: 3px solid var(--warning-color);
+  }
+  &.tier-low {
+    border-left: 3px solid var(--link-button-color);
+  }
+  &.tier-ok {
+    border-left: 3px solid var(--success-color, #2ea44f);
+  }
+
+  &.refreshing {
+    opacity: 0.7;
+  }
+
+  &__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-half);
+  }
+
+  &__name {
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color);
+    font-size: var(--font-size-md);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1 1 auto;
+  }
+
+  &__score {
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--font-weight-semibold);
+    padding: 2px var(--spacing-half);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-sm);
+    background: var(--box-alt-background-color);
+    color: var(--text-secondary-color);
+
+    &.score-high {
+      background: var(--error-color);
+      color: #fff;
+    }
+    &.score-mid {
+      background: var(--warning-color);
+      color: var(--text-color);
+    }
+    &.score-low {
+      background: var(--link-button-color);
+      color: #fff;
+    }
+  }
+
+  &__path {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-family-monospace);
+  }
+
+  &__signals {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: var(--spacing-half);
+    margin-top: auto;
+  }
+
+  &__cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--spacing-half);
+    border-radius: var(--border-radius);
+    background: var(--box-alt-background-color);
+    border: 1px solid transparent;
+
+    &.warn {
+      border-color: var(--warning-color);
+    }
+    &.bad {
+      border-color: var(--error-color);
+    }
+  }
+
+  &__cell-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary-color);
+  }
+
+  &__cell-value {
+    font-size: var(--font-size);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__hint,
+  &__error {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+  }
+
+  &__error {
+    color: var(--error-color);
+  }
+}

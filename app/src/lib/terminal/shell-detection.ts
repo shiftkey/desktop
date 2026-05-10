@@ -82,12 +82,19 @@ export function detectShell(
 }
 
 /**
- * Decide which arg list to launch a POSIX shell with. Most are empty (an
- * interactive shell is the default) but a few benefit from explicit flags
- * to avoid sourcing global config files that hang on slow networks.
+ * Decide which arg list to launch a POSIX shell with.
+ *
+ * For bash/zsh we pass `-l` so the user's profile (.bash_profile,
+ * .profile, .zprofile, .zshrc) is sourced — without this, tools the user
+ * installed under `~/.local/bin`, asdf-managed runtimes, nvm shims, etc.
+ * are missing from PATH and commands like `claude` silently hang or
+ * "command not found" out. node-pty already attaches a TTY so the shell
+ * is interactive without `-i`.
  */
-function posixArgsFor(_path: string): ReadonlyArray<string> {
-  // Intentionally empty for v1. Future tweak: detect zsh and pass `-l` only
-  // when the user opts in via a setting.
+function posixArgsFor(path: string): ReadonlyArray<string> {
+  const name = path.split('/').pop() ?? ''
+  if (name === 'bash' || name === 'zsh') {
+    return ['-l']
+  }
   return []
 }

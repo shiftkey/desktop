@@ -24,6 +24,7 @@ import { AriaLiveContainer } from '../accessibility/aria-live-container'
 import { SectionFilterList } from '../lib/section-filter-list'
 import { generatePullRequestContextMenuItems } from './pull-request-list-item-context-menu'
 import { showContextualMenu } from '../../lib/menu-item'
+import { PopupType } from '../../models/popup'
 
 interface IPullRequestListItem extends IFilterListItem {
   readonly id: string
@@ -211,6 +212,14 @@ export class PullRequestList extends React.Component<
     event.preventDefault()
 
     const items = generatePullRequestContextMenuItems({
+      onReviewPullRequest: () => {
+        this.props.dispatcher.closeFoldout(FoldoutType.Branch)
+        this.props.dispatcher.showPopup({
+          type: PopupType.PullRequestReviewSession,
+          repository: this.props.repository,
+          prNumber: item.pullRequest.pullRequestNumber,
+        })
+      },
       onViewPullRequestOnGitHub: () => {
         this.props.dispatcher.showPullRequestByPR(item.pullRequest)
       },

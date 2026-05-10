@@ -14,7 +14,10 @@
  * to the renderer's store) is the job of `TerminalManager`, not this class.
  */
 
-import { IPtyOptions, ITerminalSessionSnapshot } from '../../lib/terminal/pty-types'
+import {
+  IPtyOptions,
+  ITerminalSessionSnapshot,
+} from '../../lib/terminal/pty-types'
 
 /** Minimum surface our PTY needs to expose. Mirrors `node-pty`'s `IPty`. */
 export interface IPty {
@@ -95,20 +98,32 @@ export class PtySession {
    * Idempotent: subsequent calls are no-ops once the PTY exists.
    */
   public start(): void {
-    if (this.pty !== null || this.destroyed) return
+    if (this.pty !== null || this.destroyed) {return}
 
     this.pty = this.deps.factory(this.deps.options)
     this.snapshot = { ...this.snapshot, status: 'running' }
 
     this.dataDisposable = this.pty.onData(chunk => {
+      if (this.destroyed) {return}
       const bytes = chunkToBytes(chunk)
-      this.deps.port.postMessage({ type: 'data', bytes })
+      this.safePost({ type: 'data', bytes })
     })
 
     this.exitDisposable = this.pty.onExit(({ exitCode }) => {
+      if (this.destroyed) {
+        // We may have torn down already (renderer-initiated kill). Drop.
+        return
+      }
       this.snapshot = { ...this.snapshot, status: 'exited', exitCode }
-      this.deps.port.postMessage({ type: 'exit', exitCode })
-      for (const cb of this.exitListeners) cb(this.snapshot)
+      this.safePost({ type: 'exit', exitCode })
+      const listeners = this.exitListeners.slice()
+      for (const cb of listeners) {
+        try {
+          cb(this.snapshot)
+        } catch (err) {
+          log.error('[pty-session] exit listener threw', err as Error)
+        }
+      }
       this.cleanup()
     })
 
@@ -119,23 +134,29 @@ export class PtySession {
 
   /** Forward keystrokes / paste payloads to the PTY. */
   public write(bytes: Uint8Array | string): void {
-    if (this.pty === null) return
+    if (this.pty === null || this.destroyed) {return}
     this.pty.write(typeof bytes === 'string' ? bytes : Buffer.from(bytes))
   }
 
   /** Resize the PTY (clamped to >=1 in each dimension). */
   public resize(cols: number, rows: number): void {
-    if (this.pty === null) return
+    if (this.pty === null || this.destroyed) {return}
     const c = Math.max(1, Math.floor(cols))
     const r = Math.max(1, Math.floor(rows))
-    if (c === this.snapshot.cols && r === this.snapshot.rows) return
-    this.pty.resize(c, r)
+    if (c === this.snapshot.cols && r === this.snapshot.rows) {return}
+    try {
+      this.pty.resize(c, r)
+    } catch (err) {
+      // PTY may have exited between the check and the call; not actionable.
+      log.warn('[pty-session] resize failed', err as Error)
+      return
+    }
     this.snapshot = { ...this.snapshot, cols: c, rows: r }
   }
 
   /** Kill the PTY and tear down the port. Safe to call multiple times. */
   public kill(signal: string = 'SIGHUP'): void {
-    if (this.destroyed) return
+    if (this.destroyed) {return}
     if (this.pty !== null) {
       try {
         this.pty.kill(signal)
@@ -152,7 +173,8 @@ export class PtySession {
   }
 
   private handleRendererMessage(data: any): void {
-    if (data === null || typeof data !== 'object') return
+    if (this.destroyed) {return}
+    if (data === null || typeof data !== 'object') {return}
     switch (data.type) {
       case 'input':
         this.write(data.bytes)
@@ -166,15 +188,38 @@ export class PtySession {
     }
   }
 
+  private safePost(msg: any): void {
+    try {
+      this.deps.port.postMessage(msg)
+    } catch (err) {
+      // Port can be closed by the renderer at any moment; the resulting
+      // throw must not propagate into the PTY data callback or it will
+      // crash the main process.
+      log.warn('[pty-session] postMessage failed', err as Error)
+    }
+  }
+
   private cleanup(): void {
-    if (this.destroyed) return
+    if (this.destroyed) {return}
     this.destroyed = true
-    this.dataDisposable?.dispose()
-    this.exitDisposable?.dispose()
+    try {
+      this.dataDisposable?.dispose()
+    } catch {
+      // node-pty disposables can throw if the PTY is gone; ignore.
+    }
+    try {
+      this.exitDisposable?.dispose()
+    } catch {
+      // Same — ignore.
+    }
     this.dataDisposable = null
     this.exitDisposable = null
     try {
       this.deps.port.removeAllListeners()
+    } catch {
+      // Port may have already been closed.
+    }
+    try {
       this.deps.port.close()
     } catch {
       // Port may have already been closed.
@@ -182,11 +227,21 @@ export class PtySession {
   }
 }
 
+/**
+ * Always copy the PTY chunk into a fresh buffer. node-pty re-uses an
+ * internal buffer pool for subsequent reads; Electron's structured clone
+ * inside `MessagePortMain.postMessage` is asynchronous w.r.t. the caller,
+ * so a zero-copy `Uint8Array` view of the source buffer would be
+ * overwritten before the renderer receives it (data garbling, output
+ * bleed across commands).
+ */
 function chunkToBytes(chunk: string | Buffer): Uint8Array {
-  // postMessage's structured-clone copies synchronously before returning,
-  // so a zero-copy view is safe — node-pty can reuse its buffer pool the
-  // moment our caller invokes postMessage. Avoids one allocation+copy per
-  // PTY data frame on the hot path.
-  const buf = typeof chunk === 'string' ? Buffer.from(chunk, 'utf8') : chunk
-  return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+  if (typeof chunk === 'string') {
+    const buf = Buffer.from(chunk, 'utf8')
+    return new Uint8Array(buf)
+  }
+  // Copy into a freshly-allocated ArrayBuffer.
+  const out = new Uint8Array(chunk.byteLength)
+  out.set(chunk)
+  return out
 }

@@ -15,7 +15,9 @@ class FakeHeightStore implements IHeightStore {
   }
 }
 
-const snap = (over: Partial<ITerminalSessionSnapshot> = {}): ITerminalSessionSnapshot => ({
+const snap = (
+  over: Partial<ITerminalSessionSnapshot> = {}
+): ITerminalSessionSnapshot => ({
   id: 'sess-1',
   repositoryId: 1,
   cwd: '/tmp',
@@ -30,14 +32,40 @@ const snap = (over: Partial<ITerminalSessionSnapshot> = {}): ITerminalSessionSna
 
 describe('TerminalStore', () => {
   describe('initial state', () => {
-    it('starts hidden, with no active session, default height', () => {
+    it('defaults to visible (so first-launch users see a terminal)', () => {
       const store = new TerminalStore()
       const s = store.getState()
-      expect(s.visible).toBe(false)
+      expect(s.visible).toBe(true)
       expect(s.height).toBe(_internals.DEFAULT_HEIGHT)
       expect(s.activeSessionId).toBeNull()
       expect(s.sessions.size).toBe(0)
-      expect(s.sessionByRepoId.size).toBe(0)
+      expect(s.tabsByRepoId.size).toBe(0)
+      expect(s.activeByRepoId.size).toBe(0)
+    })
+
+    it('respects a persisted "hidden" preference', () => {
+      const fake = new FakeHeightStore()
+      fake.setItem(_internals.VISIBLE_KEY, 'hidden')
+      const store = new TerminalStore(fake)
+      expect(store.getState().visible).toBe(false)
+    })
+
+    it('respects a persisted "visible" preference', () => {
+      const fake = new FakeHeightStore()
+      fake.setItem(_internals.VISIBLE_KEY, 'visible')
+      const store = new TerminalStore(fake)
+      expect(store.getState().visible).toBe(true)
+    })
+
+    it('toggle persists the new visibility', () => {
+      const fake = new FakeHeightStore()
+      const store = new TerminalStore(fake)
+      // starts visible
+      store.toggle()
+      expect(store.getState().visible).toBe(false)
+      expect(fake.getItem(_internals.VISIBLE_KEY)).toBe('hidden')
+      store.toggle()
+      expect(fake.getItem(_internals.VISIBLE_KEY)).toBe('visible')
     })
 
     it('hydrates persisted height from storage', () => {
@@ -64,19 +92,20 @@ describe('TerminalStore', () => {
 
   describe('toggle / show / hide', () => {
     it('toggle flips visibility and emits an update', () => {
+      // Default is visible, so first toggle hides, second shows.
       const store = new TerminalStore()
       let updates = 0
       store.onDidUpdate(() => updates++)
       store.toggle()
-      expect(store.getState().visible).toBe(true)
-      store.toggle()
       expect(store.getState().visible).toBe(false)
+      store.toggle()
+      expect(store.getState().visible).toBe(true)
       expect(updates).toBe(2)
     })
 
     it('show is a no-op when already visible', () => {
       const store = new TerminalStore()
-      store.show()
+      // store starts visible by default
       let updates = 0
       store.onDidUpdate(() => updates++)
       store.show()
@@ -85,6 +114,7 @@ describe('TerminalStore', () => {
 
     it('hide is a no-op when already hidden', () => {
       const store = new TerminalStore()
+      store.hide() // first hide actually hides
       let updates = 0
       store.onDidUpdate(() => updates++)
       store.hide()
@@ -127,13 +157,34 @@ describe('TerminalStore', () => {
   })
 
   describe('session lifecycle', () => {
-    it('registerSession stores the session and makes it active', () => {
+    it('registerSession stores the session, appends to tabs, and makes it active', () => {
       const store = new TerminalStore()
       store.registerSession(snap({ id: 'a', repositoryId: 7 }))
       const s = store.getState()
       expect(s.sessions.has('a')).toBe(true)
-      expect(s.sessionByRepoId.get(7)).toBe('a')
+      expect(s.tabsByRepoId.get(7)).toEqual(['a'])
+      expect(s.activeByRepoId.get(7)).toBe('a')
       expect(s.activeSessionId).toBe('a')
+    })
+
+    it('registerSession appends additional tabs in order for the same repo', () => {
+      const store = new TerminalStore()
+      store.registerSession(snap({ id: 'a', repositoryId: 7 }))
+      store.registerSession(snap({ id: 'b', repositoryId: 7 }))
+      const s = store.getState()
+      expect(s.tabsByRepoId.get(7)).toEqual(['a', 'b'])
+      // newest is active
+      expect(s.activeSessionId).toBe('b')
+      expect(s.activeByRepoId.get(7)).toBe('b')
+    })
+
+    it('selectSession flips the active id and remembers it for the repo', () => {
+      const store = new TerminalStore()
+      store.registerSession(snap({ id: 'a', repositoryId: 7 }))
+      store.registerSession(snap({ id: 'b', repositoryId: 7 }))
+      store.selectSession('a')
+      expect(store.getState().activeSessionId).toBe('a')
+      expect(store.getState().activeByRepoId.get(7)).toBe('a')
     })
 
     it('updateSession patches an existing snapshot in place', () => {
@@ -151,14 +202,27 @@ describe('TerminalStore', () => {
       expect(updates).toBe(0)
     })
 
-    it('removeSession clears bindings and active id', () => {
+    it('removeSession clears bindings and active id when last tab', () => {
       const store = new TerminalStore()
       store.registerSession(snap({ id: 'a', repositoryId: 1 }))
       store.removeSession('a')
       const s = store.getState()
       expect(s.sessions.has('a')).toBe(false)
-      expect(s.sessionByRepoId.has(1)).toBe(false)
+      expect(s.tabsByRepoId.has(1)).toBe(false)
+      expect(s.activeByRepoId.has(1)).toBe(false)
       expect(s.activeSessionId).toBeNull()
+    })
+
+    it('removeSession picks the previous tab as active when removing the active one', () => {
+      const store = new TerminalStore()
+      store.registerSession(snap({ id: 'a', repositoryId: 1 }))
+      store.registerSession(snap({ id: 'b', repositoryId: 1 }))
+      // 'b' is now active. Remove 'b'.
+      store.removeSession('b')
+      const s = store.getState()
+      expect(s.tabsByRepoId.get(1)).toEqual(['a'])
+      expect(s.activeSessionId).toBe('a')
+      expect(s.activeByRepoId.get(1)).toBe('a')
     })
 
     it('removeSession keeps the active id when a different session was active', () => {
@@ -177,19 +241,10 @@ describe('TerminalStore', () => {
       store.removeSession('nope')
       expect(updates).toBe(0)
     })
-
-    it('removeSession does not delete repo binding owned by another session', () => {
-      const store = new TerminalStore()
-      store.registerSession(snap({ id: 'old', repositoryId: 1 }))
-      store.registerSession(snap({ id: 'new', repositoryId: 1 }))
-      // sessionByRepoId.get(1) === 'new' after the second register.
-      store.removeSession('old')
-      expect(store.getState().sessionByRepoId.get(1)).toBe('new')
-    })
   })
 
   describe('selectRepo', () => {
-    it('switches activeSessionId to the session bound to that repo', () => {
+    it('switches activeSessionId to the last-active session for that repo', () => {
       const store = new TerminalStore()
       store.registerSession(snap({ id: 'a', repositoryId: 1 }))
       store.registerSession(snap({ id: 'b', repositoryId: 2 }))
@@ -199,7 +254,18 @@ describe('TerminalStore', () => {
       expect(store.getState().activeSessionId).toBe('b')
     })
 
-    it('clears activeSessionId when the repo has no session', () => {
+    it('falls back to the first tab when activeByRepoId has no entry', () => {
+      const store = new TerminalStore()
+      store.registerSession(snap({ id: 'a', repositoryId: 1 }))
+      store.registerSession(snap({ id: 'b', repositoryId: 1 }))
+      // Select something else, then return — the last-active should win.
+      store.selectSession('a')
+      store.selectRepo(2)
+      store.selectRepo(1)
+      expect(store.getState().activeSessionId).toBe('a')
+    })
+
+    it('clears activeSessionId when the repo has no tabs', () => {
       const store = new TerminalStore()
       store.selectRepo(99)
       expect(store.getState().activeSessionId).toBeNull()

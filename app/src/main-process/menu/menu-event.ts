@@ -25,6 +25,7 @@ export type MenuEvent =
   | 'show-repository-settings'
   | 'open-in-shell'
   | 'toggle-terminal'
+  | 'show-repo-health-dashboard'
   | 'compare-on-github'
   | 'branch-on-github'
   | 'view-repository-on-github'

@@ -82,19 +82,21 @@ export async function getAllStashes(
   const entries = await readStashLog(repository)
   const files: StashedFileChanges = { kind: StashedChangesLoadStates.NotLoaded }
 
-  return entries.map(({ name, message, stashSha, tree, parents, stashedAt }) => ({
-    name,
-    stashSha,
-    branchName:
-      extractBranchFromMessage(message) ??
-      extractBranchFromCliMessage(message) ??
-      '',
-    message,
-    stashedAt,
-    tree,
-    parents: parents.length > 0 ? parents.split(' ') : [],
-    files,
-  }))
+  return entries.map(
+    ({ name, message, stashSha, tree, parents, stashedAt }) => ({
+      name,
+      stashSha,
+      branchName:
+        extractBranchFromMessage(message) ??
+        extractBranchFromCliMessage(message) ??
+        '',
+      message,
+      stashedAt,
+      tree,
+      parents: parents.length > 0 ? parents.split(' ') : [],
+      files,
+    })
+  )
 }
 
 interface IRawStashLogEntry {
@@ -328,6 +330,11 @@ function extractBranchFromCliMessage(message: string): string | null {
  *
  * Returns silently if the SHA does not match any known stash. Throws on merge
  * conflicts so the caller can route the user into the conflict resolution flow.
+ *
+ * `git stash apply` accepts a stash commit SHA directly — passing the
+ * reflog selector (`stash@{N}`) would race against any concurrent stash op
+ * (auto-stash, parallel `loadStashes`, the user's CLI) that renumbers the
+ * reflog stack between our lookup and the apply call.
  */
 export async function applyStash(
   repository: Repository,
@@ -341,7 +348,7 @@ export async function applyStash(
 
   const expectedErrors = new Set<DugiteError>([DugiteError.MergeConflicts])
   const successExitCodes = new Set<number>([0, 1])
-  const args = ['stash', 'apply', '--quiet', match.name]
+  const args = ['stash', 'apply', '--quiet', stashSha]
 
   const result = await git(args, repository.path, 'applyStash', {
     expectedErrors,

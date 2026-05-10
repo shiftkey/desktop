@@ -5,6 +5,19 @@ import {
 import { TERMINAL_IPC } from '../../../src/lib/terminal/ipc-channels'
 import { MockPty, MockPort } from '../../helpers/mock-pty'
 
+interface IPortTransferCall {
+  channel: string
+  message: any
+  ports: any[]
+}
+
+class FakeSenderFrame {
+  public posts: IPortTransferCall[] = []
+  public postMessage(channel: string, message: any, ports: any[]) {
+    this.posts.push({ channel, message, ports })
+  }
+}
+
 class FakeIpcMain implements IIpcMain {
   public handlers: Map<string, (event: any, ...args: any[]) => any> = new Map()
 
@@ -19,11 +32,15 @@ class FakeIpcMain implements IIpcMain {
   public on() {}
   public removeAllListeners() {}
 
-  public async invoke(channel: string, args?: any) {
+  public async invoke(channel: string, args?: any, event: any = newEvent()) {
     const h = this.handlers.get(channel)
-    if (!h) throw new Error(`no handler for ${channel}`)
-    return h({}, args)
+    if (!h) {throw new Error(`no handler for ${channel}`)}
+    return h(event, args)
   }
+}
+
+function newEvent() {
+  return { senderFrame: new FakeSenderFrame() }
 }
 
 describe('registerTerminalIpc', () => {
@@ -55,22 +72,33 @@ describe('registerTerminalIpc', () => {
       expect(ipc.handlers.has(TERMINAL_IPC.RESIZE)).toBe(true)
     })
 
-    it('spawn returns a session id and the renderer-facing port', async () => {
+    it('spawn returns a session id and transfers the renderer port out-of-band', async () => {
       const { ipc, ptyInstances, portPairs } = setup()
-      const result = await ipc.invoke(TERMINAL_IPC.SPAWN, {
-        repositoryId: 1,
-        options: {
-          shell: '/bin/bash',
-          args: [],
-          cwd: '/tmp',
-          env: {},
-          cols: 80,
-          rows: 24,
+      const event = newEvent()
+      const result = await ipc.invoke(
+        TERMINAL_IPC.SPAWN,
+        {
+          repositoryId: 1,
+          options: {
+            shell: '/bin/bash',
+            args: [],
+            cwd: '/tmp',
+            env: {},
+            cols: 80,
+            rows: 24,
+          },
         },
-      })
+        event
+      )
       expect(typeof result.sessionId).toBe('string')
       expect(result.sessionId.length).toBeGreaterThan(0)
-      expect(result.port).toBe(portPairs[0].renderer)
+      expect(result.port).toBeUndefined()
+      // Port was transferred via event.senderFrame.postMessage with a transfer list.
+      const frame = event.senderFrame as FakeSenderFrame
+      expect(frame.posts).toHaveLength(1)
+      expect(frame.posts[0].channel).toBe(TERMINAL_IPC.PORT_TRANSFER)
+      expect(frame.posts[0].message).toEqual({ sessionId: result.sessionId })
+      expect(frame.posts[0].ports[0]).toBe(portPairs[0].renderer)
       expect(ptyInstances).toHaveLength(1)
     })
 
@@ -110,6 +138,55 @@ describe('registerTerminalIpc', () => {
         rows: 30,
       })
       expect(ptyInstances[0].resizes[0]).toEqual({ cols: 100, rows: 30 })
+    })
+
+    it('rejects malformed spawn payloads', async () => {
+      const { ipc } = setup()
+      await expect(
+        ipc.invoke(TERMINAL_IPC.SPAWN, { repositoryId: 'abc', options: {} })
+      ).rejects.toThrow(/repositoryId/)
+      await expect(
+        ipc.invoke(TERMINAL_IPC.SPAWN, {
+          repositoryId: 1,
+          options: { shell: '', cwd: '/tmp', args: [], env: {} },
+        })
+      ).rejects.toThrow(/shell\/cwd/)
+    })
+
+    it('strips dangerous env vars from the spawn payload', async () => {
+      const ptyMod = {
+        spawn: jest.fn(
+          (_file: string, _args: ReadonlyArray<string>, _opts: any) =>
+            new MockPty()
+        ),
+      }
+      const ipc2 = new FakeIpcMain()
+      registerTerminalIpc(
+        ipc2,
+        () => ptyMod as any,
+        () => ({ main: new MockPort(), renderer: new MockPort() })
+      )
+      await ipc2.invoke(TERMINAL_IPC.SPAWN, {
+        repositoryId: 1,
+        options: {
+          shell: 'sh',
+          args: [],
+          cwd: '/',
+          env: {
+            PATH: '/usr/bin',
+            LD_PRELOAD: '/evil/lib.so',
+            NODE_OPTIONS: '--inspect',
+          },
+          cols: 80,
+          rows: 24,
+        },
+      })
+      const call = ptyMod.spawn.mock.calls[0]
+      expect(call).toBeDefined()
+      const passed = call[2] as { env: Record<string, string | undefined> }
+      expect(passed.env.PATH).toBe('/usr/bin')
+      expect(passed.env.LD_PRELOAD).toBeUndefined()
+      expect(passed.env.NODE_OPTIONS).toBeUndefined()
     })
 
     it('dispose unregisters all handlers and kills sessions', async () => {

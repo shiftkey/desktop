@@ -8,7 +8,10 @@
  * swapped for the mock in tests.
  */
 
-import { IPtyOptions, ITerminalSessionSnapshot } from '../../lib/terminal/pty-types'
+import {
+  IPtyOptions,
+  ITerminalSessionSnapshot,
+} from '../../lib/terminal/pty-types'
 import { IPty, IPtyPort, PtyFactory, PtySession } from './pty-session'
 
 interface ITerminalManagerDeps {
@@ -20,7 +23,8 @@ interface ITerminalManagerDeps {
 }
 
 let monotonic = 0
-const defaultNewId = () => `term-${Date.now().toString(36)}-${(monotonic++).toString(36)}`
+const defaultNewId = () =>
+  `term-${Date.now().toString(36)}-${(monotonic++).toString(36)}`
 
 export class TerminalManager {
   private readonly deps: ITerminalManagerDeps
@@ -48,18 +52,21 @@ export class TerminalManager {
       repositoryId,
       now: this.deps.now,
     })
+    // Register the session BEFORE start() so that an immediate exit
+    // (mock PTY in tests, or a shell that fails on launch) cannot leave a
+    // dead entry behind: the onExit handler will find and remove it.
+    this.sessions.set(id, session)
     session.onExit(snap => {
       this.sessions.delete(snap.id)
     })
     session.start()
-    this.sessions.set(id, session)
     return session.getSnapshot()
   }
 
   /** Kill an active session. No-op when the id is unknown. */
   public kill(sessionId: string): void {
     const session = this.sessions.get(sessionId)
-    if (session === undefined) return
+    if (session === undefined) {return}
     session.kill()
     this.sessions.delete(sessionId)
   }

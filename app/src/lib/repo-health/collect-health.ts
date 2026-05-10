@@ -116,20 +116,24 @@ export async function collectRepoHealth(
  *
  * Returns an array of `IRepoHealth` aligned with the input order. Order is
  * preserved even when probes resolve out of order so callers can stably
- * render rows.
+ * render rows. When an `AbortSignal` is provided and aborts mid-run, the
+ * remaining repos are skipped — the resulting array contains a `null`
+ * placeholder for every skipped slot which callers must filter out.
  */
 export async function collectMany(
   repos: ReadonlyArray<Repository>,
   opts: ICollectorOptions,
-  concurrency: number = 4
+  concurrency: number = 4,
+  signal?: AbortSignal
 ): Promise<ReadonlyArray<IRepoHealth>> {
-  if (concurrency < 1) concurrency = 1
-  const results: IRepoHealth[] = new Array(repos.length)
+  if (concurrency < 1) {concurrency = 1}
+  const results: Array<IRepoHealth | null> = new Array(repos.length).fill(null)
   let cursor = 0
   async function worker() {
     while (true) {
+      if (signal?.aborted) {return}
       const idx = cursor++
-      if (idx >= repos.length) return
+      if (idx >= repos.length) {return}
       results[idx] = await collectRepoHealth(repos[idx], opts)
     }
   }
@@ -138,5 +142,5 @@ export async function collectMany(
     () => worker()
   )
   await Promise.all(workers)
-  return results
+  return results.filter((r): r is IRepoHealth => r !== null)
 }

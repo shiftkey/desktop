@@ -188,6 +188,14 @@ export function buildDefaultMenu({
         click: emit('choose-repository'),
       },
       {
+        label: __DARWIN__
+          ? 'Repository Health Dashboard'
+          : 'Repository &health dashboard',
+        id: 'show-repo-health-dashboard',
+        accelerator: 'CmdOrCtrl+Shift+Y',
+        click: emit('show-repo-health-dashboard'),
+      },
+      {
         label: __DARWIN__ ? 'Show Branches List' : '&Branches list',
         id: 'show-branches-list',
         accelerator: 'CmdOrCtrl+B',
@@ -332,7 +340,7 @@ export function buildDefaultMenu({
           ? 'Toggle Integrated Terminal'
           : 'Toggle integrated &terminal',
         id: 'toggle-terminal',
-        accelerator: 'CmdOrCtrl+`',
+        accelerator: 'CmdOrCtrl+J',
         click: emit('toggle-terminal'),
       },
       {

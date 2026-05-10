@@ -1,10 +1,7 @@
 import { BaseStore } from './base-store'
 import { Repository } from '../../models/repository'
 import { IRepoHealth, IRepoHealthSnapshot } from '../repo-health/types'
-import {
-  collectMany,
-  ICollectorOptions,
-} from '../repo-health/collect-health'
+import { collectMany, ICollectorOptions } from '../repo-health/collect-health'
 
 export interface IRepoHealthStoreOptions {
   readonly collectorOptions: ICollectorOptions
@@ -14,12 +11,18 @@ export interface IRepoHealthStoreOptions {
 
 const DEDUP_WINDOW_MS = 60_000
 
+interface IInFlightRefresh {
+  readonly repoIds: Set<number>
+  readonly promise: Promise<void>
+  readonly controller: AbortController
+}
+
 export class RepoHealthStore extends BaseStore {
   private readonly options: IRepoHealthStoreOptions
   private statuses: Map<number, IRepoHealth> = new Map()
   private refreshing: Set<number> = new Set()
   private lastRefreshAt: number | null = null
-  private inFlight: Promise<void> | null = null
+  private inFlight: IInFlightRefresh | null = null
 
   public constructor(options: IRepoHealthStoreOptions) {
     super()
@@ -35,8 +38,13 @@ export class RepoHealthStore extends BaseStore {
   }
 
   /**
-   * Refresh health for the given repositories. Concurrent calls coalesce —
-   * the second caller awaits the in-flight promise rather than re-running.
+   * Refresh health for the given repositories.
+   *
+   * If a refresh is already in flight that covers every requested repo, the
+   * caller awaits the in-flight promise. Otherwise — including the case
+   * where the new caller asks for repos that the in-flight run doesn't
+   * cover — a new run is scheduled to pick up the missing repos as soon as
+   * the current one finishes.
    *
    * If `force=false` and the cache is fresh (<60s old) the call is a no-op.
    */
@@ -44,9 +52,20 @@ export class RepoHealthStore extends BaseStore {
     repos: ReadonlyArray<Repository>,
     force: boolean = false
   ): Promise<void> {
+    const requestedIds = new Set(repos.map(r => r.id))
+
     if (this.inFlight !== null) {
-      return this.inFlight
+      const covered = isSubsetOf(requestedIds, this.inFlight.repoIds)
+      if (covered) {return this.inFlight.promise}
+      // The in-flight run doesn't cover everything we need. Wait for it,
+      // then run a follow-up. We force=true on the follow-up because the
+      // dedup window would otherwise skip the run we just promised to
+      // perform — leaving the new repos with stale (or absent) statuses.
+      const previous = this.inFlight.promise
+      const followUp = previous.then(() => this.refreshAll(repos, true))
+      return followUp
     }
+
     const now = (this.options.now ?? Date.now)()
     if (
       !force &&
@@ -56,37 +75,49 @@ export class RepoHealthStore extends BaseStore {
       return
     }
 
-    for (const r of repos) this.refreshing.add(r.id)
+    for (const id of requestedIds) {this.refreshing.add(id)}
     this.emitUpdate()
 
-    this.inFlight = (async () => {
+    const controller = new AbortController()
+    const reposCopy = repos.slice()
+    const promise = (async () => {
       try {
         const results = await collectMany(
-          repos,
+          reposCopy,
           this.options.collectorOptions,
-          this.options.concurrency ?? 4
+          this.options.concurrency ?? 4,
+          controller.signal
         )
+        if (controller.signal.aborted) {return}
         for (const r of results) {
           this.statuses.set(r.repositoryId, r)
         }
         this.lastRefreshAt = (this.options.now ?? Date.now)()
       } finally {
-        for (const r of repos) this.refreshing.delete(r.id)
+        for (const id of requestedIds) {this.refreshing.delete(id)}
         this.inFlight = null
         this.emitUpdate()
       }
     })()
 
-    return this.inFlight
+    this.inFlight = { repoIds: requestedIds, promise, controller }
+    return promise
   }
 
   /** Refresh exactly one repository (e.g., after a successful push). */
   public async refreshOne(repo: Repository): Promise<void> {
     this.refreshing.add(repo.id)
     this.emitUpdate()
+    const controller = new AbortController()
     try {
-      const [health] = await collectMany([repo], this.options.collectorOptions, 1)
-      this.statuses.set(repo.id, health)
+      const [health] = await collectMany(
+        [repo],
+        this.options.collectorOptions,
+        1,
+        controller.signal
+      )
+      if (controller.signal.aborted) {return}
+      if (health) {this.statuses.set(repo.id, health)}
     } finally {
       this.refreshing.delete(repo.id)
       this.lastRefreshAt = (this.options.now ?? Date.now)()
@@ -96,17 +127,31 @@ export class RepoHealthStore extends BaseStore {
 
   /** Drop the snapshot for one repository (e.g., user removed the repo). */
   public forget(repositoryId: number): void {
-    if (this.statuses.delete(repositoryId)) {
-      this.emitUpdate()
-    }
+    let changed = false
+    if (this.statuses.delete(repositoryId)) {changed = true}
+    if (this.refreshing.delete(repositoryId)) {changed = true}
+    if (changed) {this.emitUpdate()}
   }
 
-  /** Drop all cached state. */
+  /** Drop all cached state and abort any in-flight collection. */
   public clear(): void {
-    if (this.statuses.size === 0 && this.refreshing.size === 0) return
+    if (this.inFlight !== null) {
+      try {
+        this.inFlight.controller.abort()
+      } catch {
+        // Some Node/Electron versions throw on double-abort; ignore.
+      }
+    }
+    if (this.statuses.size === 0 && this.refreshing.size === 0) {return}
     this.statuses.clear()
     this.refreshing.clear()
     this.lastRefreshAt = null
     this.emitUpdate()
   }
+}
+
+function isSubsetOf(a: Set<number>, b: Set<number>): boolean {
+  if (a.size > b.size) {return false}
+  for (const v of a) {if (!b.has(v)) {return false}}
+  return true
 }

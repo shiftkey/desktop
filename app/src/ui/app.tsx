@@ -496,6 +496,10 @@ export class App extends React.Component<IAppProps, IAppState> {
         return this.openCurrentRepositoryInShell()
       case 'toggle-terminal':
         return this.props.dispatcher.toggleTerminal()
+      case 'show-repo-health-dashboard':
+        return this.props.dispatcher.showPopup({
+          type: PopupType.RepoHealthDashboard,
+        })
       case 'clone-repository':
         return this.showCloneRepo()
       case 'show-about':
@@ -816,7 +820,9 @@ export class App extends React.Component<IAppProps, IAppState> {
   private getDotComAccount(): Account | null {
     const endpoint = getDotComAPIEndpoint()
     const accounts = this.state.accounts.filter(a => a.endpoint === endpoint)
-    if (accounts.length === 0) return null
+    if (accounts.length === 0) {
+      return null
+    }
     const activeId = this.state.activeAccountByEndpoint.get(endpoint)
     return accounts.find(a => a.id === activeId) ?? accounts[0]
   }
@@ -824,8 +830,12 @@ export class App extends React.Component<IAppProps, IAppState> {
   private getEnterpriseAccount(): Account | null {
     const dotCom = getDotComAPIEndpoint()
     const accounts = this.state.accounts.filter(a => a.endpoint !== dotCom)
-    if (accounts.length === 0) return null
-    const activeId = this.state.activeAccountByEndpoint.get(accounts[0].endpoint)
+    if (accounts.length === 0) {
+      return null
+    }
+    const activeId = this.state.activeAccountByEndpoint.get(
+      accounts[0].endpoint
+    )
     return accounts.find(a => a.id === activeId) ?? accounts[0]
   }
 
@@ -3495,7 +3505,8 @@ export class App extends React.Component<IAppProps, IAppState> {
           onCherryPick={this.startCherryPickWithoutBranch}
           pullRequestSuggestedNextAction={state.pullRequestSuggestedNextAction}
           stashEntries={
-            state.stashesByRepoId.get(selectedState.repository.id)?.entries ?? []
+            state.stashesByRepoId.get(selectedState.repository.id)?.entries ??
+            []
           }
           stashesLoading={
             state.stashesByRepoId.get(selectedState.repository.id)?.loading ??
@@ -3569,20 +3580,26 @@ export class App extends React.Component<IAppProps, IAppState> {
   }
 
   private renderTerminalPanel() {
-    if (this.state.showWelcomeFlow) return null
+    if (this.state.showWelcomeFlow) {
+      return null
+    }
+    const repo = this.getRepository()
+    const repositoryId = repo instanceof Repository ? repo.id : null
     return (
       <TerminalPanel
         state={this.state.terminal}
+        repositoryId={repositoryId}
         theme={getTerminalTheme(
           this.state.currentTheme === ApplicationTheme.Dark
             ? ApplicationTheme.Dark
             : ApplicationTheme.Light
         )}
-        portFor={sessionId =>
-          this.props.dispatcher.getTerminalPort(sessionId)
-        }
+        portFor={sessionId => this.props.dispatcher.getTerminalPort(sessionId)}
         onResize={px => this.props.dispatcher.setTerminalHeight(px)}
         onCloseClick={() => this.props.dispatcher.toggleTerminal()}
+        onNewTab={() => this.props.dispatcher.spawnNewTerminalTab()}
+        onSelectTab={sid => this.props.dispatcher.selectTerminalTab(sid)}
+        onCloseTab={sid => this.props.dispatcher.closeTerminalTab(sid)}
       />
     )
   }

@@ -13,15 +13,18 @@ interface IProps {
 }
 
 /**
- * Dialog frame around the dashboard. Uses the existing `Dialog` component
- * for consistent chrome — the dashboard itself is the body.
+ * Full-window dialog frame around the dashboard.
+ *
+ * The `repo-health-dashboard-dialog` id hooks the SCSS rules that size
+ * the dialog at 90% of the viewport, override the default cramped Dialog
+ * width, and let the body scroll.
  */
 export class RepoHealthDashboardDialog extends React.Component<IProps> {
   public render() {
     return (
       <Dialog
-        id="repo-health-dashboard"
-        title={__DARWIN__ ? 'Repository Health' : 'Repository health'}
+        id="repo-health-dashboard-dialog"
+        title={__DARWIN__ ? 'Repository Health Dashboard' : 'Repository health'}
         onDismissed={this.props.onDismissed}
         onSubmit={this.props.onDismissed}
       >

@@ -2,9 +2,11 @@
  * Wire `TerminalManager` to Electron's `ipcMain`.
  *
  * Renderer side calls:
- *   - `terminal/spawn` → returns `{ sessionId }` and transfers the
- *     other end of a `MessageChannelMain` so high-throughput data flows
- *     out of band.
+ *   - `terminal/spawn` → returns `{ sessionId }`. The renderer-side
+ *     `MessagePort` is transferred out-of-band via
+ *     `event.senderFrame.postMessage('terminal/port-transfer', ...)`,
+ *     because `MessagePortMain` cannot be structured-cloned as an
+ *     `ipcMain.handle` return value.
  *   - `terminal/kill` → ends a session.
  *   - `terminal/resize` → resizes a session.
  *
@@ -82,26 +84,63 @@ export function registerTerminalIpc(
     factory: opts => spawnPty(ptyMod, opts),
   })
 
-  ipcMain.handle(TERMINAL_IPC.SPAWN, async (_event, args) => {
-    const { repositoryId, options } = args as {
-      repositoryId: number
-      options: IPtyOptions
-    }
+  ipcMain.handle(TERMINAL_IPC.SPAWN, async (event, args) => {
+    const { repositoryId, options } = validateSpawnArgs(args)
     const port = createPortPair()
     const snapshot = manager.spawn(repositoryId, options, port.main)
-    return { sessionId: snapshot.id, port: port.renderer }
+    // Transfer the renderer-side port out-of-band. ipcMain.handle return
+    // values go through structured clone, which does NOT support
+    // MessagePortMain; the only supported path is postMessage with a
+    // transfer list.
+    try {
+      const frame = event?.senderFrame
+      if (frame && typeof frame.postMessage === 'function') {
+        frame.postMessage(
+          TERMINAL_IPC.PORT_TRANSFER,
+          { sessionId: snapshot.id },
+          [port.renderer]
+        )
+      } else if (
+        event?.sender &&
+        typeof event.sender.postMessage === 'function'
+      ) {
+        event.sender.postMessage(
+          TERMINAL_IPC.PORT_TRANSFER,
+          { sessionId: snapshot.id },
+          [port.renderer]
+        )
+      } else {
+        // No way to transfer the port — kill the session so we don't leak a
+        // PTY the renderer can never reach.
+        manager.kill(snapshot.id)
+        throw new Error(
+          'Cannot transfer terminal MessagePort: sender does not support postMessage'
+        )
+      }
+    } catch (err) {
+      manager.kill(snapshot.id)
+      throw err
+    }
+    return { sessionId: snapshot.id }
   })
 
   ipcMain.handle(TERMINAL_IPC.KILL, async (_event, sessionId: string) => {
+    if (typeof sessionId !== 'string' || sessionId.length === 0) {return}
     manager.kill(sessionId)
   })
 
   ipcMain.handle(
     TERMINAL_IPC.RESIZE,
-    async (
-      _event,
-      args: { sessionId: string; cols: number; rows: number }
-    ) => {
+    async (_event, args: { sessionId: string; cols: number; rows: number }) => {
+      if (
+        args === null ||
+        typeof args !== 'object' ||
+        typeof args.sessionId !== 'string' ||
+        !Number.isFinite(args.cols) ||
+        !Number.isFinite(args.rows)
+      ) {
+        return
+      }
       manager.resize(args.sessionId, args.cols, args.rows)
     }
   )
@@ -126,6 +165,66 @@ function spawnPty(ptyMod: PtyModule, opts: IPtyOptions): IPty {
     rows: opts.rows,
     encoding: null,
   })
+}
+
+/**
+ * Defense-in-depth validation of the renderer-supplied spawn payload. The
+ * trust boundary is the same process tree, but a compromised renderer
+ * (e.g. via XSS in markdown content) could otherwise spawn an arbitrary
+ * binary with arbitrary args/cwd/env. We reject obviously-malformed
+ * payloads and strip dangerous env vars that could change the loader's
+ * behavior for the spawned child.
+ */
+function validateSpawnArgs(raw: unknown): {
+  repositoryId: number
+  options: IPtyOptions
+} {
+  if (raw === null || typeof raw !== 'object') {
+    throw new Error('Invalid terminal spawn payload')
+  }
+  const r = raw as { repositoryId?: unknown; options?: unknown }
+  if (!Number.isFinite(r.repositoryId)) {
+    throw new Error('Invalid terminal spawn payload: repositoryId')
+  }
+  if (r.options === null || typeof r.options !== 'object') {
+    throw new Error('Invalid terminal spawn payload: options')
+  }
+  const o = r.options as Record<string, unknown>
+  const shell = typeof o.shell === 'string' ? o.shell : ''
+  const cwd = typeof o.cwd === 'string' ? o.cwd : ''
+  if (shell.length === 0 || cwd.length === 0) {
+    throw new Error('Invalid terminal spawn payload: shell/cwd')
+  }
+  const args = Array.isArray(o.args)
+    ? o.args.filter((a): a is string => typeof a === 'string')
+    : []
+  const env = sanitizeEnv(o.env)
+  const cols = Math.max(1, Math.floor(Number(o.cols) || 80))
+  const rows = Math.max(1, Math.floor(Number(o.rows) || 24))
+  return {
+    repositoryId: Number(r.repositoryId),
+    options: { shell, args, cwd, env, cols, rows },
+  }
+}
+
+const DANGEROUS_ENV_KEYS = new Set([
+  'LD_PRELOAD',
+  'LD_LIBRARY_PATH',
+  'LD_AUDIT',
+  'DYLD_INSERT_LIBRARIES',
+  'DYLD_LIBRARY_PATH',
+  'DYLD_FRAMEWORK_PATH',
+  'NODE_OPTIONS',
+])
+
+function sanitizeEnv(raw: unknown): Record<string, string> {
+  if (raw === null || typeof raw !== 'object') {return {}}
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (DANGEROUS_ENV_KEYS.has(k)) {continue}
+    if (typeof v === 'string') {out[k] = v}
+  }
+  return out
 }
 
 /**

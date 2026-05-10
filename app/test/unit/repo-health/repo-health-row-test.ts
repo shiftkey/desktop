@@ -31,32 +31,54 @@ function makeRow(over: any = {}) {
   return { row, onClick }
 }
 
+/** Stringify the React tree so we can assert on rendered content. */
+function dump(tree: unknown): string {
+  return JSON.stringify(tree)
+}
+
 describe('RepoHealthRow', () => {
-  it('renders the repo name without health when not loaded yet', () => {
+  it('uses tier-ok when no health is loaded', () => {
     const { row } = makeRow()
     const tree: any = row.render()
-    expect(tree.props.className).toBe('repo-health-row')
-    const name = tree.props.children[0]
-    expect(name.props.children).toBe('a')
+    expect(tree.props.className).toContain('repo-health-card')
+    expect(tree.props.className).toContain('tier-ok')
   })
 
-  it('adds the "refreshing" class and a refreshing indicator', () => {
+  it('marks tier-high for attention >= 50', () => {
+    const { row } = makeRow({ health: health({ attentionScore: 70 }) })
+    const tree: any = row.render()
+    expect(tree.props.className).toContain('tier-high')
+    expect(dump(tree)).toContain('score-high')
+  })
+
+  it('marks tier-mid for 20 <= attention < 50', () => {
+    const { row } = makeRow({ health: health({ attentionScore: 30 }) })
+    const tree: any = row.render()
+    expect(tree.props.className).toContain('tier-mid')
+    expect(dump(tree)).toContain('score-mid')
+  })
+
+  it('marks tier-low for 0 < attention < 20', () => {
+    const { row } = makeRow({ health: health({ attentionScore: 5 }) })
+    const tree: any = row.render()
+    expect(tree.props.className).toContain('tier-low')
+  })
+
+  it('renders the refreshing class and "…" placeholder', () => {
     const { row } = makeRow({ refreshing: true })
     const tree: any = row.render()
     expect(tree.props.className).toContain('refreshing')
-    const indicator = tree.props.children[1]
-    expect(indicator.props.className).toBe('repo-health-row__refreshing')
+    expect(dump(tree)).toContain('"…"')
   })
 
-  it('renders an error span when health.error is set', () => {
+  it('renders an error block when health.error is set', () => {
     const { row } = makeRow({ health: health({ error: 'boom' }) })
     const tree: any = row.render()
-    const signals = tree.props.children[2]
-    expect(signals.props.className).toBe('repo-health-row__error')
-    expect(signals.props.title).toBe('boom')
+    expect(dump(tree)).toContain('repo-health-card__error')
+    expect(dump(tree)).toContain('boom')
   })
 
-  it('renders signals for uncommitted/ahead/behind/PRs/CI failure/score', () => {
+  it('renders all signal cells (changes/ahead/behind/PRs/CI/stale/last)', () => {
     const { row } = makeRow({
       health: health({
         uncommittedCount: 3,
@@ -64,43 +86,30 @@ describe('RepoHealthRow', () => {
         behindBy: 1,
         openPullRequestCount: 4,
         defaultBranchStatus: 'failure',
+        staleBranchCount: 7,
+        lastActivityUnix: Math.floor(Date.now() / 1000) - 3600,
         attentionScore: 70,
       }),
     })
     const tree: any = row.render()
-    const signalsSpan = tree.props.children[2]
-    const json = JSON.stringify(signalsSpan)
-    expect(json).toContain('uncommitted')
-    expect(json).toContain('ahead')
-    expect(json).toContain('behind')
-    expect(json).toContain('PRs')
-    expect(json).toContain('✗ CI')
-    expect(json).toContain('⚠')
-    expect(json).toContain('70')
-    expect(json).toContain('score-high')
+    const text = dump(tree)
+    expect(text).toContain('Changes')
+    expect(text).toContain('Ahead')
+    expect(text).toContain('Behind')
+    expect(text).toContain('Open PRs')
+    expect(text).toContain('CI')
+    expect(text).toContain('Stale branches')
+    expect(text).toContain('Last commit')
   })
 
-  it('uses score-mid for attention 20-49', () => {
-    const { row } = makeRow({ health: health({ attentionScore: 30 }) })
+  it('flags the CI cell as bad on failure', () => {
+    const { row } = makeRow({
+      health: health({ defaultBranchStatus: 'failure' }),
+    })
     const tree: any = row.render()
-    expect(JSON.stringify(tree)).toContain('score-mid')
-  })
-
-  it('uses score-low for attention < 20', () => {
-    const { row } = makeRow({ health: health({ attentionScore: 5 }) })
-    const tree: any = row.render()
-    expect(JSON.stringify(tree)).toContain('score-low')
-  })
-
-  it('hides per-signal spans when their values are zero', () => {
-    const { row } = makeRow({ health: health({ attentionScore: 0 }) })
-    const tree: any = row.render()
-    const json = JSON.stringify(tree)
-    expect(json).not.toContain('uncommitted')
-    expect(json).not.toContain('ahead')
-    expect(json).not.toContain('behind')
-    expect(json).not.toContain('PRs')
-    expect(json).not.toContain('✗ CI')
+    // SignalCell is a function component; assert on the prop passed in.
+    expect(dump(tree)).toContain('"bad":true')
+    expect(dump(tree)).toContain('"value":"✗"')
   })
 
   it('forwards the click with the repository', () => {
@@ -110,10 +119,25 @@ describe('RepoHealthRow', () => {
     expect(onClick).toHaveBeenCalledWith(row.props.repository)
   })
 
+  it('Enter key triggers click', () => {
+    const { row, onClick } = makeRow()
+    const tree: any = row.render()
+    const stub = { preventDefault: jest.fn() } as any
+    tree.props.onKeyDown({ ...stub, key: 'Enter' })
+    expect(onClick).toHaveBeenCalledTimes(1)
+    expect(stub.preventDefault).toHaveBeenCalled()
+  })
+
+  it('Space key triggers click', () => {
+    const { row, onClick } = makeRow()
+    const tree: any = row.render()
+    const stub = { preventDefault: jest.fn() } as any
+    tree.props.onKeyDown({ ...stub, key: ' ' })
+    expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
   it('falls back to repo path when name is empty', () => {
     const r = new Repository('/path/only', 99, null, false)
-    // Repository name is derived from path basename -> 'only'.
-    // Test the explicit empty-name path by manually constructing:
     Object.defineProperty(r, 'name', { value: '' })
     const row = new RepoHealthRow({
       repository: r,
@@ -122,7 +146,6 @@ describe('RepoHealthRow', () => {
       onClick: jest.fn(),
     })
     const tree: any = row.render()
-    const name = tree.props.children[0]
-    expect(name.props.children).toBe('/path/only')
+    expect(dump(tree)).toContain('/path/only')
   })
 })

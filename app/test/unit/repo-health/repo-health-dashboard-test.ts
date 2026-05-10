@@ -1,6 +1,9 @@
 import { RepoHealthDashboard } from '../../../src/ui/repo-health/repo-health-dashboard'
 import { Repository } from '../../../src/models/repository'
-import { IRepoHealth, IRepoHealthSnapshot } from '../../../src/lib/repo-health/types'
+import {
+  IRepoHealth,
+  IRepoHealthSnapshot,
+} from '../../../src/lib/repo-health/types'
 
 const repo = (id: number, name: string) =>
   new Repository('/r/' + name, id, null, false)
@@ -20,7 +23,10 @@ const health = (over: Partial<IRepoHealth> = {}): IRepoHealth => ({
   ...over,
 })
 
-function makeDashboard(over: Partial<IRepoHealthSnapshot> = {}, repos = [repo(1, 'a'), repo(2, 'b')]) {
+function makeDashboard(
+  over: Partial<IRepoHealthSnapshot> = {},
+  repos = [repo(1, 'a'), repo(2, 'b')]
+) {
   const snapshot: IRepoHealthSnapshot = {
     statuses: over.statuses ?? new Map(),
     refreshing: over.refreshing ?? new Set(),
@@ -40,20 +46,42 @@ function makeDashboard(over: Partial<IRepoHealthSnapshot> = {}, repos = [repo(1,
   return { dash, onSelect, onRefresh }
 }
 
+/** Walk the rendered tree, return all elements whose className contains a substring. */
+function findByClassName(tree: any, substring: string): any[] {
+  const out: any[] = []
+  const walk = (node: any) => {
+    if (node === null || node === undefined) return
+    if (Array.isArray(node)) {
+      node.forEach(walk)
+      return
+    }
+    if (typeof node === 'object' && node.props) {
+      const cn: string | undefined = node.props.className
+      if (typeof cn === 'string' && cn.includes(substring)) out.push(node)
+      walk(node.props.children)
+    }
+  }
+  walk(tree)
+  return out
+}
+
 describe('RepoHealthDashboard', () => {
-  it('renders an empty placeholder when no repos match the filter', () => {
+  it('renders the empty placeholder when no repos match the filter', () => {
     const { dash } = makeDashboard({}, [])
     const tree: any = dash.render()
-    const empty = tree.props.children[1]
-    expect(empty.props.className).toBe('repo-health-dashboard__empty')
+    expect(findByClassName(tree, 'repo-health-dashboard__empty')).toHaveLength(
+      1
+    )
   })
 
-  it('renders one row per repository when present', () => {
+  it('renders one card per repository in the grid', () => {
     const repos = [repo(1, 'a'), repo(2, 'b'), repo(3, 'c')]
     const { dash } = makeDashboard({}, repos)
     const tree: any = dash.render()
-    const rows = tree.props.children[1].props.children as any[]
-    expect(rows).toHaveLength(3)
+    const grid = findByClassName(tree, 'repo-health-dashboard__grid')
+    expect(grid).toHaveLength(1)
+    const cards = grid[0].props.children as any[]
+    expect(cards).toHaveLength(3)
   })
 
   it('sorts by attention score descending by default', () => {
@@ -64,16 +92,35 @@ describe('RepoHealthDashboard', () => {
       [3, health({ repositoryId: 3, attentionScore: 30 })],
     ])
     const { dash } = makeDashboard({ statuses }, repos)
-    const rows = dash.render().props.children[1].props.children as any[]
-    expect(rows.map(r => r.key)).toEqual(['2', '3', '1'])
+    const tree: any = dash.render()
+    const cards = findByClassName(tree, 'repo-health-dashboard__grid')[0].props
+      .children as any[]
+    expect(cards.map(c => c.key)).toEqual(['2', '3', '1'])
   })
 
   it('sorts alphabetically when sort=name', () => {
     const repos = [repo(1, 'banana'), repo(2, 'apple'), repo(3, 'cherry')]
     const { dash } = makeDashboard({}, repos)
     dash.state = { ...dash.state, sort: 'name' }
-    const rows = dash.render().props.children[1].props.children as any[]
-    expect(rows.map(r => r.key)).toEqual(['2', '1', '3'])
+    const tree: any = dash.render()
+    const cards = findByClassName(tree, 'repo-health-dashboard__grid')[0].props
+      .children as any[]
+    expect(cards.map(c => c.key)).toEqual(['2', '1', '3'])
+  })
+
+  it('sorts by recent activity when sort=recent', () => {
+    const repos = [repo(1, 'a'), repo(2, 'b'), repo(3, 'c')]
+    const statuses = new Map([
+      [1, health({ repositoryId: 1, lastActivityUnix: 1000 })],
+      [2, health({ repositoryId: 2, lastActivityUnix: 3000 })],
+      [3, health({ repositoryId: 3, lastActivityUnix: 2000 })],
+    ])
+    const { dash } = makeDashboard({ statuses }, repos)
+    dash.state = { ...dash.state, sort: 'recent' }
+    const tree: any = dash.render()
+    const cards = findByClassName(tree, 'repo-health-dashboard__grid')[0].props
+      .children as any[]
+    expect(cards.map(c => c.key)).toEqual(['2', '3', '1'])
   })
 
   it('filters to "needs attention" only', () => {
@@ -84,54 +131,70 @@ describe('RepoHealthDashboard', () => {
     ])
     const { dash } = makeDashboard({ statuses }, repos)
     dash.state = { ...dash.state, filter: 'attention' }
-    const rows = dash.render().props.children[1].props.children as any[]
-    expect(rows.map(r => r.key)).toEqual(['2'])
+    const tree: any = dash.render()
+    const cards = findByClassName(tree, 'repo-health-dashboard__grid')[0].props
+      .children as any[]
+    expect(cards.map(c => c.key)).toEqual(['2'])
   })
 
-  it('filters to "has-prs" only', () => {
+  it('filter "clean" excludes repos with failing CI', () => {
     const repos = [repo(1, 'a'), repo(2, 'b')]
-    const statuses = new Map([
-      [1, health({ repositoryId: 1, openPullRequestCount: 0 })],
-      [2, health({ repositoryId: 2, openPullRequestCount: 3 })],
-    ])
-    const { dash } = makeDashboard({ statuses }, repos)
-    dash.state = { ...dash.state, filter: 'has-prs' }
-    const rows = dash.render().props.children[1].props.children as any[]
-    expect(rows.map(r => r.key)).toEqual(['2'])
-  })
-
-  it('filters to "behind" only', () => {
-    const repos = [repo(1, 'a'), repo(2, 'b')]
-    const statuses = new Map([
-      [1, health({ repositoryId: 1, behindBy: 0 })],
-      [2, health({ repositoryId: 2, behindBy: 3 })],
-    ])
-    const { dash } = makeDashboard({ statuses }, repos)
-    dash.state = { ...dash.state, filter: 'behind' }
-    const rows = dash.render().props.children[1].props.children as any[]
-    expect(rows.map(r => r.key)).toEqual(['2'])
-  })
-
-  it('filters to "clean" only (no uncommitted, no ahead, no behind)', () => {
-    const repos = [repo(1, 'a'), repo(2, 'b'), repo(3, 'c')]
     const statuses = new Map([
       [1, health({ repositoryId: 1 })], // clean
-      [2, health({ repositoryId: 2, uncommittedCount: 1 })],
-      [3, health({ repositoryId: 3, aheadBy: 1 })],
+      [2, health({ repositoryId: 2, defaultBranchStatus: 'failure' })],
     ])
     const { dash } = makeDashboard({ statuses }, repos)
     dash.state = { ...dash.state, filter: 'clean' }
-    const rows = dash.render().props.children[1].props.children as any[]
-    expect(rows.map(r => r.key)).toEqual(['1'])
+    const tree: any = dash.render()
+    const cards = findByClassName(tree, 'repo-health-dashboard__grid')[0].props
+      .children as any[]
+    expect(cards.map(c => c.key)).toEqual(['1'])
+  })
+
+  it('search query filters by name and path', () => {
+    const repos = [repo(1, 'apple'), repo(2, 'banana'), repo(3, 'cherry')]
+    const { dash } = makeDashboard({}, repos)
+    dash.state = { ...dash.state, query: 'an' }
+    const tree: any = dash.render()
+    const cards = findByClassName(tree, 'repo-health-dashboard__grid')[0].props
+      .children as any[]
+    // 'banana' matches; 'apple' and 'cherry' don't.
+    expect(cards.map(c => c.key)).toEqual(['2'])
   })
 
   it('forwards refresh button click', () => {
     const { dash, onRefresh } = makeDashboard()
     const tree: any = dash.render()
-    const toolbar = tree.props.children[0]
-    // last child is the refresh button
-    const button = toolbar.props.children[toolbar.props.children.length - 1]
-    button.props.onClick()
-    expect(onRefresh).toHaveBeenCalled()
+    const refreshBtn = findByClassName(
+      tree,
+      'repo-health-dashboard__refresh'
+    )[0]
+    refreshBtn.props.onClick()
+    expect(onRefresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders summary stats including key labels', () => {
+    const repos = [repo(1, 'a'), repo(2, 'b'), repo(3, 'c')]
+    const statuses = new Map([
+      [1, health({ repositoryId: 1, attentionScore: 30 })],
+      [
+        2,
+        health({
+          repositoryId: 2,
+          openPullRequestCount: 2,
+          attentionScore: 5,
+        }),
+      ],
+      [3, health({ repositoryId: 3, behindBy: 4, attentionScore: 10 })],
+    ])
+    const { dash } = makeDashboard({ statuses }, repos)
+    const tree: any = dash.render()
+    const text = JSON.stringify(tree)
+    // SummaryStat is a function component; the labels appear as props on it.
+    expect(text).toContain('Repositories')
+    expect(text).toContain('Need attention')
+    expect(text).toContain('With open PRs')
+    expect(text).toContain('Failing CI')
+    expect(text).toContain('Behind remote')
   })
 })

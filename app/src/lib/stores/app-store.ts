@@ -247,6 +247,7 @@ import { RepoHealthStore } from './repo-health-store'
 import { IRepoHealthProbes } from '../repo-health/collect-health'
 import { getStatus } from '../git/status'
 import { getAheadBehind } from '../git/rev-list'
+import { git } from '../git/core'
 import {
   spawnTerminal as spawnTerminalIpc,
   killTerminal as killTerminalIpc,
@@ -479,7 +480,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private prReviewStore: PullRequestReviewStore | null = null
   private readonly repoHealthStore: RepoHealthStore = new RepoHealthStore({
     collectorOptions: {
-      probes: makeDefaultRepoHealthProbes(),
+      probes: this.makeRepoHealthProbes(),
     },
   })
   private repositories: ReadonlyArray<Repository> = new Array<Repository>()
@@ -1897,6 +1898,18 @@ export class AppStore extends TypedBaseStore<IAppState> {
     this.terminalStore.selectRepo(
       repository instanceof Repository ? repository.id : null
     )
+
+    // If the terminal panel is visible and the freshly-selected repo has
+    // no sessions yet, auto-spawn one. This is what makes the panel
+    // useful out of the box (visible-by-default, no manual "+").
+    if (
+      repository instanceof Repository &&
+      this.terminalStore.getState().visible &&
+      (this.terminalStore.getState().tabsByRepoId.get(repository.id) ?? [])
+        .length === 0
+    ) {
+      void this.spawnTerminalForRepo(repository)
+    }
 
     this.emitUpdate()
     this.stopBackgroundFetching()
@@ -6997,27 +7010,61 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   /**
-   * Toggle the integrated terminal panel visibility. When opening, ensure a
-   * session is bound to the currently selected repository — spawn one if it
-   * doesn't yet exist so the user sees a usable shell instead of the
-   * "No active terminal session" placeholder.
+   * Toggle the integrated terminal panel visibility. When opening, make
+   * sure the currently selected repo has at least one session — auto-spawn
+   * one if not, so the user lands on a working shell instead of the empty
+   * placeholder.
    */
   public async _toggleTerminal(): Promise<void> {
     const wasVisible = this.terminalStore.getState().visible
     this.terminalStore.toggle()
 
-    if (wasVisible) return
+    if (wasVisible) {return}
 
     const repo = this.selectedRepository
-    if (!(repo instanceof Repository)) return
+    if (!(repo instanceof Repository)) {return}
 
     const state = this.terminalStore.getState()
-    const existing = state.sessionByRepoId.get(repo.id)
-    if (existing !== undefined) {
+    const existing = state.tabsByRepoId.get(repo.id)
+    if (existing !== undefined && existing.length > 0) {
       this.terminalStore.selectRepo(repo.id)
       return
     }
 
+    await this.spawnTerminalForRepo(repo)
+  }
+
+  /**
+   * Spawn a brand-new terminal tab for the given repository. Used by the
+   * tab strip's "+" button, and as the auto-spawn path when toggling on
+   * the first time for a repo.
+   */
+  public async _spawnNewTerminalTab(repositoryId?: number): Promise<void> {
+    const repo =
+      repositoryId === undefined
+        ? this.selectedRepository
+        : this.repositories.find(r => r.id === repositoryId) ?? null
+    if (!(repo instanceof Repository)) {return}
+    await this.spawnTerminalForRepo(repo)
+    if (!this.terminalStore.getState().visible) {
+      this.terminalStore.show()
+    }
+  }
+
+  /** Switch which tab is active in the terminal panel. */
+  public _selectTerminalTab(sessionId: string): void {
+    this.terminalStore.selectSession(sessionId)
+  }
+
+  /**
+   * Close a terminal tab — kills the underlying PTY and removes it from
+   * the store. The store picks an adjacent tab as the new active one.
+   */
+  public async _closeTerminalTab(sessionId: string): Promise<void> {
+    await this._killTerminal(sessionId)
+  }
+
+  private async spawnTerminalForRepo(repo: Repository): Promise<void> {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const fs = require('fs') as typeof import('fs')
@@ -7036,12 +7083,15 @@ export class AppStore extends TypedBaseStore<IAppState> {
         shell: detected.path,
         args: detected.args,
         cwd: repo.path,
-        env: { ...process.env } as Record<string, string>,
+        env: makeTerminalEnv(),
         cols: 80,
         rows: 24,
       })
     } catch (err) {
-      log.error('[AppStore] failed to auto-spawn terminal session', err as Error)
+      log.error(
+        '[AppStore] failed to auto-spawn terminal session',
+        err as Error
+      )
       this.emitError(err as Error)
     }
   }
@@ -7110,16 +7160,21 @@ export class AppStore extends TypedBaseStore<IAppState> {
     prNumber: number
   ): Promise<void> {
     const ghr = repository.gitHubRepository
-    if (!ghr) return
+    if (!ghr) {return}
     const account = getAccountForEndpoint(this.accounts, ghr.endpoint)
-    if (!account) return
+    if (!account) {return}
     const client = makeAccountHttpClient(account)
     if (this.prReviewStore === null) {
       this.prReviewStore = new PullRequestReviewStore(client)
       this.prReviewStore.onDidUpdate(() => this.emitUpdate())
       this.prReviewStore.onDidError(error => this.emitError(error))
     }
-    await this.prReviewStore.open(repository.id, ghr.owner.login, ghr.name, prNumber)
+    await this.prReviewStore.open(
+      repository.id,
+      ghr.owner.login,
+      ghr.name,
+      prNumber
+    )
   }
 
   public _closePullRequestReview(): void {
@@ -7148,7 +7203,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   public async _submitReview(owner: string, repo: string): Promise<boolean> {
-    if (this.prReviewStore === null) return false
+    if (this.prReviewStore === null) {return false}
     return this.prReviewStore.submit(owner, repo)
   }
 
@@ -7162,6 +7217,105 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   public _refreshSingleRepoHealth(repository: Repository): Promise<void> {
     return this.repoHealthStore.refreshOne(repository)
+  }
+
+  /**
+   * Build the probe set that powers the dashboard. Each probe is wired to
+   * a real data source where one is available, with graceful fallbacks
+   * (probe failures don't poison the snapshot — they degrade to a sensible
+   * default per `safe()` in collect-health.ts).
+   */
+  private makeRepoHealthProbes(): IRepoHealthProbes {
+    return {
+      uncommittedCount: async repo => {
+        const status = await getStatus(repo)
+        return status?.workingDirectory.files.length ?? 0
+      },
+      aheadBehind: async repo => {
+        const ab = await getAheadBehind(repo, '@{u}').catch(() => null)
+        if (ab === null) {return { ahead: 0, behind: 0 }}
+        return { ahead: ab.ahead, behind: ab.behind }
+      },
+      defaultBranchStatus: async repo => {
+        const ghr = repo.gitHubRepository
+        if (!ghr) {return 'unknown'}
+        const account = getAccountForEndpoint(this.accounts, ghr.endpoint)
+        if (!account) {return 'unknown'}
+        const cached = this.repositoryStateCache.get(repo)
+        const branch = cached.branchesState.defaultBranch?.name ?? 'main'
+        try {
+          const api = API.fromAccount(account)
+          const status = await api.fetchCombinedRefStatus(
+            ghr.owner.login,
+            ghr.name,
+            branch
+          )
+          if (status === null) {return 'unknown'}
+          switch (status.state) {
+            case 'success':
+              return 'success'
+            case 'failure':
+              return 'failure'
+            case 'pending':
+              return 'pending'
+            default:
+              return 'unknown'
+          }
+        } catch {
+          return 'unknown'
+        }
+      },
+      openPullRequestCount: async repo => {
+        if (!repo.gitHubRepository) {return 0}
+        try {
+          const prs = await this.pullRequestCoordinator.getAllPullRequests(
+            repo as RepositoryWithGitHubRepository
+          )
+          return prs.length
+        } catch {
+          return 0
+        }
+      },
+      lastActivityUnix: async repo => {
+        try {
+          const r = await git(
+            ['log', '-1', '--all', '--format=%ct'],
+            repo.path,
+            'lastActivity',
+            { successExitCodes: new Set([0, 128, 129]) }
+          )
+          if (r.exitCode !== 0) {return 0}
+          const t = parseInt(r.stdout.trim(), 10)
+          return Number.isFinite(t) ? t : 0
+        } catch {
+          return 0
+        }
+      },
+      staleBranchCount: async repo => {
+        const cutoff = staleCutoffUnix()
+        try {
+          const r = await git(
+            ['for-each-ref', '--format=%(committerdate:unix)', 'refs/heads/'],
+            repo.path,
+            'staleBranches',
+            { successExitCodes: new Set([0, 128]) }
+          )
+          if (r.exitCode !== 0) {return 0}
+          const lines = r.stdout
+            .split('\n')
+            .map(l => l.trim())
+            .filter(l => l.length > 0)
+          let stale = 0
+          for (const l of lines) {
+            const t = parseInt(l, 10)
+            if (Number.isFinite(t) && t > 0 && t < cutoff) {stale++}
+          }
+          return stale
+        } catch {
+          return 0
+        }
+      },
+    }
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
@@ -8502,7 +8656,6 @@ function constrain(
   }
 }
 
-
 /**
  * Default per-repo health probes for the dashboard.
  *
@@ -8511,20 +8664,27 @@ function constrain(
  * (last activity, stale branches) return zeros for now and can be wired
  * in incrementally without breaking the contract.
  */
-function makeDefaultRepoHealthProbes(): IRepoHealthProbes {
-  return {
-    uncommittedCount: async repo => {
-      const status = await getStatus(repo)
-      return status?.workingDirectory.files.length ?? 0
-    },
-    aheadBehind: async repo => {
-      const ab = await getAheadBehind(repo, "@{u}").catch(() => null)
-      if (ab === null) return { ahead: 0, behind: 0 }
-      return { ahead: ab.ahead, behind: ab.behind }
-    },
-    defaultBranchStatus: async () => "unknown",
-    openPullRequestCount: async () => 0,
-    lastActivityUnix: async () => 0,
-    staleBranchCount: async () => 0,
+/**
+ * Build a `Date.now()` Unix-seconds value for "60 days ago", used by the
+ * stale-branch probe.
+ */
+function staleCutoffUnix(): number {
+  return Math.floor(Date.now() / 1000) - 60 * 86400
+}
+
+/**
+ * Default environment passed to PTY-spawned shells. Inherits the main
+ * process env (so user PATH propagates through Linux desktop launchers
+ * that source ~/.profile via PAM) and explicitly sets TERM/COLORTERM so
+ * apps like `claude` and `htop` detect a real ANSI terminal.
+ */
+function makeTerminalEnv(): Record<string, string> {
+  const env: Record<string, string> = {}
+  for (const [k, v] of Object.entries(process.env)) {
+    if (typeof v === 'string') {env[k] = v}
   }
+  env.TERM = env.TERM ?? 'xterm-256color'
+  env.COLORTERM = env.COLORTERM ?? 'truecolor'
+  env.TERM_PROGRAM = 'GitHubDesktop'
+  return env
 }

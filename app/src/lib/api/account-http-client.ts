@@ -9,6 +9,11 @@ import { IHttpClient, IHttpResponse } from './pull-request-reviews'
  * as an IHttpClient. This adapter is a focused subset for the PR review
  * feature; it can be replaced with a wrapper over `API` later without
  * changing consumers.
+ *
+ * Network failures (DNS, offline, abort, refused) and body-read failures
+ * are returned as `{ ok: false, status: 0, body: null }` rather than
+ * propagated as thrown exceptions — callers (`pull-request-reviews.ts`,
+ * `pull-request-review-store.ts`) check `res.ok` and act accordingly.
  */
 export function makeAccountHttpClient(
   account: Account,
@@ -31,8 +36,31 @@ export function makeAccountHttpClient(
         headers['Content-Type'] = 'application/json'
         init.body = JSON.stringify(body)
       }
-      const res = await fetchImpl(url, init)
-      const text = await res.text().catch(() => '')
+      let res: Response
+      try {
+        res = await fetchImpl(url, init)
+      } catch (err) {
+        // Network-level failure (DNS, offline, refused, aborted, CORS in
+        // dev). Surface as a non-ok response so callers don't see an
+        // unhandled rejection.
+        log.warn(
+          `[account-http-client] ${method} ${path} fetch failed: ${
+            (err as Error)?.message ?? String(err)
+          }`
+        )
+        return { status: 0, ok: false, body: null }
+      }
+      let text: string
+      try {
+        text = await res.text()
+      } catch (err) {
+        log.warn(
+          `[account-http-client] ${method} ${path} body read failed: ${
+            (err as Error)?.message ?? String(err)
+          }`
+        )
+        return { status: res.status, ok: false, body: null }
+      }
       let parsed: unknown = null
       if (text.length > 0) {
         try {

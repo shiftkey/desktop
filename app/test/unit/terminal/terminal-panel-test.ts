@@ -8,10 +8,13 @@ const baseState: ITerminalState = {
   height: 240,
   activeSessionId: null,
   sessions: new Map(),
-  sessionByRepoId: new Map(),
+  tabsByRepoId: new Map(),
+  activeByRepoId: new Map(),
 }
 
-const snap = (over: Partial<ITerminalSessionSnapshot> = {}): ITerminalSessionSnapshot => ({
+const snap = (
+  over: Partial<ITerminalSessionSnapshot> = {}
+): ITerminalSessionSnapshot => ({
   id: 'a',
   repositoryId: 1,
   cwd: '/tmp',
@@ -24,18 +27,35 @@ const snap = (over: Partial<ITerminalSessionSnapshot> = {}): ITerminalSessionSna
   ...over,
 })
 
-function makePanel(state: ITerminalState) {
+function makePanel(state: ITerminalState, repositoryId: number | null = 1) {
   const onResize = jest.fn()
   const onCloseClick = jest.fn()
-  const portFor = jest.fn(() => null)
+  const onNewTab = jest.fn()
+  const onSelectTab = jest.fn()
+  const onCloseTab = jest.fn()
+  const portFor: jest.Mock<any, [string]> = jest.fn(
+    (_sessionId: string) => null
+  )
   const panel = new TerminalPanel({
     state,
+    repositoryId,
     theme: _palettes.DARK_THEME,
     portFor,
     onResize,
     onCloseClick,
+    onNewTab,
+    onSelectTab,
+    onCloseTab,
   })
-  return { panel, onResize, onCloseClick, portFor }
+  return {
+    panel,
+    onResize,
+    onCloseClick,
+    onNewTab,
+    onSelectTab,
+    onCloseTab,
+    portFor,
+  }
 }
 
 describe('TerminalPanel', () => {
@@ -52,66 +72,136 @@ describe('TerminalPanel', () => {
     expect(tree.props['aria-label']).toBe('Terminal')
   })
 
-  it('shows a placeholder body when there is no active session', () => {
+  it('shows a placeholder body when the current repo has no tabs', () => {
     const { panel } = makePanel(baseState)
     const tree: any = panel.render()
-    const body = tree.props.children[1]
-    expect(body.props.children.props.className).toBe(
-      'terminal-panel__placeholder'
-    )
+    const body = tree.props.children[2]
+    // body children: [placeholder?, viewWrappers]. With no tabs the
+    // placeholder is at index 0 and the wrappers array is empty.
+    const placeholder = body.props.children[0]
+    expect(placeholder.props.className).toBe('terminal-panel__placeholder')
   })
 
-  it('shows just "Terminal" in the title when no session is active', () => {
-    const { panel } = makePanel(baseState)
-    const tree: any = panel.render()
-    const title = tree.props.children[0].props.children[0]
-    expect(title.props.children).toBe('Terminal')
-  })
-
-  it('renders shell basename in the title when a session is active', () => {
-    const sess = snap({ id: 'a', shell: '/usr/bin/fish' })
-    const sessions = new Map([[sess.id, sess]])
+  it('renders one tab per session in the current repo', () => {
+    const a = snap({ id: 'a' })
+    const b = snap({ id: 'b' })
+    const sessions = new Map([
+      [a.id, a],
+      [b.id, b],
+    ])
+    const tabsByRepoId = new Map([[1, ['a', 'b']]])
     const { panel } = makePanel({
       ...baseState,
       activeSessionId: 'a',
       sessions,
+      tabsByRepoId,
     })
     const tree: any = panel.render()
-    const title = tree.props.children[0].props.children[0]
-    expect(title.props.children).toBe('Terminal — fish')
+    const tabStrip = tree.props.children[1].props.children[0]
+    // tabs + the new-tab button
+    expect(tabStrip.props.children).toHaveLength(2)
+    const tabs = tabStrip.props.children[0]
+    expect(tabs).toHaveLength(2)
+    expect(tabs[0].props['aria-selected']).toBe(true)
+    expect(tabs[1].props['aria-selected']).toBe(false)
   })
 
-  it('falls back to the raw shell string when split fails to produce a basename', () => {
-    const sess = snap({ id: 'a', shell: 'zsh' })
-    const { panel } = makePanel({
+  it('clicking a tab fires onSelectTab', () => {
+    const a = snap({ id: 'a' })
+    const b = snap({ id: 'b' })
+    const { panel, onSelectTab } = makePanel({
       ...baseState,
       activeSessionId: 'a',
-      sessions: new Map([[sess.id, sess]]),
+      sessions: new Map([
+        [a.id, a],
+        [b.id, b],
+      ]),
+      tabsByRepoId: new Map([[1, ['a', 'b']]]),
     })
     const tree: any = panel.render()
-    const title = tree.props.children[0].props.children[0]
-    expect(title.props.children).toBe('Terminal — zsh')
+    const tabs = tree.props.children[1].props.children[0].props.children[0]
+    tabs[1].props.onClick()
+    expect(onSelectTab).toHaveBeenCalledWith('b')
   })
 
-  it('renders an XtermView when portFor returns a port', () => {
-    const fakePort = { postMessage: jest.fn(), start: jest.fn() }
+  it('clicking the per-tab close fires onCloseTab and stops propagation', () => {
+    const a = snap({ id: 'a' })
+    const { panel, onCloseTab, onSelectTab } = makePanel({
+      ...baseState,
+      activeSessionId: 'a',
+      sessions: new Map([[a.id, a]]),
+      tabsByRepoId: new Map([[1, ['a']]]),
+    })
+    const tree: any = panel.render()
+    const tab = tree.props.children[1].props.children[0].props.children[0][0]
+    const closeBtn = tab.props.children[1]
+    const stopProp = jest.fn()
+    closeBtn.props.onClick({ stopPropagation: stopProp })
+    expect(stopProp).toHaveBeenCalled()
+    expect(onCloseTab).toHaveBeenCalledWith('a')
+    expect(onSelectTab).not.toHaveBeenCalled()
+  })
+
+  it('clicking the + new-tab button fires onNewTab', () => {
+    const { panel, onNewTab } = makePanel(baseState)
+    const tree: any = panel.render()
+    const newTab = tree.props.children[1].props.children[0].props.children[1]
+    newTab.props.onClick()
+    expect(onNewTab).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders one XtermView per tab; only the active one is visible', () => {
+    const a = snap({ id: 'a' })
+    const b = snap({ id: 'b' })
+    const fakePortA = { postMessage: jest.fn(), start: jest.fn() }
+    const fakePortB = { postMessage: jest.fn(), start: jest.fn() }
     const { panel, portFor } = makePanel({
       ...baseState,
-      activeSessionId: 'a',
-      sessions: new Map([['a', snap({ id: 'a' })]]),
+      activeSessionId: 'b',
+      sessions: new Map([
+        [a.id, a],
+        [b.id, b],
+      ]),
+      tabsByRepoId: new Map([[1, ['a', 'b']]]),
     })
-    portFor.mockReturnValue(fakePort as any)
+    portFor.mockImplementation((sid: string) =>
+      sid === 'a' ? (fakePortA as any) : (fakePortB as any)
+    )
     const tree: any = panel.render()
-    const body = tree.props.children[1]
-    // Body's child is the XtermView element.
-    expect(body.props.children.props.port).toBe(fakePort)
+    const body = tree.props.children[2]
+    // body children: [placeholder?, viewWrappers]. When tabs are present
+    // the placeholder is `false` (JSX short-circuit) and the wrappers are
+    // the array at index 1.
+    const wrappers = body.props.children[1] as any[]
+    expect(wrappers).toHaveLength(2)
+    // First (id=a) is hidden, second (id=b) is visible.
+    expect(wrappers[0].props.style.display).toBe('none')
+    expect(wrappers[1].props.style.display).toBe('block')
+    expect(wrappers[0].props.children.props.port).toBe(fakePortA)
+    expect(wrappers[1].props.children.props.port).toBe(fakePortB)
   })
 
   it('forwards close button click', () => {
     const { panel, onCloseClick } = makePanel(baseState)
     const tree: any = panel.render()
-    const button = tree.props.children[0].props.children[1]
-    button.props.onClick()
+    // toolbar children: [tabs, closeButton]
+    const closeButton = tree.props.children[1].props.children[1]
+    closeButton.props.onClick()
     expect(onCloseClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders no tabs when repositoryId is null', () => {
+    const { panel } = makePanel(
+      {
+        ...baseState,
+        sessions: new Map([['a', snap({ id: 'a' })]]),
+        tabsByRepoId: new Map([[1, ['a']]]),
+      },
+      null
+    )
+    const tree: any = panel.render()
+    const tabsContainer = tree.props.children[1].props.children[0]
+    // first child is the tabs.map output (empty array when no repo)
+    expect(tabsContainer.props.children[0]).toEqual([])
   })
 })

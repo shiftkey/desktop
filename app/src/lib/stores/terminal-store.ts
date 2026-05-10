@@ -4,11 +4,15 @@ import { ITerminalSessionSnapshot } from '../terminal/pty-types'
 /**
  * Renderer-side state for the integrated terminal panel.
  *
- * Visibility, height, and the currently active session (per-repository) live
- * here. Session metadata is mirrored from the main process when a spawn /
- * exit / resize happens; the high-throughput byte stream does NOT pass
- * through this store — it flows directly between the main-process PTY and
- * the xterm.js instance via a `MessagePort`.
+ * Visibility, height, the per-repo tab list, and the currently active
+ * session live here. Session metadata is mirrored from the main process
+ * when a spawn / exit / resize happens; the high-throughput byte stream
+ * does NOT pass through this store — it flows directly between the
+ * main-process PTY and the xterm.js instance via a `MessagePort`.
+ *
+ * Tab model: every repo can own zero or more sessions. Switching repos
+ * remembers which session was active for the new repo (`activeByRepoId`)
+ * so the user lands back on what they were doing.
  */
 export interface ITerminalState {
   readonly visible: boolean
@@ -18,21 +22,28 @@ export interface ITerminalState {
   readonly activeSessionId: string | null
   /** Map of every known session keyed by session id. */
   readonly sessions: ReadonlyMap<string, ITerminalSessionSnapshot>
-  /** Map of repositoryId → sessionId, so we can switch repos and resume. */
-  readonly sessionByRepoId: ReadonlyMap<number, string>
+  /** Per-repo ordered list of session ids (the tab strip). */
+  readonly tabsByRepoId: ReadonlyMap<number, ReadonlyArray<string>>
+  /** Per-repo last-active session id, used when switching repos. */
+  readonly activeByRepoId: ReadonlyMap<number, string>
 }
 
 const HEIGHT_KEY = 'terminal-panel-height'
-const DEFAULT_HEIGHT = 240
-const MIN_HEIGHT = 100
-const MAX_HEIGHT = 800
+const VISIBLE_KEY = 'terminal-panel-visible'
+const DEFAULT_HEIGHT = 280
+const MIN_HEIGHT = 120
+const MAX_HEIGHT = 1200
 
 const EMPTY_STATE: ITerminalState = Object.freeze({
-  visible: false,
+  // Default to visible so the user sees a working terminal on first
+  // launch without having to discover the menu/shortcut. Toggled-off
+  // state is persisted so a user who explicitly hid it stays hidden.
+  visible: true,
   height: DEFAULT_HEIGHT,
   activeSessionId: null,
   sessions: new Map(),
-  sessionByRepoId: new Map(),
+  tabsByRepoId: new Map(),
+  activeByRepoId: new Map(),
 })
 
 /** Storage adapter for the persisted height — `localStorage`-shaped. */
@@ -54,9 +65,11 @@ export class TerminalStore extends BaseStore {
     super()
     this.storage = storage
     const persistedHeight = parseHeight(storage.getItem(HEIGHT_KEY))
+    const persistedVisible = parseVisible(storage.getItem(VISIBLE_KEY))
     this.state = {
       ...EMPTY_STATE,
       height: persistedHeight ?? EMPTY_STATE.height,
+      visible: persistedVisible ?? EMPTY_STATE.visible,
     }
   }
 
@@ -64,18 +77,26 @@ export class TerminalStore extends BaseStore {
     return this.state
   }
 
-  /** Toggle the panel's visibility. */
+  /** Toggle the panel's visibility. Persists the new value. */
   public toggle(): void {
-    this.update({ visible: !this.state.visible })
+    const next = !this.state.visible
+    this.storage.setItem(VISIBLE_KEY, next ? 'visible' : 'hidden')
+    this.update({ visible: next })
   }
 
   public show(): void {
-    if (this.state.visible) return
+    if (this.state.visible) {
+      return
+    }
+    this.storage.setItem(VISIBLE_KEY, 'visible')
     this.update({ visible: true })
   }
 
   public hide(): void {
-    if (!this.state.visible) return
+    if (!this.state.visible) {
+      return
+    }
+    this.storage.setItem(VISIBLE_KEY, 'hidden')
     this.update({ visible: false })
   }
 
@@ -85,63 +106,108 @@ export class TerminalStore extends BaseStore {
    */
   public setHeight(px: number): void {
     const next = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, Math.floor(px)))
-    if (next === this.state.height) return
+    if (next === this.state.height) {return}
     this.storage.setItem(HEIGHT_KEY, String(next))
     this.update({ height: next })
   }
 
-  /** Switch the visible XtermView to the session bound to a repo, or null. */
+  /**
+   * The user switched repos. Pick the session that was last active for
+   * the new repo (or null if it has no tabs yet).
+   */
   public selectRepo(repositoryId: number | null): void {
     if (repositoryId === null) {
       this.update({ activeSessionId: null })
       return
     }
-    const sid = this.state.sessionByRepoId.get(repositoryId) ?? null
-    this.update({ activeSessionId: sid })
+    const sid = this.state.activeByRepoId.get(repositoryId) ?? null
+    if (sid !== null && this.state.sessions.has(sid)) {
+      this.update({ activeSessionId: sid })
+      return
+    }
+    // Fallback: first tab for that repo, if any.
+    const tabs = this.state.tabsByRepoId.get(repositoryId) ?? []
+    this.update({ activeSessionId: tabs[0] ?? null })
+  }
+
+  /** Make the given session the active one (e.g., user clicked a tab). */
+  public selectSession(sessionId: string): void {
+    if (!this.state.sessions.has(sessionId)) {return}
+    if (this.state.activeSessionId === sessionId) {return}
+    const session = this.state.sessions.get(sessionId)!
+    const activeByRepoId = new Map(this.state.activeByRepoId)
+    activeByRepoId.set(session.repositoryId, sessionId)
+    this.update({ activeSessionId: sessionId, activeByRepoId })
   }
 
   /** Remember a freshly spawned session and make it the active one. */
   public registerSession(snapshot: ITerminalSessionSnapshot): void {
     const sessions = new Map(this.state.sessions)
     sessions.set(snapshot.id, snapshot)
-    const sessionByRepoId = new Map(this.state.sessionByRepoId)
-    sessionByRepoId.set(snapshot.repositoryId, snapshot.id)
+
+    const tabsByRepoId = new Map(this.state.tabsByRepoId)
+    const existing = tabsByRepoId.get(snapshot.repositoryId) ?? []
+    if (!existing.includes(snapshot.id)) {
+      tabsByRepoId.set(snapshot.repositoryId, [...existing, snapshot.id])
+    }
+
+    const activeByRepoId = new Map(this.state.activeByRepoId)
+    activeByRepoId.set(snapshot.repositoryId, snapshot.id)
+
     this.update({
       sessions,
-      sessionByRepoId,
+      tabsByRepoId,
+      activeByRepoId,
       activeSessionId: snapshot.id,
     })
   }
 
   /** Update an existing session (resize, status flip). No-op when unknown. */
   public updateSession(snapshot: ITerminalSessionSnapshot): void {
-    if (!this.state.sessions.has(snapshot.id)) return
+    if (!this.state.sessions.has(snapshot.id)) {return}
     const sessions = new Map(this.state.sessions)
     sessions.set(snapshot.id, snapshot)
     this.update({ sessions })
   }
 
   /**
-   * Remove a session (process exited, repo removed). Adjusts active session
-   * + repo bindings.
+   * Remove a session (process exited, user closed the tab). Picks the
+   * adjacent tab in the same repo as the new active one when the closed
+   * tab was active.
    */
   public removeSession(sessionId: string): void {
-    if (!this.state.sessions.has(sessionId)) return
+    if (!this.state.sessions.has(sessionId)) {return}
+    const removed = this.state.sessions.get(sessionId)!
+
     const sessions = new Map(this.state.sessions)
-    const removed = sessions.get(sessionId)!
     sessions.delete(sessionId)
 
-    const sessionByRepoId = new Map(this.state.sessionByRepoId)
-    if (sessionByRepoId.get(removed.repositoryId) === sessionId) {
-      sessionByRepoId.delete(removed.repositoryId)
+    const tabsByRepoId = new Map(this.state.tabsByRepoId)
+    const repoTabs = (tabsByRepoId.get(removed.repositoryId) ?? []).filter(
+      id => id !== sessionId
+    )
+    if (repoTabs.length > 0) {
+      tabsByRepoId.set(removed.repositoryId, repoTabs)
+    } else {
+      tabsByRepoId.delete(removed.repositoryId)
     }
 
-    const activeSessionId =
-      this.state.activeSessionId === sessionId
-        ? null
-        : this.state.activeSessionId
+    const activeByRepoId = new Map(this.state.activeByRepoId)
+    if (activeByRepoId.get(removed.repositoryId) === sessionId) {
+      const fallback = repoTabs[repoTabs.length - 1] ?? null
+      if (fallback !== null) {
+        activeByRepoId.set(removed.repositoryId, fallback)
+      } else {
+        activeByRepoId.delete(removed.repositoryId)
+      }
+    }
 
-    this.update({ sessions, sessionByRepoId, activeSessionId })
+    let activeSessionId = this.state.activeSessionId
+    if (activeSessionId === sessionId) {
+      activeSessionId = activeByRepoId.get(removed.repositoryId) ?? null
+    }
+
+    this.update({ sessions, tabsByRepoId, activeByRepoId, activeSessionId })
   }
 
   private update(patch: Partial<ITerminalState>): void {
@@ -151,17 +217,36 @@ export class TerminalStore extends BaseStore {
 }
 
 function parseHeight(raw: string | null): number | null {
-  if (raw === null) return null
+  if (raw === null) {
+    return null
+  }
   const n = parseInt(raw, 10)
-  if (Number.isNaN(n)) return null
+  if (Number.isNaN(n)) {
+    return null
+  }
   return Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, n))
+}
+
+function parseVisible(raw: string | null): boolean | null {
+  if (raw === null) {
+    return null
+  }
+  if (raw === 'visible') {
+    return true
+  }
+  if (raw === 'hidden') {
+    return false
+  }
+  return null
 }
 
 // Exported for tests.
 export const _internals = {
   HEIGHT_KEY,
+  VISIBLE_KEY,
   DEFAULT_HEIGHT,
   MIN_HEIGHT,
   MAX_HEIGHT,
   parseHeight,
+  parseVisible,
 }
