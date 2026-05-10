@@ -155,3 +155,267 @@
   height: 100%;
   outline: none;
 }
+
+// ─── Tab activity dot ───────────────────────────────────────────────────
+.terminal-panel__tab-activity {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--secondary-button-hover-background, #4caf50);
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+// ─── Tab status icons ───────────────────────────────────────────────────
+.terminal-panel__tab-status {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+
+  &.running { background: #2196f3; }
+  &.ok      { background: #4caf50; }
+  &.fail    { background: #f44336; }
+  &.dead    { background: #9e9e9e; }
+}
+
+// ─── Find bar ───────────────────────────────────────────────────────────
+.terminal-find-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--box-alt-background-color, #1e1e1e);
+  border-bottom: 1px solid var(--box-border-color, #333);
+
+  &__input {
+    flex: 1;
+    height: 24px;
+    background: var(--box-background-color, #2a2a2a);
+    border: 1px solid var(--box-border-color, #333);
+    border-radius: 4px;
+    color: var(--text-color, #ccc);
+    padding: 0 6px;
+    font-family: inherit;
+    font-size: 12px;
+
+    &:focus {
+      outline: 2px solid var(--focus-color, #58a6ff);
+      outline-offset: -1px;
+    }
+  }
+
+  &__btn {
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: 0;
+    color: var(--text-color, #ccc);
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover { background: var(--box-hover-background-color, #333); }
+    &:focus { outline: 2px solid var(--focus-color, #58a6ff); }
+  }
+}
+
+// ─── Split spacer ───────────────────────────────────────────────────────
+.split-spacer {
+  background: var(--box-border-color, #333);
+  flex-shrink: 0;
+
+  &.horizontal { width: 4px; cursor: col-resize; }
+  &.vertical   { height: 4px; cursor: row-resize; }
+
+  &:hover { background: var(--secondary-button-hover-background, #555); }
+}
+
+// ─── Command block gutter ───────────────────────────────────────────────
+.terminal-gutter {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 16px;
+  pointer-events: none;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px;
+
+  &__marker {
+    pointer-events: all;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+
+    &.ok   { background: #4caf50; }
+    &.fail { background: #f44336; }
+
+    &:hover { transform: scale(1.3); }
+    &:focus { outline: 2px solid var(--focus-color, #58a6ff); }
+  }
+}
+
+// ─── Paste confirm dialog ───────────────────────────────────────────────
+.paste-confirm-dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 200;
+  background: var(--box-background-color, #1e1e1e);
+  border: 1px solid var(--box-border-color, #444);
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 320px;
+  max-width: 600px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+
+  &__title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text-color, #eee);
+  }
+
+  &__preview {
+    font-family: var(--font-family-monospace, monospace);
+    font-size: 12px;
+    background: var(--box-alt-background-color, #111);
+    border: 1px solid var(--box-border-color, #333);
+    border-radius: 4px;
+    padding: 8px;
+    overflow: hidden;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 120px;
+    margin-bottom: 6px;
+    color: var(--text-color, #ccc);
+  }
+
+  &__more {
+    font-size: 11px;
+    color: var(--text-secondary-color, #888);
+    margin-bottom: 12px;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  &__cancel {
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--box-border-color, #555);
+    background: transparent;
+    color: var(--text-color, #ccc);
+    cursor: pointer;
+
+    &:hover { background: var(--box-hover-background-color, #333); }
+  }
+
+  &__confirm {
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 0;
+    background: var(--secondary-button-background, #238636);
+    color: #fff;
+    cursor: pointer;
+    font-weight: 600;
+
+    &:hover { background: var(--secondary-button-hover-background, #2ea043); }
+    &:focus { outline: 2px solid var(--focus-color, #58a6ff); }
+  }
+}
+
+// ─── Exit overlay ───────────────────────────────────────────────────────
+.terminal-panel__exit-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  backdrop-filter: blur(2px);
+
+  &-text {
+    color: #eee;
+    font-size: 13px;
+  }
+
+  &-btn {
+    padding: 5px 14px;
+    border-radius: 4px;
+    border: 0;
+    background: var(--secondary-button-background, #238636);
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+
+    &:hover { background: var(--secondary-button-hover-background, #2ea043); }
+    &:focus { outline: 2px solid var(--focus-color, #58a6ff); }
+  }
+}
+
+// ─── Empty state ────────────────────────────────────────────────────────
+.terminal-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--text-secondary-color, #888);
+
+  &__cta {
+    padding: 8px 20px;
+    border-radius: 6px;
+    border: 1px solid var(--box-border-color, #444);
+    background: var(--box-background-color, #1e1e1e);
+    color: var(--text-color, #eee);
+    cursor: pointer;
+    font-size: 13px;
+
+    &:hover { background: var(--box-hover-background-color, #2a2a2a); }
+    &:focus { outline: 2px solid var(--focus-color, #58a6ff); }
+  }
+
+  &__hints {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 11px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  &__hint-chip {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+  }
+
+  kbd {
+    background: var(--box-alt-background-color, #111);
+    border: 1px solid var(--box-border-color, #444);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: var(--font-family-monospace, monospace);
+    font-size: 11px;
+    color: var(--text-color, #ddd);
+  }
+}
