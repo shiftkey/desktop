@@ -68,3 +68,10 @@ export type TerminalPortMessage =
   | { readonly type: 'input'; readonly bytes: Uint8Array }
   | { readonly type: 'resize'; readonly cols: number; readonly rows: number }
   | { readonly type: 'exit'; readonly exitCode: number }
+  | {
+      readonly type: 'meta'
+      readonly liveCwd?: string
+      readonly title?: string
+      readonly lastExitCode?: number
+      readonly hasActivity?: boolean
+    }

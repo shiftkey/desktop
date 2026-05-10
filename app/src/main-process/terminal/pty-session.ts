@@ -18,6 +18,7 @@ import {
   IPtyOptions,
   ITerminalSessionSnapshot,
 } from '../../lib/terminal/pty-types'
+import { OscParser, OscEvent } from '../../lib/terminal/osc-parser'
 
 /** Minimum surface our PTY needs to expose. Mirrors `node-pty`'s `IPty`. */
 export interface IPty {
@@ -71,6 +72,7 @@ export class PtySession {
   private destroyed = false
   private exitListeners: Array<(snapshot: ITerminalSessionSnapshot) => void> =
     []
+  private oscParser = new OscParser()
 
   public constructor(deps: IPtySessionDeps) {
     this.deps = deps
@@ -104,12 +106,15 @@ export class PtySession {
   public start(): void {
     if (this.pty !== null || this.destroyed) {return}
 
+    this.oscParser.onEvent(evt => this.onOsc(evt))
+
     this.pty = this.deps.factory(this.deps.options)
     this.snapshot = { ...this.snapshot, status: 'running' }
 
     this.dataDisposable = this.pty.onData(chunk => {
       if (this.destroyed) {return}
       const bytes = chunkToBytes(chunk)
+      this.oscParser.feed(bytes)
       this.safePost({ type: 'data', bytes })
     })
 
@@ -189,6 +194,17 @@ export class PtySession {
       default:
         // Unknown message — drop silently. We never throw on a renderer payload.
         return
+    }
+  }
+
+  private onOsc(evt: OscEvent): void {
+    if (this.destroyed) {return}
+    if (evt.type === 'cwd') {
+      this.snapshot = { ...this.snapshot, liveCwd: evt.path }
+      this.safePost({ type: 'meta', liveCwd: evt.path })
+    } else if (evt.type === 'command-end') {
+      this.snapshot = { ...this.snapshot, lastExitCode: evt.exitCode }
+      this.safePost({ type: 'meta', lastExitCode: evt.exitCode })
     }
   }
 

@@ -206,6 +206,28 @@ describe('PtySession', () => {
     })
   })
 
+  describe('OSC events', () => {
+    it('emits liveCwd updates on OSC 7 to the renderer port', () => {
+      const { session, pty, port } = makeSession()
+      session.start()
+      pty.emitData('hello\x1b]7;file:///tmp/x\x1b\\bye')
+      const meta = port.posted.find(p => p.message.type === 'meta')?.message
+      expect(meta).toEqual({ type: 'meta', liveCwd: '/tmp/x' })
+      expect(session.getSnapshot().liveCwd).toBe('/tmp/x')
+    })
+
+    it('emits lastExitCode updates on OSC 133;D', () => {
+      const { session, pty, port } = makeSession()
+      session.start()
+      pty.emitData('\x1b]133;A\x1b\\\x1b]133;B\x1b\\\x1b]133;D;7\x1b\\')
+      const meta = port.posted.find(
+        p => p.message.type === 'meta' && p.message.lastExitCode === 7
+      )?.message
+      expect(meta).toBeDefined()
+      expect(session.getSnapshot().lastExitCode).toBe(7)
+    })
+  })
+
   describe('kill', () => {
     it('forwards a kill signal to the PTY and closes the port', () => {
       const { session, pty, port } = makeSession()
