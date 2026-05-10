@@ -4,6 +4,12 @@ import {
   filePathRegex,
   parseFilePathMatch,
 } from '../../lib/terminal/link-matchers'
+import { OscParser } from '../../lib/terminal/osc-parser'
+import {
+  CommandBlockTracker,
+  ICommandBlock,
+  extractBlockText,
+} from '../../lib/terminal/command-blocks'
 
 /**
  * Thin React wrapper that mounts an xterm.js Terminal into a div ref and
@@ -176,9 +182,25 @@ export class XtermView extends React.Component<IXtermViewProps> {
   /** Cached element to which `pasteHandler` was attached. Avoids a null-ref at detach time. */
   private pasteTarget: HTMLDivElement | null = null
 
+  /** OSC sequence parser — feeds command-block boundary events. */
+  private oscParser = new OscParser()
+  /** Tracks completed Warp-style command blocks from OSC 133 events. */
+  private blockTracker = new CommandBlockTracker(
+    () => (this.term as any)?.buffer?.active?.cursorY ?? 0
+  )
+  /** Snapshot of completed blocks used by renderGutter(). */
+  private commandBlocks: ReadonlyArray<ICommandBlock> = []
+
   public constructor(props: IXtermViewProps) {
     super(props)
     this.clipboard = props.clipboard ?? defaultClipboard
+    this.oscParser.onEvent(evt => {
+      this.blockTracker.handle(evt)
+      if (evt.type === 'command-end') {
+        this.commandBlocks = this.blockTracker.getBlocks()
+        this.forceUpdate()
+      }
+    })
   }
 
   public componentDidMount(): void {
@@ -322,14 +344,54 @@ export class XtermView extends React.Component<IXtermViewProps> {
 
   public render() {
     return (
-      <div
-        ref={this.container}
-        className="xterm-view"
-        role="application"
-        aria-label="Integrated terminal"
-        onContextMenu={this.onContextMenu}
-      />
+      <div className="xterm-view-wrapper">
+        {this.renderGutter()}
+        <div
+          ref={this.container}
+          className="xterm-view"
+          role="application"
+          aria-label="Integrated terminal"
+          onContextMenu={this.onContextMenu}
+        />
+      </div>
     )
+  }
+
+  private renderGutter(): JSX.Element | null {
+    if (this.commandBlocks.length === 0) {
+      return null
+    }
+    return (
+      <div className="xterm-gutter" aria-hidden="true">
+        {this.commandBlocks.map((block, i) => (
+          <button
+            key={i}
+            className={`xterm-block-marker ${block.exitCode === 0 ? 'success' : 'failure'}`}
+            title="Copy block output"
+            onClick={() => this.copyBlock(block)}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  private copyBlock(block: ICommandBlock): void {
+    if (!this.term) {
+      return
+    }
+    const term = this.term as any
+    const getLineText = (row: number): string => {
+      try {
+        return term.buffer?.active?.getLine(row)?.translateToString(true) ?? ''
+      } catch {
+        return ''
+      }
+    }
+    const text = extractBlockText(getLineText, block)
+    navigator.clipboard.writeText(text).catch(() => {
+      // fall back to Electron clipboard
+      this.clipboard.writeText(text)
+    })
   }
 
   // --- helpers ---
@@ -606,6 +668,9 @@ export class XtermView extends React.Component<IXtermViewProps> {
       }
       if (data.type === 'data' && this.term) {
         this.term.write(data.bytes)
+        if (data.bytes instanceof Uint8Array) {
+          this.oscParser.feed(data.bytes)
+        }
       }
     }
     if (typeof port.addEventListener === 'function') {

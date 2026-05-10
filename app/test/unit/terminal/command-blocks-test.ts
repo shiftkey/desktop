@@ -1,4 +1,8 @@
-import { CommandBlockTracker } from '../../../src/lib/terminal/command-blocks'
+import {
+  CommandBlockTracker,
+  extractBlockText,
+  ICommandBlock,
+} from '../../../src/lib/terminal/command-blocks'
 
 describe('CommandBlockTracker', () => {
   it('records a complete command block', () => {
@@ -60,5 +64,30 @@ describe('CommandBlockTracker', () => {
     t.handle({ type: 'command-end', exitCode: 0 })
     t.reset()
     expect(t.getBlocks()).toEqual([])
+  })
+})
+
+describe('extractBlockText', () => {
+  it('joins lines from commandStartRow to endRow inclusive', () => {
+    const lines = ['line0', 'line1', 'line2', 'line3', 'line4']
+    const block: ICommandBlock = {
+      commandStartRow: 1,
+      outputStartRow: 2,
+      endRow: 3,
+      exitCode: 0,
+    }
+    const result = extractBlockText(r => lines[r], block)
+    expect(result).toBe('line1\nline2\nline3')
+  })
+
+  it('returns a single line when commandStartRow equals endRow', () => {
+    const block: ICommandBlock = {
+      commandStartRow: 4,
+      outputStartRow: 4,
+      endRow: 4,
+      exitCode: 0,
+    }
+    const result = extractBlockText(r => `row${r}`, block)
+    expect(result).toBe('row4')
   })
 })
