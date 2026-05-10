@@ -10,6 +10,7 @@ const baseState: ITerminalState = {
   sessions: new Map(),
   tabsByRepoId: new Map(),
   activeByRepoId: new Map(),
+  layoutByRepoId: new Map(),
 }
 
 const snap = (

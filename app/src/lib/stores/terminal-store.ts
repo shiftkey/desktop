@@ -1,5 +1,6 @@
 import { BaseStore } from './base-store'
 import { ITerminalSessionSnapshot } from '../terminal/pty-types'
+import { Layout, leaf, splitLeaf, closeSession } from '../terminal/split-layout'
 
 /**
  * Renderer-side state for the integrated terminal panel.
@@ -26,6 +27,8 @@ export interface ITerminalState {
   readonly tabsByRepoId: ReadonlyMap<number, ReadonlyArray<string>>
   /** Per-repo last-active session id, used when switching repos. */
   readonly activeByRepoId: ReadonlyMap<number, string>
+  /** Per-repo split-pane layout tree. */
+  readonly layoutByRepoId: ReadonlyMap<number, Layout>
 }
 
 const HEIGHT_KEY = 'terminal-panel-height'
@@ -44,6 +47,7 @@ const EMPTY_STATE: ITerminalState = Object.freeze({
   sessions: new Map(),
   tabsByRepoId: new Map(),
   activeByRepoId: new Map(),
+  layoutByRepoId: new Map(),
 })
 
 /** Storage adapter for the persisted height — `localStorage`-shaped. */
@@ -211,11 +215,19 @@ export class TerminalStore extends BaseStore {
     const activeByRepoId = new Map(this.state.activeByRepoId)
     activeByRepoId.set(snapshot.repositoryId, snapshot.id)
 
+    // Only set a leaf layout when no layout exists yet for the repo.
+    // If a layout already exists (split path via applySplit), leave it alone.
+    const layoutByRepoId = new Map(this.state.layoutByRepoId)
+    if (!layoutByRepoId.has(snapshot.repositoryId)) {
+      layoutByRepoId.set(snapshot.repositoryId, leaf(snapshot.id))
+    }
+
     this.update({
       sessions,
       tabsByRepoId,
       activeByRepoId,
       activeSessionId: snapshot.id,
+      layoutByRepoId,
     })
   }
 
@@ -322,7 +334,18 @@ export class TerminalStore extends BaseStore {
       activeSessionId = activeByRepoId.get(removed.repositoryId) ?? null
     }
 
-    this.update({ sessions, tabsByRepoId, activeByRepoId, activeSessionId })
+    const layoutByRepoId = new Map(this.state.layoutByRepoId)
+    const currentLayout = layoutByRepoId.get(removed.repositoryId)
+    if (currentLayout !== undefined) {
+      const nextLayout = closeSession(currentLayout, sessionId)
+      if (nextLayout === null) {
+        layoutByRepoId.delete(removed.repositoryId)
+      } else {
+        layoutByRepoId.set(removed.repositoryId, nextLayout)
+      }
+    }
+
+    this.update({ sessions, tabsByRepoId, activeByRepoId, activeSessionId, layoutByRepoId })
   }
 
   /**
@@ -361,10 +384,74 @@ export class TerminalStore extends BaseStore {
     this.mergeMeta(sessionId, { title })
   }
 
+  /**
+   * Split the leaf containing `targetLeafId` and add `newSessionId` as the
+   * new pane. No-op when the repo has no layout or the leaf isn't found.
+   */
+  public applySplit(
+    repoId: number,
+    targetLeafId: string,
+    orientation: 'horizontal' | 'vertical',
+    newSessionId: string
+  ): void {
+    const layout = this.state.layoutByRepoId.get(repoId) ?? leaf(targetLeafId)
+    const next = splitLeaf(layout, targetLeafId, orientation, newSessionId)
+    if (next === layout) {
+      return
+    }
+    const layoutByRepoId = new Map(this.state.layoutByRepoId)
+    layoutByRepoId.set(repoId, next)
+    this.update({ layoutByRepoId })
+  }
+
+  /**
+   * Update the split ratio at the given path within the repo's layout tree.
+   * No-op when the repo has no layout or the path doesn't lead to a split node.
+   */
+  public setSplitRatio(
+    repoId: number,
+    path: ReadonlyArray<'a' | 'b'>,
+    ratio: number
+  ): void {
+    const layout = this.state.layoutByRepoId.get(repoId)
+    if (!layout) {
+      return
+    }
+    const next = updateRatioAtPath(layout, path, ratio)
+    if (next === layout) {
+      return
+    }
+    const layoutByRepoId = new Map(this.state.layoutByRepoId)
+    layoutByRepoId.set(repoId, next)
+    this.update({ layoutByRepoId })
+  }
+
   private update(patch: Partial<ITerminalState>): void {
     this.state = { ...this.state, ...patch }
     this.emitUpdate()
   }
+}
+
+function updateRatioAtPath(
+  node: Layout,
+  path: ReadonlyArray<'a' | 'b'>,
+  ratio: number
+): Layout {
+  if (path.length === 0) {
+    if (node.kind !== 'split') {
+      return node
+    }
+    return { ...node, ratio }
+  }
+  if (node.kind !== 'split') {
+    return node
+  }
+  const [head, ...rest] = path
+  const updated = updateRatioAtPath(node[head], rest, ratio)
+  if (updated === node[head]) {
+    return node
+  }
+  return { ...node, [head]: updated }
 }
 
 function parseHeight(raw: string | null): number | null {

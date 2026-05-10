@@ -7359,6 +7359,66 @@ export class AppStore extends TypedBaseStore<IAppState> {
     await resizeTerminalIpc(sessionId, cols, rows)
   }
 
+  /**
+   * Split the active pane for the given repository. Spawns a new terminal
+   * session in the same cwd as the currently active session (or the repo
+   * path as a fallback) and applies the split to the layout tree.
+   */
+  public async _splitTerminal(
+    repository: Repository,
+    orientation: 'horizontal' | 'vertical'
+  ): Promise<void> {
+    const termState = this.terminalStore.getState()
+    const activeId = termState.activeSessionId
+    if (activeId === null) {
+      return
+    }
+    const activeSession = termState.sessions.get(activeId)
+    if (!activeSession) {
+      return
+    }
+    const cwd = activeSession.liveCwd ?? activeSession.cwd ?? repository.path
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const fs = require('fs') as typeof import('fs')
+      const detected = detectShell(
+        process.platform,
+        process.env as Record<string, string>,
+        (p: string) => {
+          try {
+            return fs.existsSync(p)
+          } catch {
+            return false
+          }
+        }
+      )
+      const newSessionId = await this._spawnTerminal(repository.id, {
+        shell: detected.path,
+        args: detected.args,
+        cwd,
+        env: makeTerminalEnv(),
+        cols: activeSession.cols,
+        rows: activeSession.rows,
+      })
+      this.terminalStore.applySplit(repository.id, activeId, orientation, newSessionId)
+    } catch (err) {
+      log.error('[AppStore] failed to split terminal', err as Error)
+      this.emitError(err as Error)
+    }
+  }
+
+  /**
+   * Update the split ratio at `path` inside the given repo's layout tree.
+   * Called during drag-to-resize of a split spacer divider.
+   */
+  public _setTerminalSplitRatio(
+    repositoryId: number,
+    path: ReadonlyArray<'a' | 'b'>,
+    ratio: number
+  ): void {
+    this.terminalStore.setSplitRatio(repositoryId, path, ratio)
+  }
+
   /** Open a PR review dialog. Loads threads from the API. */
   public async _openPullRequestReview(
     repository: Repository,

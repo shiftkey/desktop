@@ -5,6 +5,7 @@ import { XtermView, IXtermViewPort } from './xterm-view'
 import { TerminalFindBar } from './terminal-find-bar'
 import { TerminalEmptyState } from './terminal-empty-state'
 import { PasteConfirmDialog } from './paste-confirm-dialog'
+import { SplitContainer } from './split-container'
 import {
   formatTabLabel,
   shouldShowActivityDot,
@@ -63,6 +64,20 @@ interface ITerminalPanelProps {
    * when the active session has `status === 'exited'`.
    */
   readonly onRestartTerminal?: (sessionId: string) => void
+  /**
+   * Split the active pane horizontally or vertically.
+   * Wired to Ctrl+Shift+D (horizontal) and Ctrl+Shift+E (vertical).
+   */
+  readonly onSplitTerminal?: (orientation: 'horizontal' | 'vertical') => void
+  /**
+   * Update the ratio of a split node at `path` inside the current repo's
+   * layout tree. Called during drag-to-resize of the split spacer.
+   */
+  readonly onSetSplitRatio?: (
+    repoId: number,
+    path: ReadonlyArray<'a' | 'b'>,
+    ratio: number
+  ) => void
 }
 
 interface ITerminalPanelState {
@@ -229,55 +244,13 @@ export class TerminalPanel extends React.Component<
             <TerminalEmptyState onNewTab={this.props.onNewTab} />
           )}
           {/*
-            Mount one XtermView per session in the entire store, not just
-            tabs for the current repo. Switching repos/tabs only flips
-            display:block↔none — the React tree (and therefore the
-            MessagePort) survives, so the PTY keeps running in the
-            background.
-
-            Lazy-mount: only sessions that have been activated at least
-            once are rendered. This skips the xterm.js DOM/WebGL init
-            cost for tabs the user never visits in a session.
+            SplitContainer renders the layout tree for the current repo.
+            Each leaf maps to one XtermView. The active session is shown;
+            others are kept mounted (hidden) so their scrollback survives.
+            Falls back to the legacy flat render when no layout exists yet.
           */}
           {this.renderExitOverlay()}
-          {Array.from(state.sessions.keys())
-            .filter(sid => this.state.mountedSessionIds.has(sid))
-            .map(sid => {
-              const ref = this.refForSession(sid)
-              return (
-                <div
-                  key={sid}
-                  className="terminal-panel__view"
-                  style={{
-                    display: sid === activeId ? 'block' : 'none',
-                    height: '100%',
-                  }}
-                >
-                  <XtermView
-                    ref={ref}
-                    port={this.props.portFor(sid)}
-                    theme={this.props.theme}
-                    fontSize={this.props.fontSize}
-                    scrollback={this.props.scrollback}
-                    // eslint-disable-next-line react/jsx-no-bind
-                    onFilePathClick={
-                      this.props.onFilePathClick
-                        ? (path, line, col) =>
-                            this.props.onFilePathClick!(
-                              this.props.repositoryId,
-                              sid,
-                              path,
-                              line,
-                              col
-                            )
-                        : undefined
-                    }
-                    // eslint-disable-next-line react/jsx-no-bind
-                    onPasteConfirmRequired={(text) => this.handlePasteConfirmRequired(sid, text)}
-                  />
-                </div>
-              )
-            })}
+          {this.renderSessions(activeId)}
           {this.state.pendingPaste !== null && (
             <PasteConfirmDialog
               text={this.state.pendingPaste.text}
@@ -288,6 +261,87 @@ export class TerminalPanel extends React.Component<
         </div>
       </div>
     )
+  }
+
+  private renderSessions(activeId: string | null): React.ReactNode {
+    const { state } = this.props
+    const repoId = this.props.repositoryId
+    const layout = repoId !== null ? state.layoutByRepoId.get(repoId) : undefined
+
+    if (layout !== undefined) {
+      return (
+        <SplitContainer
+          layout={layout}
+          activeSessionId={activeId}
+          portFor={this.props.portFor}
+          theme={this.props.theme}
+          fontSize={this.props.fontSize}
+          scrollback={this.props.scrollback}
+          mountedSessionIds={this.state.mountedSessionIds}
+          xtermRefs={this.xtermRefs}
+          // eslint-disable-next-line react/jsx-no-bind
+          onRatioChange={
+            repoId !== null && this.props.onSetSplitRatio
+              ? (path, ratio) => this.props.onSetSplitRatio!(repoId, path, ratio)
+              : undefined
+          }
+          onFilePathClick={
+            this.props.onFilePathClick
+              ? // eslint-disable-next-line react/jsx-no-bind
+                (sid, filePath, line, col) =>
+                  this.props.onFilePathClick!(repoId, sid, filePath, line, col)
+              : undefined
+          }
+          // eslint-disable-next-line react/jsx-no-bind
+          onPasteConfirmRequired={(sid, text) =>
+            this.handlePasteConfirmRequired(sid, text)
+          }
+          onRestartTerminal={this.props.onRestartTerminal}
+        />
+      )
+    }
+
+    // Fallback: flat render when no layout exists (e.g. repo has no sessions).
+    return Array.from(state.sessions.keys())
+      .filter(sid => this.state.mountedSessionIds.has(sid))
+      .map(sid => {
+        const ref = this.refForSession(sid)
+        return (
+          <div
+            key={sid}
+            className="terminal-panel__view"
+            style={{
+              display: sid === activeId ? 'block' : 'none',
+              height: '100%',
+            }}
+          >
+            <XtermView
+              ref={ref}
+              port={this.props.portFor(sid)}
+              theme={this.props.theme}
+              fontSize={this.props.fontSize}
+              scrollback={this.props.scrollback}
+              // eslint-disable-next-line react/jsx-no-bind
+              onFilePathClick={
+                this.props.onFilePathClick
+                  ? (path, line, col) =>
+                      this.props.onFilePathClick!(
+                        this.props.repositoryId,
+                        sid,
+                        path,
+                        line,
+                        col
+                      )
+                  : undefined
+              }
+              // eslint-disable-next-line react/jsx-no-bind
+              onPasteConfirmRequired={text =>
+                this.handlePasteConfirmRequired(sid, text)
+              }
+            />
+          </div>
+        )
+      })
   }
 
   private renderExitOverlay() {
@@ -689,6 +743,23 @@ export class TerminalPanel extends React.Component<
       e.preventDefault()
       this.toggleFindBar()
       return
+    }
+    // Split panes: Ctrl+Shift+D = horizontal, Ctrl+Shift+E = vertical.
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey) {
+      if (e.key === 'D' || e.key === 'd') {
+        if (this.props.onSplitTerminal) {
+          e.preventDefault()
+          this.props.onSplitTerminal('horizontal')
+        }
+        return
+      }
+      if (e.key === 'E' || e.key === 'e') {
+        if (this.props.onSplitTerminal) {
+          e.preventDefault()
+          this.props.onSplitTerminal('vertical')
+        }
+        return
+      }
     }
     // Ctrl+1..9 (no Shift, no Alt) → quick-switch tab inside the
     // current repo. Ctrl+0 / Ctrl+= / Ctrl+- handle font zoom (Task 17).

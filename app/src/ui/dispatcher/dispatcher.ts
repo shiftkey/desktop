@@ -2788,6 +2788,29 @@ export class Dispatcher {
     return this.appStore._getTerminalPort(sessionId)
   }
 
+  /**
+   * Split the active terminal pane for the given repository.
+   * Spawns a new session and applies the split to the layout tree.
+   */
+  public async splitTerminal(
+    repository: Repository,
+    orientation: 'horizontal' | 'vertical'
+  ): Promise<void> {
+    return this.appStore._splitTerminal(repository, orientation)
+  }
+
+  /**
+   * Update the split ratio at `path` inside the given repo's layout tree.
+   * Called during drag-to-resize of the split spacer divider.
+   */
+  public setTerminalSplitRatio(
+    repositoryId: number,
+    path: ReadonlyArray<'a' | 'b'>,
+    ratio: number
+  ): void {
+    this.appStore._setTerminalSplitRatio(repositoryId, path, ratio)
+  }
+
   // --- Pull Request Review (in-app) ---
 
   public openPullRequestReview(

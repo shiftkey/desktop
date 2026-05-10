@@ -399,4 +399,85 @@ describe('TerminalStore', () => {
       expect(s.getState().tabsByRepoId.get(7)).toEqual(['s1'])
     })
   })
+
+  describe('applySplit / layoutByRepoId', () => {
+    it('registerSession sets leaf layout for a new repo', () => {
+      const s = new TerminalStore()
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      const layout = s.getState().layoutByRepoId.get(7)
+      expect(layout).toEqual({ kind: 'leaf', sessionId: 's1' })
+    })
+
+    it('registerSession for existing repo does not overwrite layout', () => {
+      const s = new TerminalStore()
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.registerSession(snap({ id: 's2', repositoryId: 7 }))
+      // Second register should leave the layout as the leaf for s1
+      const layout = s.getState().layoutByRepoId.get(7)
+      expect(layout).toEqual({ kind: 'leaf', sessionId: 's1' })
+    })
+
+    it('applySplit updates layout to a split node', () => {
+      const s = new TerminalStore()
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.registerSession(snap({ id: 's2', repositoryId: 7 }))
+      s.applySplit(7, 's1', 'horizontal', 's2')
+      const layout = s.getState().layoutByRepoId.get(7)
+      expect(layout).toEqual({
+        kind: 'split',
+        orientation: 'horizontal',
+        ratio: 0.5,
+        a: { kind: 'leaf', sessionId: 's1' },
+        b: { kind: 'leaf', sessionId: 's2' },
+      })
+    })
+
+    it('applySplit with vertical orientation', () => {
+      const s = new TerminalStore()
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.registerSession(snap({ id: 's2', repositoryId: 7 }))
+      s.applySplit(7, 's1', 'vertical', 's2')
+      const layout = s.getState().layoutByRepoId.get(7)
+      expect(layout).toMatchObject({ kind: 'split', orientation: 'vertical' })
+    })
+
+    it('removeSession collapses a split back to a leaf', () => {
+      const s = new TerminalStore()
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.registerSession(snap({ id: 's2', repositoryId: 7 }))
+      s.applySplit(7, 's1', 'horizontal', 's2')
+      s.removeSession('s2')
+      const layout = s.getState().layoutByRepoId.get(7)
+      expect(layout).toEqual({ kind: 'leaf', sessionId: 's1' })
+    })
+
+    it('removeSession of last session deletes the layout entry', () => {
+      const s = new TerminalStore()
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.removeSession('s1')
+      expect(s.getState().layoutByRepoId.has(7)).toBe(false)
+    })
+
+    it('setSplitRatio updates ratio at the root split', () => {
+      const s = new TerminalStore()
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.registerSession(snap({ id: 's2', repositoryId: 7 }))
+      s.applySplit(7, 's1', 'horizontal', 's2')
+      s.setSplitRatio(7, [], 0.75)
+      const layout = s.getState().layoutByRepoId.get(7)
+      expect(layout).toMatchObject({ kind: 'split', ratio: 0.75 })
+    })
+
+    it('setSplitRatio is a no-op for unknown repo', () => {
+      const s = new TerminalStore()
+      // Should not throw
+      s.setSplitRatio(99, [], 0.5)
+      expect(s.getState().layoutByRepoId.has(99)).toBe(false)
+    })
+
+    it('initial layoutByRepoId is empty', () => {
+      const s = new TerminalStore()
+      expect(s.getState().layoutByRepoId.size).toBe(0)
+    })
+  })
 })
