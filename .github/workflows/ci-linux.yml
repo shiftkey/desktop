@@ -15,54 +15,6 @@ env:
   BUILD_VERSION_SUFFIX: linux.${{ github.run_number }}
 
 jobs:
-  arm64:
-    name: Debian arm64
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref || github.ref }}
-          submodules: recursive
-      - name: Set release build version
-        run: |
-          node -e "const fs = require('fs'); const path = 'app/package.json'; const pkg = require('./' + path); pkg.version = pkg.version.replace(/-.*/, '') + '-' + process.env.BUILD_VERSION_SUFFIX; fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');"
-          node -p "require('./app/package.json').version"
-      - name: Package and test application in container
-        uses: shiftkey/desktop-ubuntu-arm64-packaging@9be09c4b945873e6509baaf690d457aae08cf901
-      - name: Upload Debian package
-        uses: actions/upload-artifact@v4
-        with:
-          name: debian-arm64
-          path: |
-            dist/*.deb
-            dist/*.deb.sha256
-          retention-days: 30
-          if-no-files-found: error
-
-  arm:
-    name: Debian arm
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref || github.ref }}
-          submodules: recursive
-      - name: Set release build version
-        run: |
-          node -e "const fs = require('fs'); const path = 'app/package.json'; const pkg = require('./' + path); pkg.version = pkg.version.replace(/-.*/, '') + '-' + process.env.BUILD_VERSION_SUFFIX; fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');"
-          node -p "require('./app/package.json').version"
-      - name: Package and test application in container
-        uses: shiftkey/desktop-ubuntu-arm-packaging@dd75ebc57f69fdb9319ab2b0fe11b253bb1ff2a4
-      - name: Upload Debian package
-        uses: actions/upload-artifact@v4
-        with:
-          name: debian-arm
-          path: |
-            dist/*.deb
-            dist/*.deb.sha256
-          retention-days: 30
-          if-no-files-found: error
-
   amd64:
     name: Debian amd64
     runs-on: ubuntu-latest
@@ -89,7 +41,7 @@ jobs:
 
   release:
     name: Publish GitHub release
-    needs: [arm64, arm, amd64]
+    needs: [amd64]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
