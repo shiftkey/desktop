@@ -209,7 +209,6 @@ export class TerminalPanel extends React.Component<
           tabIndex={0}
           onMouseDown={this.onResizeMouseDown}
           onKeyDown={this.onResizeKeyDown}
-          title="Drag to resize"
         />
         {/* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
         <div className="terminal-panel__toolbar">
@@ -219,7 +218,6 @@ export class TerminalPanel extends React.Component<
               className="terminal-panel__new-tab"
               onClick={this.props.onNewTab}
               aria-label="New terminal"
-              title="New terminal"
             >
               +
             </button>
@@ -228,7 +226,6 @@ export class TerminalPanel extends React.Component<
             className="terminal-panel__close"
             onClick={this.props.onCloseClick}
             aria-label="Close terminal"
-            title="Close panel"
           >
             ×
           </button>
@@ -285,10 +282,10 @@ export class TerminalPanel extends React.Component<
               ? (path, ratio) => this.props.onSetSplitRatio!(repoId, path, ratio)
               : undefined
           }
+          // eslint-disable-next-line react/jsx-no-bind
           onFilePathClick={
             this.props.onFilePathClick
-              ? // eslint-disable-next-line react/jsx-no-bind
-                (sid, filePath, line, col) =>
+              ? (sid, filePath, line, col) =>
                   this.props.onFilePathClick!(repoId, sid, filePath, line, col)
               : undefined
           }
@@ -296,7 +293,6 @@ export class TerminalPanel extends React.Component<
           onPasteConfirmRequired={(sid, text) =>
             this.handlePasteConfirmRequired(sid, text)
           }
-          onRestartTerminal={this.props.onRestartTerminal}
         />
       )
     }
@@ -513,7 +509,6 @@ export class TerminalPanel extends React.Component<
             this.props.onCloseTab(sessionId)
           }}
           aria-label={`Close ${label}`}
-          title="Close tab"
         >
           ×
         </button>

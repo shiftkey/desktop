@@ -367,7 +367,8 @@ export class XtermView extends React.Component<IXtermViewProps> {
           <button
             key={i}
             className={`xterm-block-marker ${block.exitCode === 0 ? 'success' : 'failure'}`}
-            title="Copy block output"
+            aria-label="Copy block output"
+            // eslint-disable-next-line react/jsx-no-bind
             onClick={() => this.copyBlock(block)}
           />
         ))}
@@ -753,6 +754,7 @@ export class XtermView extends React.Component<IXtermViewProps> {
    * any paste with more than one newline, or a single-newline paste whose
    * total character count exceeds 80.
    */
+  // eslint-disable-next-line @typescript-eslint/member-ordering
   private static needsPasteConfirm(text: string): boolean {
     if (!text.includes('\n')) {
       return false

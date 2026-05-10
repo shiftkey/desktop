@@ -46,6 +46,7 @@ export function PasteConfirmDialog(props: IPasteConfirmDialogProps) {
             type="button"
             autoFocus={true}
             className="paste-confirm-dialog__confirm"
+            // eslint-disable-next-line react/jsx-no-bind
             onClick={() => onConfirm(text)}
           >
             Paste anyway

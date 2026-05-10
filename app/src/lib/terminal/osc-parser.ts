@@ -64,7 +64,7 @@ export class OscParser {
       const b = bytes[i]
       switch (this.state) {
         case 'text':
-          if (b === ESC) this.state = 'esc'
+          if (b === ESC) { this.state = 'esc' }
           break
         case 'esc':
           if (b === RBRACKET) {

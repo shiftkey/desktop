@@ -23,7 +23,6 @@ interface ISplitContainerProps {
     column: number | null
   ) => void
   readonly onPasteConfirmRequired?: (sessionId: string, text: string) => void
-  readonly onRestartTerminal?: (sessionId: string) => void
 }
 
 export class SplitContainer extends React.Component<ISplitContainerProps> {
@@ -106,10 +105,10 @@ export class SplitContainer extends React.Component<ISplitContainerProps> {
           theme={theme}
           fontSize={fontSize}
           scrollback={scrollback}
+          // eslint-disable-next-line react/jsx-no-bind
           onFilePathClick={
             this.props.onFilePathClick
-              ? // eslint-disable-next-line react/jsx-no-bind
-                (path, line, col) =>
+              ? (path, line, col) =>
                   this.props.onFilePathClick!(sessionId, path, line, col)
               : undefined
           }

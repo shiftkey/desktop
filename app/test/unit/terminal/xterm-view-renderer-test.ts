@@ -36,8 +36,11 @@ function mount(props: any): {
     ...props,
   })
   // Provide a fake container so componentDidMount proceeds.
+  // addEventListener/removeEventListener are needed by attachPasteInterceptor.
   const fakeEl: any = {
     getBoundingClientRect: () => ({ width: 0, height: 0 }),
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
   }
   ;(view as any).container = { current: fakeEl }
   view.componentDidMount()
@@ -294,6 +297,8 @@ describe('XtermView renderer fallback', () => {
     })
     const fakeEl: any = {
       getBoundingClientRect: () => ({ width: 0, height: 0 }),
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
     }
     ;(view as any).container = { current: fakeEl }
     view.componentDidMount()
