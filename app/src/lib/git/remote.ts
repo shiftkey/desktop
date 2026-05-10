@@ -12,9 +12,17 @@ import { getSymbolicRef } from './refs'
 export async function getRemotes(
   repository: Repository
 ): Promise<ReadonlyArray<IRemote>> {
-  const result = await git(['remote', '-v'], repository.path, 'getRemotes', {
-    expectedErrors: new Set([GitError.NotAGitRepository]),
-  })
+  let result
+  try {
+    result = await git(['remote', '-v'], repository.path, 'getRemotes', {
+      expectedErrors: new Set([GitError.NotAGitRepository]),
+    })
+  } catch (e) {
+    if (e instanceof Error && /not a git repository/i.test(e.message)) {
+      return []
+    }
+    throw e
+  }
 
   if (result.gitError === GitError.NotAGitRepository) {
     return []
