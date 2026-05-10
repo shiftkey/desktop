@@ -19,6 +19,7 @@
 
 import { TERMINAL_IPC } from '../../lib/terminal/ipc-channels'
 import { IPtyOptions } from '../../lib/terminal/pty-types'
+import { buildShellEnv } from '../../lib/terminal/shell-detection'
 import { TerminalManager } from './terminal-manager'
 import type { IPty } from './pty-session'
 
@@ -157,10 +158,12 @@ export function registerTerminalIpc(
 }
 
 function spawnPty(ptyMod: PtyModule, opts: IPtyOptions): IPty {
+  const shellName = opts.shell.split('/').pop() ?? opts.shell
+  const env = buildShellEnv(opts.env, opts.cwd, shellName)
   return ptyMod.spawn(opts.shell, [...opts.args], {
     name: 'xterm-256color',
     cwd: opts.cwd,
-    env: { ...opts.env },
+    env,
     cols: opts.cols,
     rows: opts.rows,
     encoding: null,

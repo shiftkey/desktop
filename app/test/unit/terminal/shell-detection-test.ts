@@ -1,4 +1,5 @@
 import {
+  buildShellEnv,
   detectShell,
   ShellProbe,
 } from '../../../src/lib/terminal/shell-detection'
@@ -103,5 +104,42 @@ describe('detectShell', () => {
       )
       expect(result.path).toBe('/bin/zsh')
     })
+  })
+})
+
+describe('buildShellEnv', () => {
+  it('injects TERM_PROGRAM=GitHubDesktop', () => {
+    const env = buildShellEnv({} as any, '/home/u/proj', 'zsh')
+    expect(env.TERM_PROGRAM).toBe('GitHubDesktop')
+  })
+
+  it('injects GHD_TERMINAL_REPO set to the repo path', () => {
+    const env = buildShellEnv({} as any, '/home/u/proj', 'zsh')
+    expect(env.GHD_TERMINAL_REPO).toBe('/home/u/proj')
+  })
+
+  it('injects GHD_PROMPT_MARKS=1', () => {
+    const env = buildShellEnv({} as any, '/home/u/proj', 'bash')
+    expect(env.GHD_PROMPT_MARKS).toBe('1')
+  })
+
+  it('does not set GIT_DIR', () => {
+    const env = buildShellEnv({} as any, '/home/u/proj', 'zsh')
+    expect(env.GIT_DIR).toBeUndefined()
+  })
+
+  it('defaults TERM to xterm-256color when not set in base', () => {
+    const env = buildShellEnv({} as any, '/home/u/proj', 'zsh')
+    expect(env.TERM).toBe('xterm-256color')
+  })
+
+  it('preserves TERM from base when already set', () => {
+    const env = buildShellEnv({ TERM: 'screen-256color' } as any, '/home/u/proj', 'zsh')
+    expect(env.TERM).toBe('screen-256color')
+  })
+
+  it('defaults COLORTERM to truecolor when not set', () => {
+    const env = buildShellEnv({} as any, '/home/u/proj', 'bash')
+    expect(env.COLORTERM).toBe('truecolor')
   })
 })

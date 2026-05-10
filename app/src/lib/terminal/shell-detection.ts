@@ -82,6 +82,30 @@ export function detectShell(
 }
 
 /**
+ * Build the environment for a new terminal session. Extends `base` (usually
+ * `process.env`) with GHD-specific variables:
+ *  - `TERM`          — set to `xterm-256color` if unset (many tools check this)
+ *  - `TERM_PROGRAM`  — identifies the terminal as GitHub Desktop
+ *  - `GHD_TERMINAL_REPO` — absolute path to the repository root
+ *  - `GHD_PROMPT_MARKS`  — `'1'` to signal that the shell should emit OSC 133
+ *  - `COLORTERM`     — set to `truecolor` if unset (enables 24-bit colour)
+ */
+export function buildShellEnv(
+  base: Record<string, string>,
+  repoPath: string,
+  _shellName: string
+): Record<string, string> {
+  return {
+    ...base,
+    TERM: base.TERM ?? 'xterm-256color',
+    TERM_PROGRAM: 'GitHubDesktop',
+    GHD_TERMINAL_REPO: repoPath,
+    GHD_PROMPT_MARKS: '1',
+    COLORTERM: base.COLORTERM ?? 'truecolor',
+  }
+}
+
+/**
  * Decide which arg list to launch a POSIX shell with.
  *
  * For bash/zsh we pass `-l` so the user's profile (.bash_profile,
