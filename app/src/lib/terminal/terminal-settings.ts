@@ -134,6 +134,7 @@ export class TerminalSettings {
   }
 }
 
+/** Lenient: user input is snapped to the nearest valid bound (good for UX). */
 function clampInt(
   raw: string | null,
   min: number,
@@ -156,6 +157,11 @@ function clampInt(
   return n
 }
 
+/**
+ * Strict: a persisted value that's out-of-range OR malformed reverts to the
+ * default. Don't quietly snap stale storage to current bounds — surfaces a
+ * stable baseline after schema-bound changes or hand-edited storage.
+ */
 function loadInt(
   raw: string | null,
   min: number,
