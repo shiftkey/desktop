@@ -3,6 +3,7 @@ import { ITerminalState } from '../../lib/stores/terminal-store'
 import { ITerminalThemeColors } from '../../lib/terminal/terminal-theme'
 import { XtermView, IXtermViewPort } from './xterm-view'
 import { TerminalFindBar } from './terminal-find-bar'
+import { TerminalEmptyState } from './terminal-empty-state'
 import {
   formatTabLabel,
   shouldShowActivityDot,
@@ -210,9 +211,7 @@ export class TerminalPanel extends React.Component<
         />
         <div className="terminal-panel__body">
           {tabIds.length === 0 && (
-            <div className="terminal-panel__placeholder">
-              No active terminal session. Click + to start one.
-            </div>
+            <TerminalEmptyState onNewTab={this.props.onNewTab} />
           )}
           {/*
             Mount one XtermView per session in the entire store, not just

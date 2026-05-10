@@ -118,10 +118,18 @@ describe('TerminalPanel', () => {
     const tree: any = panel.render()
     // root children: [resize, toolbar, findBar, body]
     const body = tree.props.children[3]
-    // body children: [placeholder?, viewWrappers]. With no tabs the
-    // placeholder is at index 0 and the wrappers array is empty.
-    const placeholder = body.props.children[0]
-    expect(placeholder.props.className).toBe('terminal-panel__placeholder')
+    // body children: [emptyState?, viewWrappers]. With no tabs the
+    // TerminalEmptyState element sits at index 0 and the wrappers array
+    // is empty.
+    const emptyState = body.props.children[0]
+    expect(emptyState).not.toBeNull()
+    // FC type is the function itself; smoke-check via displayName fallback.
+    const typeName =
+      (emptyState.type && emptyState.type.displayName) ||
+      (emptyState.type && emptyState.type.name) ||
+      ''
+    expect(typeName).toBe('TerminalEmptyState')
+    expect(typeof emptyState.props.onNewTab).toBe('function')
   })
 
   it('renders one tab per session in the current repo', () => {
