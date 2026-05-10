@@ -74,9 +74,49 @@ describe('OscParser', () => {
     expect(feedString(p, 'plain output\nmore output\n')).toEqual([])
   })
 
-  it('drops absurdly long sequences without crashing', () => {
+  it('drops a sequence that exceeds MAX_OSC_LEN entirely (poison)', () => {
     const p = new OscParser()
+    // 5000 bytes is > 4096; the whole sequence must be dropped, not truncated
+    const huge = 'a'.repeat(5000)
+    const events = feedString(p, '\x1b]7;file:///' + huge + '\x1b\\')
+    expect(events).toEqual([])
+  })
+
+  it('recovers after dropping an oversized sequence', () => {
+    const p = new OscParser()
+    const events: OscEvent[] = []
+    p.onEvent(e => events.push(e))
     const huge = 'a'.repeat(10000)
-    expect(feedString(p, '\x1b]7;file:///' + huge + '\x1b\\')).toEqual([])
+    p.feed(new TextEncoder().encode('\x1b]7;file:///' + huge + '\x1b\\'))
+    // Now feed a normal sequence — should parse fine after recovery
+    p.feed(new TextEncoder().encode('\x1b]7;file:///tmp\x1b\\'))
+    expect(events).toEqual([{ type: 'cwd', path: '/tmp' }])
+  })
+
+  it('handles raw UTF-8 in OSC 7 payload', () => {
+    const p = new OscParser()
+    const events: OscEvent[] = []
+    p.onEvent(e => events.push(e))
+    // "/résumé" as raw UTF-8 bytes (not percent-encoded)
+    const utf8 = new TextEncoder().encode('\x1b]7;file:///résumé\x1b\\')
+    p.feed(utf8)
+    expect(events).toEqual([{ type: 'cwd', path: '/résumé' }])
+  })
+
+  it('handles an empty feed call', () => {
+    const p = new OscParser()
+    const events: OscEvent[] = []
+    p.onEvent(e => events.push(e))
+    p.feed(new Uint8Array(0))
+    expect(events).toEqual([])
+  })
+
+  it('handles two complete OSC sequences in one feed call', () => {
+    const p = new OscParser()
+    const events = feedString(p, '\x1b]7;file:///a\x1b\\\x1b]7;file:///b\x1b\\')
+    expect(events).toEqual([
+      { type: 'cwd', path: '/a' },
+      { type: 'cwd', path: '/b' },
+    ])
   })
 })

@@ -1,3 +1,21 @@
+import { TextDecoder } from 'util'
+
+/**
+ * Streaming parser for ECMA-48 / xterm Operating System Command (OSC)
+ * sequences emitted by interactive shells over the PTY byte stream.
+ *
+ * Recognized sequences:
+ *   - OSC 7    `file://[host]/path`        — current working directory
+ *   - OSC 133  `A` / `B` / `C` / `D[;exit]` — prompt / command / output
+ *                                            boundaries (FinalTerm protocol)
+ *
+ * Both `BEL` (0x07) and `ESC \` (ST, 0x1B 0x5C) are accepted as terminators.
+ * Payloads are decoded as UTF-8 to handle shells that emit raw multibyte
+ * paths (e.g. zsh on macOS with non-ASCII filenames). Sequences whose payload
+ * exceeds {@link MAX_OSC_LEN} are dropped in their entirety (poison-on-overflow)
+ * rather than silently truncated.
+ */
+
 export type OscEvent =
   | { type: 'cwd'; path: string }
   | { type: 'prompt-start' }
@@ -13,15 +31,34 @@ const MAX_OSC_LEN = 4096
 
 type State = 'text' | 'esc' | 'osc' | 'osc-esc'
 
+/**
+ * Incremental OSC parser. Bytes are pushed in via {@link feed}; recognized
+ * events are dispatched synchronously to listeners registered through
+ * {@link onEvent}. The parser is stateful across feed calls — partial
+ * sequences split between writes are stitched together transparently.
+ */
 export class OscParser {
   private listeners: Array<(e: OscEvent) => void> = []
   private state: State = 'text'
   private buf: number[] = []
+  private poisoned: boolean = false
+  private decoder: TextDecoder = new TextDecoder('utf-8', { fatal: false })
 
+  /**
+   * Register a callback invoked once per recognized OSC event. Listener
+   * exceptions are swallowed so a buggy subscriber cannot stall the byte
+   * pump.
+   */
   public onEvent(cb: (e: OscEvent) => void): void {
     this.listeners.push(cb)
   }
 
+  /**
+   * Feed raw PTY bytes into the parser. Safe to call with an empty buffer.
+   * Sequences whose payload would exceed {@link MAX_OSC_LEN} are marked
+   * poisoned and dropped on the next terminator — no partial event is
+   * emitted.
+   */
   public feed(bytes: Uint8Array): void {
     for (let i = 0; i < bytes.length; i++) {
       const b = bytes[i]
@@ -33,6 +70,7 @@ export class OscParser {
           if (b === RBRACKET) {
             this.state = 'osc'
             this.buf.length = 0
+            this.poisoned = false
           } else {
             this.state = 'text'
           }
@@ -44,9 +82,7 @@ export class OscParser {
           } else if (b === ESC) {
             this.state = 'osc-esc'
           } else {
-            if (this.buf.length < MAX_OSC_LEN) {
-              this.buf.push(b)
-            }
+            this.appendByte(b)
           }
           break
         case 'osc-esc':
@@ -55,22 +91,35 @@ export class OscParser {
             this.state = 'text'
           } else {
             this.state = 'osc'
-            if (this.buf.length < MAX_OSC_LEN) {
-              this.buf.push(ESC)
-              this.buf.push(b)
-            }
+            this.appendByte(ESC)
+            this.appendByte(b)
           }
           break
       }
     }
   }
 
-  private flush(): void {
-    if (this.buf.length === 0 || this.buf.length >= MAX_OSC_LEN) {
-      this.buf.length = 0
+  private appendByte(b: number): void {
+    if (this.poisoned) {
       return
     }
-    const text = String.fromCharCode(...this.buf)
+    if (this.buf.length >= MAX_OSC_LEN) {
+      this.poisoned = true
+      return
+    }
+    this.buf.push(b)
+  }
+
+  private flush(): void {
+    if (this.poisoned) {
+      this.buf.length = 0
+      this.poisoned = false
+      return
+    }
+    if (this.buf.length === 0) {
+      return
+    }
+    const text = this.decoder.decode(new Uint8Array(this.buf))
     this.buf.length = 0
     const evt = parse(text)
     if (evt !== null) {
