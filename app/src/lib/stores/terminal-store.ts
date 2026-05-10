@@ -271,6 +271,42 @@ export class TerminalStore extends BaseStore {
     this.update({ sessions, tabsByRepoId, activeByRepoId, activeSessionId })
   }
 
+  /**
+   * Move `sessionId` to position `toIndex` in its repo's tab order.
+   * No-op when the session or its repo isn't tracked, or when the
+   * resulting order is identical. `toIndex` is clamped to the valid
+   * range so callers can pass `Number.MAX_SAFE_INTEGER` for "to end".
+   */
+  public reorderTab(
+    repositoryId: number,
+    sessionId: string,
+    toIndex: number
+  ): void {
+    const tabs = this.state.tabsByRepoId.get(repositoryId)
+    if (!tabs) {
+      return
+    }
+    const ix = tabs.indexOf(sessionId)
+    if (ix === -1) {
+      return
+    }
+    const next = tabs.slice()
+    next.splice(ix, 1)
+    const safeIx = Math.max(0, Math.min(next.length, toIndex))
+    next.splice(safeIx, 0, sessionId)
+    if (next.length === tabs.length && next.every((id, i) => id === tabs[i])) {
+      return
+    }
+    const tabsByRepoId = new Map(this.state.tabsByRepoId)
+    tabsByRepoId.set(repositoryId, next)
+    this.update({ tabsByRepoId })
+  }
+
+  /** Set a user-visible title on the given session. */
+  public setTitle(sessionId: string, title: string): void {
+    this.mergeMeta(sessionId, { title })
+  }
+
   private update(patch: Partial<ITerminalState>): void {
     this.state = { ...this.state, ...patch }
     this.emitUpdate()

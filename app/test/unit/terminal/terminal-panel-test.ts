@@ -36,6 +36,10 @@ function makePanel(
   repositoryId: number | null = 1,
   extras: {
     onFilePathClick?: jest.Mock
+    onReorderTab?: jest.Mock
+    onRenameTab?: jest.Mock
+    onFocusTabByIndex?: jest.Mock
+    homedir?: string
   } = {}
 ) {
   const onResize = jest.fn()
@@ -57,7 +61,27 @@ function makePanel(
     onSelectTab,
     onCloseTab,
     onFilePathClick: extras.onFilePathClick,
+    onReorderTab: extras.onReorderTab,
+    onRenameTab: extras.onRenameTab,
+    onFocusTabByIndex: extras.onFocusTabByIndex,
   })
+  // Override homedir so tests get deterministic label output regardless
+  // of CI user's $HOME.
+  if (extras.homedir !== undefined) {
+    const home = extras.homedir
+    ;(panel as any).getHomedir = () => home
+  }
+  // The panel isn't mounted in these tests, so React's `setState` is a
+  // no-op (no reconciler attached). Replace it with a direct, synchronous
+  // mutation so renderTab() picks up state changes immediately.
+  ;(panel as any).setState = (update: any, cb?: () => void) => {
+    const next =
+      typeof update === 'function' ? update((panel as any).state) : update
+    ;(panel as any).state = { ...(panel as any).state, ...next }
+    if (cb) {
+      cb()
+    }
+  }
   return {
     panel,
     onResize,
@@ -146,7 +170,8 @@ describe('TerminalPanel', () => {
     })
     const tree: any = panel.render()
     const tab = tree.props.children[1].props.children[0].props.children[0][0]
-    const closeBtn = tab.props.children[1]
+    // tab children: [statusIcon, labelOrInput, activityDotOrFalse, closeBtn]
+    const closeBtn = tab.props.children[3]
     const stopProp = jest.fn()
     closeBtn.props.onClick({ stopPropagation: stopProp })
     expect(stopProp).toHaveBeenCalled()
@@ -253,5 +278,326 @@ describe('TerminalPanel', () => {
     const tabsContainer = tree.props.children[1].props.children[0]
     // first child is the tabs.map output (empty array when no repo)
     expect(tabsContainer.props.children[0]).toEqual([])
+  })
+
+  describe('rich tab UX', () => {
+    const getTab = (panel: any, ix = 0) => {
+      const tree: any = panel.render()
+      return tree.props.children[1].props.children[0].props.children[0][ix]
+    }
+
+    it('uses formatTabLabel: cwd inside $HOME renders as ~/<basename>', () => {
+      const a = snap({
+        id: 'a',
+        shell: '/usr/bin/zsh',
+        liveCwd: '/home/u/proj/src',
+      })
+      const { panel } = makePanel(
+        {
+          ...baseState,
+          activeSessionId: 'a',
+          sessions: new Map([[a.id, a]]),
+          tabsByRepoId: new Map([[1, ['a']]]),
+        },
+        1,
+        { homedir: '/home/u' }
+      )
+      const tab = getTab(panel)
+      // children: [statusIcon, labelOrInput, dotOrFalse, closeBtn]
+      const label = tab.props.children[1]
+      expect(label.props.children).toBe('zsh · ~/src')
+    })
+
+    it('renders an activity dot for an inactive tab with hasActivity', () => {
+      const a = snap({ id: 'a', hasActivity: true })
+      const b = snap({ id: 'b', hasActivity: false })
+      const { panel } = makePanel({
+        ...baseState,
+        activeSessionId: 'b',
+        sessions: new Map([
+          [a.id, a],
+          [b.id, b],
+        ]),
+        tabsByRepoId: new Map([[1, ['a', 'b']]]),
+      })
+      const inactive = getTab(panel, 0)
+      const dot = inactive.props.children[2]
+      expect(dot && dot.props.className).toBe('terminal-panel__tab-activity')
+      const active = getTab(panel, 1)
+      // Active tab never shows the dot — third slot is `false`.
+      expect(active.props.children[2]).toBe(false)
+    })
+
+    it('renders a status icon span on every tab', () => {
+      const a = snap({ id: 'a', status: 'running', lastExitCode: null })
+      const { panel } = makePanel({
+        ...baseState,
+        activeSessionId: 'a',
+        sessions: new Map([[a.id, a]]),
+        tabsByRepoId: new Map([[1, ['a']]]),
+      })
+      const tab = getTab(panel)
+      const status = tab.props.children[0]
+      expect(status.props.className).toContain('terminal-panel__tab-status')
+      expect(status.props.className).toContain('running')
+    })
+
+    it('middle-click on a tab fires onCloseTab (button === 1)', () => {
+      const a = snap({ id: 'a' })
+      const { panel, onCloseTab } = makePanel({
+        ...baseState,
+        activeSessionId: 'a',
+        sessions: new Map([[a.id, a]]),
+        tabsByRepoId: new Map([[1, ['a']]]),
+      })
+      const tab = getTab(panel)
+      const preventDefault = jest.fn()
+      tab.props.onMouseDown({ button: 1, preventDefault })
+      expect(preventDefault).toHaveBeenCalled()
+      expect(onCloseTab).toHaveBeenCalledWith('a')
+    })
+
+    it('left mousedown does not close the tab', () => {
+      const a = snap({ id: 'a' })
+      const { panel, onCloseTab } = makePanel({
+        ...baseState,
+        activeSessionId: 'a',
+        sessions: new Map([[a.id, a]]),
+        tabsByRepoId: new Map([[1, ['a']]]),
+      })
+      const tab = getTab(panel)
+      tab.props.onMouseDown({ button: 0, preventDefault: jest.fn() })
+      expect(onCloseTab).not.toHaveBeenCalled()
+    })
+
+    it('double-click puts the tab into rename mode', () => {
+      const a = snap({ id: 'a', shell: '/usr/bin/zsh' })
+      const { panel } = makePanel({
+        ...baseState,
+        activeSessionId: 'a',
+        sessions: new Map([[a.id, a]]),
+        tabsByRepoId: new Map([[1, ['a']]]),
+      })
+      const tab = getTab(panel)
+      tab.props.onDoubleClick()
+      expect((panel.state as any).renamingSessionId).toBe('a')
+      expect((panel.state as any).renameDraft).toBe('zsh')
+    })
+
+    it('Enter while renaming calls onRenameTab with the trimmed draft', () => {
+      const a = snap({ id: 'a' })
+      const onRenameTab = jest.fn()
+      const { panel } = makePanel(
+        {
+          ...baseState,
+          activeSessionId: 'a',
+          sessions: new Map([[a.id, a]]),
+          tabsByRepoId: new Map([[1, ['a']]]),
+        },
+        1,
+        { onRenameTab }
+      )
+      panel.setState({
+        renamingSessionId: 'a',
+        renameDraft: '  build watcher  ',
+      } as any)
+      const tab = getTab(panel)
+      const input = tab.props.children[1]
+      input.props.onKeyDown({
+        key: 'Enter',
+        preventDefault: jest.fn(),
+      })
+      expect(onRenameTab).toHaveBeenCalledWith('a', 'build watcher')
+      expect((panel.state as any).renamingSessionId).toBeNull()
+    })
+
+    it('Escape while renaming cancels without firing onRenameTab', () => {
+      const a = snap({ id: 'a' })
+      const onRenameTab = jest.fn()
+      const { panel } = makePanel(
+        {
+          ...baseState,
+          activeSessionId: 'a',
+          sessions: new Map([[a.id, a]]),
+          tabsByRepoId: new Map([[1, ['a']]]),
+        },
+        1,
+        { onRenameTab }
+      )
+      panel.setState({
+        renamingSessionId: 'a',
+        renameDraft: 'discarded',
+      } as any)
+      const tab = getTab(panel)
+      const input = tab.props.children[1]
+      input.props.onKeyDown({ key: 'Escape', preventDefault: jest.fn() })
+      expect(onRenameTab).not.toHaveBeenCalled()
+      expect((panel.state as any).renamingSessionId).toBeNull()
+    })
+
+    it('empty draft commit does not fire onRenameTab', () => {
+      const a = snap({ id: 'a' })
+      const onRenameTab = jest.fn()
+      const { panel } = makePanel(
+        {
+          ...baseState,
+          activeSessionId: 'a',
+          sessions: new Map([[a.id, a]]),
+          tabsByRepoId: new Map([[1, ['a']]]),
+        },
+        1,
+        { onRenameTab }
+      )
+      panel.setState({
+        renamingSessionId: 'a',
+        renameDraft: '   ',
+      } as any)
+      const tab = getTab(panel)
+      const input = tab.props.children[1]
+      input.props.onKeyDown({ key: 'Enter', preventDefault: jest.fn() })
+      expect(onRenameTab).not.toHaveBeenCalled()
+      expect((panel.state as any).renamingSessionId).toBeNull()
+    })
+
+    it('drop on tab B with drag started from A calls onReorderTab(repoId, A, ixOfB)', () => {
+      const a = snap({ id: 'A' })
+      const b = snap({ id: 'B' })
+      const c = snap({ id: 'C' })
+      const onReorderTab = jest.fn()
+      const { panel } = makePanel(
+        {
+          ...baseState,
+          activeSessionId: 'A',
+          sessions: new Map([
+            [a.id, a],
+            [b.id, b],
+            [c.id, c],
+          ]),
+          tabsByRepoId: new Map([[7, ['A', 'B', 'C']]]),
+        },
+        7,
+        { onReorderTab }
+      )
+      const tabA = getTab(panel, 0)
+      const tabB = getTab(panel, 1)
+      tabA.props.onDragStart({ dataTransfer: {} })
+      tabB.props.onDrop({
+        preventDefault: jest.fn(),
+        dataTransfer: {},
+      })
+      expect(onReorderTab).toHaveBeenCalledWith(7, 'A', 1)
+    })
+
+    it('drop on the same tab is a no-op', () => {
+      const a = snap({ id: 'A' })
+      const onReorderTab = jest.fn()
+      const { panel } = makePanel(
+        {
+          ...baseState,
+          activeSessionId: 'A',
+          sessions: new Map([[a.id, a]]),
+          tabsByRepoId: new Map([[1, ['A']]]),
+        },
+        1,
+        { onReorderTab }
+      )
+      const tabA = getTab(panel, 0)
+      tabA.props.onDragStart({ dataTransfer: {} })
+      tabA.props.onDrop({
+        preventDefault: jest.fn(),
+        dataTransfer: {},
+      })
+      expect(onReorderTab).not.toHaveBeenCalled()
+    })
+
+    it('Ctrl+1 calls onFocusTabByIndex(repoId, 0) when panel is visible', () => {
+      const a = snap({ id: 'a' })
+      const onFocusTabByIndex = jest.fn()
+      const { panel } = makePanel(
+        {
+          ...baseState,
+          sessions: new Map([[a.id, a]]),
+          tabsByRepoId: new Map([[7, ['a']]]),
+        },
+        7,
+        { onFocusTabByIndex }
+      )
+      const preventDefault = jest.fn()
+      ;(panel as any).handleGlobalKeyDown({
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        key: '1',
+        preventDefault,
+      })
+      expect(onFocusTabByIndex).toHaveBeenCalledWith(7, 0)
+      expect(preventDefault).toHaveBeenCalled()
+    })
+
+    it('Ctrl+9 maps to index 8', () => {
+      const onFocusTabByIndex = jest.fn()
+      const { panel } = makePanel(
+        {
+          ...baseState,
+          tabsByRepoId: new Map([[7, []]]),
+        },
+        7,
+        { onFocusTabByIndex }
+      )
+      ;(panel as any).handleGlobalKeyDown({
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        key: '9',
+        preventDefault: jest.fn(),
+      })
+      expect(onFocusTabByIndex).toHaveBeenCalledWith(7, 8)
+    })
+
+    it('Ctrl+0 does not fire onFocusTabByIndex (reserved for zoom)', () => {
+      const onFocusTabByIndex = jest.fn()
+      const { panel } = makePanel(baseState, 7, { onFocusTabByIndex })
+      ;(panel as any).handleGlobalKeyDown({
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        key: '0',
+        preventDefault: jest.fn(),
+      })
+      expect(onFocusTabByIndex).not.toHaveBeenCalled()
+    })
+
+    it('Ctrl+Shift+1 does not fire (modifier guard)', () => {
+      const onFocusTabByIndex = jest.fn()
+      const { panel } = makePanel(baseState, 7, { onFocusTabByIndex })
+      ;(panel as any).handleGlobalKeyDown({
+        ctrlKey: true,
+        shiftKey: true,
+        altKey: false,
+        metaKey: false,
+        key: '1',
+        preventDefault: jest.fn(),
+      })
+      expect(onFocusTabByIndex).not.toHaveBeenCalled()
+    })
+
+    it('Ctrl+1 is ignored when panel is hidden', () => {
+      const onFocusTabByIndex = jest.fn()
+      const { panel } = makePanel({ ...baseState, visible: false }, 7, {
+        onFocusTabByIndex,
+      })
+      ;(panel as any).handleGlobalKeyDown({
+        ctrlKey: true,
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        key: '1',
+        preventDefault: jest.fn(),
+      })
+      expect(onFocusTabByIndex).not.toHaveBeenCalled()
+    })
   })
 })

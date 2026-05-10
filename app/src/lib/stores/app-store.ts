@@ -7117,6 +7117,35 @@ export class AppStore extends TypedBaseStore<IAppState> {
     this.terminalStore.selectSession(sessionId)
   }
 
+  /** Reorder a terminal tab within its repo's tab strip. */
+  public _reorderTerminalTab(
+    repositoryId: number,
+    sessionId: string,
+    toIndex: number
+  ): void {
+    this.terminalStore.reorderTab(repositoryId, sessionId, toIndex)
+  }
+
+  /** Rename a terminal tab (user-supplied label override). */
+  public _renameTerminalTab(sessionId: string, title: string): void {
+    this.terminalStore.setTitle(sessionId, title)
+  }
+
+  /**
+   * Activate the terminal tab at the given 0-based index inside the
+   * given repo. No-op when the index is out of range.
+   */
+  public _focusTerminalTabByIndex(repositoryId: number, index: number): void {
+    const tabs = this.terminalStore.getState().tabsByRepoId.get(repositoryId)
+    if (!tabs) {
+      return
+    }
+    const sid = tabs[index]
+    if (sid !== undefined) {
+      this.terminalStore.selectSession(sid)
+    }
+  }
+
   /**
    * Close a terminal tab — kills the underlying PTY and removes it from
    * the store. The store picks an adjacent tab as the new active one.

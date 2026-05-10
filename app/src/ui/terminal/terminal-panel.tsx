@@ -3,6 +3,11 @@ import { ITerminalState } from '../../lib/stores/terminal-store'
 import { ITerminalThemeColors } from '../../lib/terminal/terminal-theme'
 import { XtermView, IXtermViewPort } from './xterm-view'
 import { TerminalFindBar } from './terminal-find-bar'
+import {
+  formatTabLabel,
+  shouldShowActivityDot,
+  tabStatusIcon,
+} from '../../lib/terminal/tab-model'
 
 interface ITerminalPanelProps {
   readonly state: ITerminalState
@@ -29,6 +34,16 @@ interface ITerminalPanelProps {
     line: number,
     column: number | null
   ) => void
+  /** Drag-to-reorder a tab within the current repo. */
+  readonly onReorderTab?: (
+    repositoryId: number,
+    sessionId: string,
+    toIndex: number
+  ) => void
+  /** Commit a user-supplied tab label. */
+  readonly onRenameTab?: (sessionId: string, title: string) => void
+  /** Quick-switch by index (Ctrl+1..9). */
+  readonly onFocusTabByIndex?: (repositoryId: number, index: number) => void
 }
 
 interface ITerminalPanelState {
@@ -36,6 +51,10 @@ interface ITerminalPanelState {
   readonly dragHeight: number | null
   /** Whether the inline find bar is currently visible. */
   readonly findBarVisible: boolean
+  /** Session id whose tab is in inline-rename mode, or null. */
+  readonly renamingSessionId: string | null
+  /** Current draft text for the inline rename input. */
+  readonly renameDraft: string
 }
 
 /**
@@ -59,10 +78,17 @@ export class TerminalPanel extends React.Component<
   private dragStartHeight: number = 0
   /** Per-session refs to mounted XtermView instances, used to drive search. */
   private xtermRefs = new Map<string, React.RefObject<XtermView>>()
+  /** Session id of the tab currently being drag-reordered, or null. */
+  private dragSessionId: string | null = null
 
   public constructor(props: ITerminalPanelProps) {
     super(props)
-    this.state = { dragHeight: null, findBarVisible: false }
+    this.state = {
+      dragHeight: null,
+      findBarVisible: false,
+      renamingSessionId: null,
+      renameDraft: '',
+    }
   }
 
   public componentDidMount(): void {
@@ -176,10 +202,26 @@ export class TerminalPanel extends React.Component<
 
   private renderTab(sessionId: string, active: boolean) {
     const session = this.props.state.sessions.get(sessionId)
-    const label =
-      session === undefined
-        ? 'Terminal'
-        : session.shell.split('/').pop() ?? session.shell
+    if (session === undefined) {
+      return null
+    }
+    const label = formatTabLabel({
+      shell: session.shell,
+      liveCwd: session.liveCwd,
+      homedir: this.getHomedir(),
+      title: session.title,
+    })
+    const showDot = shouldShowActivityDot({
+      active,
+      hasActivity: session.hasActivity,
+    })
+    const icon = tabStatusIcon({
+      status: session.status,
+      lastExitCode: session.lastExitCode,
+      isCommand: false,
+    })
+    const isRenaming = this.state.renamingSessionId === sessionId
+
     return (
       <div
         key={sessionId}
@@ -187,7 +229,31 @@ export class TerminalPanel extends React.Component<
         aria-selected={active}
         tabIndex={active ? 0 : -1}
         className={`terminal-panel__tab${active ? ' active' : ''}`}
+        draggable={!isRenaming}
+        // eslint-disable-next-line react/jsx-no-bind
         onClick={() => this.props.onSelectTab(sessionId)}
+        // Middle-click closes — `onAuxClick` isn't in @types/react@16,
+        // so we listen on mousedown and gate on `button === 1`.
+        // eslint-disable-next-line react/jsx-no-bind
+        onMouseDown={e => {
+          if (e.button === 1) {
+            e.preventDefault()
+            this.props.onCloseTab(sessionId)
+          }
+        }}
+        // eslint-disable-next-line react/jsx-no-bind
+        onDoubleClick={() =>
+          this.beginRename(
+            sessionId,
+            session.title ?? this.shellOnly(session.shell)
+          )
+        }
+        // eslint-disable-next-line react/jsx-no-bind
+        onDragStart={e => this.onTabDragStart(e, sessionId)}
+        onDragOver={this.onTabDragOver}
+        // eslint-disable-next-line react/jsx-no-bind
+        onDrop={e => this.onTabDrop(e, sessionId)}
+        // eslint-disable-next-line react/jsx-no-bind
         onKeyDown={e => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
@@ -195,9 +261,39 @@ export class TerminalPanel extends React.Component<
           }
         }}
       >
-        <span className="terminal-panel__tab-label">{label}</span>
+        <span
+          className={`terminal-panel__tab-status ${icon}`}
+          aria-hidden={true}
+        />
+        {isRenaming ? (
+          <input
+            autoFocus={true}
+            className="terminal-panel__tab-rename"
+            value={this.state.renameDraft}
+            // eslint-disable-next-line react/jsx-no-bind
+            onChange={e => this.setState({ renameDraft: e.target.value })}
+            // eslint-disable-next-line react/jsx-no-bind
+            onBlur={() => this.commitRename(sessionId)}
+            // eslint-disable-next-line react/jsx-no-bind
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                this.commitRename(sessionId)
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                this.cancelRename()
+              }
+            }}
+          />
+        ) : (
+          <span className="terminal-panel__tab-label">{label}</span>
+        )}
+        {showDot && (
+          <span className="terminal-panel__tab-activity" aria-hidden={true} />
+        )}
         <button
           className="terminal-panel__tab-close"
+          // eslint-disable-next-line react/jsx-no-bind
           onClick={e => {
             e.stopPropagation()
             this.props.onCloseTab(sessionId)
@@ -209,6 +305,75 @@ export class TerminalPanel extends React.Component<
         </button>
       </div>
     )
+  }
+
+  private beginRename(sessionId: string, draft: string): void {
+    this.setState({ renamingSessionId: sessionId, renameDraft: draft })
+  }
+
+  private cancelRename = (): void => {
+    this.setState({ renamingSessionId: null, renameDraft: '' })
+  }
+
+  private commitRename(sessionId: string): void {
+    const trimmed = this.state.renameDraft.trim()
+    if (trimmed.length > 0) {
+      this.props.onRenameTab?.(sessionId, trimmed)
+    }
+    this.cancelRename()
+  }
+
+  private getHomedir(): string {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const os = require('os') as typeof import('os')
+      return os.homedir()
+    } catch {
+      return ''
+    }
+  }
+
+  private shellOnly(shellPath: string): string {
+    const ix = shellPath.lastIndexOf('/')
+    return ix === -1 ? shellPath : shellPath.slice(ix + 1)
+  }
+
+  private onTabDragStart = (
+    e: React.DragEvent<HTMLDivElement>,
+    sessionId: string
+  ): void => {
+    this.dragSessionId = sessionId
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  private onTabDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
+    if (this.dragSessionId === null) {
+      return
+    }
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  private onTabDrop = (
+    e: React.DragEvent<HTMLDivElement>,
+    targetSessionId: string
+  ): void => {
+    e.preventDefault()
+    const source = this.dragSessionId
+    this.dragSessionId = null
+    if (source === null || source === targetSessionId) {
+      return
+    }
+    const repoId = this.props.repositoryId
+    if (repoId === null) {
+      return
+    }
+    const tabs = this.props.state.tabsByRepoId.get(repoId) ?? []
+    const targetIx = tabs.indexOf(targetSessionId)
+    if (targetIx === -1) {
+      return
+    }
+    this.props.onReorderTab?.(repoId, source, targetIx)
   }
 
   /** Tabs for the currently selected repo, in declaration order. */
@@ -312,6 +477,19 @@ export class TerminalPanel extends React.Component<
     ) {
       e.preventDefault()
       this.toggleFindBar()
+      return
+    }
+    // Ctrl+1..9 (no Shift, no Alt) → quick-switch tab inside the
+    // current repo. Ctrl+0 is reserved for font-size reset (Task 17).
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+      if (e.key >= '1' && e.key <= '9') {
+        const idx = parseInt(e.key, 10) - 1
+        const repoId = this.props.repositoryId
+        if (repoId !== null && this.props.onFocusTabByIndex) {
+          e.preventDefault()
+          this.props.onFocusTabByIndex(repoId, idx)
+        }
+      }
     }
   }
 }

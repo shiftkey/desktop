@@ -323,4 +323,37 @@ describe('TerminalStore', () => {
       expect(s.getState().sessions.get('s1')!.hasActivity).toBe(false)
     })
   })
+
+  describe('reorderTab / setTitle', () => {
+    it('reorderTab moves a session to a new index within its repo', () => {
+      const s = new TerminalStore()
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.registerSession(snap({ id: 's2', repositoryId: 7 }))
+      s.registerSession(snap({ id: 's3', repositoryId: 7 }))
+      s.reorderTab(7, 's3', 0)
+      expect(s.getState().tabsByRepoId.get(7)).toEqual(['s3', 's1', 's2'])
+    })
+
+    it('reorderTab clamps toIndex to valid range', () => {
+      const s = new TerminalStore()
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.registerSession(snap({ id: 's2', repositoryId: 7 }))
+      s.reorderTab(7, 's1', 999) // beyond end
+      expect(s.getState().tabsByRepoId.get(7)).toEqual(['s2', 's1'])
+    })
+
+    it('setTitle updates the session title via mergeMeta', () => {
+      const s = new TerminalStore()
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.setTitle('s1', 'build watcher')
+      expect(s.getState().sessions.get('s1')!.title).toBe('build watcher')
+    })
+
+    it('reorderTab is a no-op for an unknown session id', () => {
+      const s = new TerminalStore()
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.reorderTab(7, 'unknown', 0)
+      expect(s.getState().tabsByRepoId.get(7)).toEqual(['s1'])
+    })
+  })
 })

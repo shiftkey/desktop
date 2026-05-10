@@ -2702,6 +2702,25 @@ export class Dispatcher {
     this.appStore._selectTerminalTab(sessionId)
   }
 
+  /** Reorder a terminal tab within its repo's tab strip. */
+  public reorderTerminalTab(
+    repositoryId: number,
+    sessionId: string,
+    toIndex: number
+  ): void {
+    this.appStore._reorderTerminalTab(repositoryId, sessionId, toIndex)
+  }
+
+  /** Rename a terminal tab (user-supplied label override). */
+  public renameTerminalTab(sessionId: string, title: string): void {
+    this.appStore._renameTerminalTab(sessionId, title)
+  }
+
+  /** Activate the terminal tab at the given 0-based index for a repo. */
+  public focusTerminalTabByIndex(repositoryId: number, index: number): void {
+    this.appStore._focusTerminalTabByIndex(repositoryId, index)
+  }
+
   /** Close a terminal tab (kills the PTY behind it). */
   public closeTerminalTab(sessionId: string): Promise<void> {
     return this.appStore._closeTerminalTab(sessionId)

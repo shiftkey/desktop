@@ -3611,6 +3611,15 @@ export class App extends React.Component<IAppProps, IAppState> {
         onNewTab={() => this.props.dispatcher.spawnNewTerminalTab()}
         onSelectTab={sid => this.props.dispatcher.selectTerminalTab(sid)}
         onCloseTab={sid => this.props.dispatcher.closeTerminalTab(sid)}
+        onReorderTab={(repoId, sid, ix) =>
+          this.props.dispatcher.reorderTerminalTab(repoId, sid, ix)
+        }
+        onRenameTab={(sid, title) =>
+          this.props.dispatcher.renameTerminalTab(sid, title)
+        }
+        onFocusTabByIndex={(repoId, idx) =>
+          this.props.dispatcher.focusTerminalTabByIndex(repoId, idx)
+        }
         onFilePathClick={(_repoId, _sessionId, p, line, col) => {
           const r = this.getRepository()
           if (r instanceof Repository) {
