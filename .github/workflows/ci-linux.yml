@@ -28,7 +28,7 @@ jobs:
           node -e "const fs = require('fs'); const path = 'app/package.json'; const pkg = require('./' + path); pkg.version = pkg.version.replace(/-.*/, '') + '-' + process.env.BUILD_VERSION_SUFFIX; fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');"
           node -p "require('./app/package.json').version"
       - name: Package and test application in container
-        uses: shiftkey/desktop-ubuntu-amd64-packaging@ea7b7a6a940a6b907b160b946439c5c7a516f9f1
+        uses: tommyqhoang/desktop-ubuntu-amd64-packaging@a282ee5
       - name: Upload Debian package
         uses: actions/upload-artifact@v4
         with:
