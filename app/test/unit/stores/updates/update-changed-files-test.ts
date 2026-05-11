@@ -69,7 +69,12 @@ describe('updateChangedFiles', () => {
         workingDirectory: oldWorkingDirectory,
       })
 
-      const { workingDirectory } = updateChangedFiles(prevState, status, null, true)
+      const { workingDirectory } = updateChangedFiles(
+        prevState,
+        status,
+        null,
+        true
+      )
 
       const partialFile = workingDirectory.findFileWithID(
         partiallySelectedFile.id
@@ -89,7 +94,12 @@ describe('updateChangedFiles', () => {
         workingDirectory: oldWorkingDirectory,
       })
 
-      const { workingDirectory } = updateChangedFiles(prevState, status, null, false)
+      const { workingDirectory } = updateChangedFiles(
+        prevState,
+        status,
+        null,
+        false
+      )
 
       const partialFile = workingDirectory.findFileWithID(
         partiallySelectedFile.id
@@ -110,7 +120,12 @@ describe('updateChangedFiles', () => {
         workingDirectory: oldWorkingDirectory,
       })
 
-      const { workingDirectory } = updateChangedFiles(prevState, status, null, false)
+      const { workingDirectory } = updateChangedFiles(
+        prevState,
+        status,
+        null,
+        false
+      )
 
       expect(workingDirectory).not.toBe(oldWorkingDirectory)
     })
