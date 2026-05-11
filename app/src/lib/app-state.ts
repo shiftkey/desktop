@@ -51,6 +51,7 @@ import {
   MultiCommitOperationStep,
 } from '../models/multi-commit-operation'
 import { IChangesetData } from './git'
+import { IWorkingDirectoryStats } from '../models/working-directory-stats'
 import { Popup } from '../models/popup'
 import { RepoRulesInfo } from '../models/repo-rules'
 import { IAPIRepoRuleset } from './api'
@@ -781,6 +782,12 @@ export interface IChangesState {
    * Repo rules that apply to the current branch.
    */
   readonly currentRepoRulesInfo: RepoRulesInfo
+
+  /**
+   * Aggregate diff statistics for the current working directory.
+   * Null when stats have not yet been computed or there are no changes.
+   */
+  readonly diffStats: IWorkingDirectoryStats | null
 }
 
 /**
