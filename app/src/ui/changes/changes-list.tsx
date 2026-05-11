@@ -33,6 +33,7 @@ import {
 } from '../lib/context-menu'
 import { CommitMessage } from './commit-message'
 import { ChangedFile } from './changed-file'
+import { ChangeSummaryBadge } from './change-summary-badge'
 import { IAutocompletionProvider } from '../autocompletion'
 import { generateAICommitMessage } from '../../lib/ai/generate-commit-message'
 import { showContextualMenu } from '../../lib/menu-item'
@@ -1078,6 +1079,7 @@ export class ChangesList extends React.Component<
             <div className="sr-only" id="changesDescription">
               {selectedChangesDescription}
             </div>
+            <ChangeSummaryBadge stats={this.props.changes.diffStats} />
           </div>
           <div className="filter">
             <TextBox
