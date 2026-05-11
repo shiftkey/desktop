@@ -239,6 +239,7 @@ import {
 import { ExternalEditorError, suggestedExternalEditor } from '../editors/shared'
 import { ApiRepositoriesStore } from './api-repositories-store'
 import { StashStore } from './stash-store'
+import { WorktreeStore } from './worktree-store'
 import { TerminalStore } from './terminal-store'
 import {
   TerminalSettings,
@@ -475,6 +476,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private accounts: ReadonlyArray<Account> = new Array<Account>()
   private activeAccountByEndpoint: ReadonlyMap<string, number> = new Map()
   private readonly stashStore: StashStore = new StashStore()
+  private readonly worktreeStore: WorktreeStore = new WorktreeStore()
   private readonly terminalStore: TerminalStore =
     typeof window !== 'undefined'
       ? new TerminalStore(window.localStorage)
@@ -961,6 +963,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
     this.stashStore.onDidUpdate(() => this.emitUpdate())
     this.stashStore.onDidError(error => this.emitError(error))
 
+    this.worktreeStore.onDidUpdate(() => this.emitUpdate())
+    this.worktreeStore.onDidError(error => this.emitError(error))
+
     this.terminalStore.onDidUpdate(() => this.emitUpdate())
     this.terminalStore.onDidError(error => this.emitError(error))
 
@@ -1069,6 +1074,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       accounts: this.accounts,
       activeAccountByEndpoint: this.activeAccountByEndpoint,
       stashesByRepoId: this.stashStore.getAllState(),
+      worktreesByRepoId: this.worktreeStore.getAllState(),
       terminal: this.terminalStore.getState(),
       terminalFontSize: this.terminalSettings.getFontSize(),
       terminalScrollback: this.terminalSettings.getScrollback(),
@@ -3619,6 +3625,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
       // Stashes section pulls its own data from the StashStore lazily on
       // tab activation; piggy-back on this refresh to keep it warm.
       refreshSectionPromise = this.stashStore.loadStashes(repository)
+    } else if (section === RepositorySectionTab.Worktrees) {
+      refreshSectionPromise = this.worktreeStore.loadWorktrees(repository)
     } else {
       return assertNever(section, `Unknown section: ${section}`)
     }
@@ -7047,6 +7055,16 @@ export class AppStore extends TypedBaseStore<IAppState> {
     return this.stashStore.getState(repository)
   }
 
+  /** Refresh the cached worktree list for the given repository. */
+  public async _loadWorktrees(repository: Repository): Promise<void> {
+    await this.worktreeStore.loadWorktrees(repository)
+  }
+
+  /** Get the current cached worktree state for the given repository. */
+  public _getWorktreeState(repository: Repository) {
+    return this.worktreeStore.getState(repository)
+  }
+
   /** This shouldn't be called directly. See `Dispatcher`. */
   public async _applyStash(
     repository: Repository,
@@ -7301,9 +7319,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     repository: Repository,
     oldSessionId: string
   ): Promise<void> {
-    const oldSession = this.terminalStore
-      .getState()
-      .sessions.get(oldSessionId)
+    const oldSession = this.terminalStore.getState().sessions.get(oldSessionId)
     if (oldSession === undefined) {
       return
     }
@@ -7400,7 +7416,12 @@ export class AppStore extends TypedBaseStore<IAppState> {
         cols: activeSession.cols,
         rows: activeSession.rows,
       })
-      this.terminalStore.applySplit(repository.id, activeId, orientation, newSessionId)
+      this.terminalStore.applySplit(
+        repository.id,
+        activeId,
+        orientation,
+        newSessionId
+      )
     } catch (err) {
       log.error('[AppStore] failed to split terminal', err as Error)
       this.emitError(err as Error)

@@ -3512,6 +3512,14 @@ export class App extends React.Component<IAppProps, IAppState> {
             state.stashesByRepoId.get(selectedState.repository.id)?.loading ??
             false
           }
+          worktreeEntries={
+            state.worktreesByRepoId.get(selectedState.repository.id)?.entries ??
+            []
+          }
+          worktreesLoading={
+            state.worktreesByRepoId.get(selectedState.repository.id)?.loading ??
+            false
+          }
         />
       )
     } else if (selectedState.type === SelectionType.CloningRepository) {

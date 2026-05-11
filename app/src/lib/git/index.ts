@@ -1,6 +1,7 @@
 export * from './apply'
 export * from './branch'
 export * from './checkout'
+export * from './worktree'
 export * from './clone'
 export * from './commit'
 export * from './config'

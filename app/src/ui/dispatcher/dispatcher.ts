@@ -2670,6 +2670,11 @@ export class Dispatcher {
     return this.appStore._loadStashes(repository)
   }
 
+  /** Refresh the cached worktree list for the given repository. */
+  public loadWorktrees(repository: Repository): Promise<void> {
+    return this.appStore._loadWorktrees(repository)
+  }
+
   /** Apply (without dropping) a stash entry by its commit SHA. */
   public applyStash(repository: Repository, stashSha: string): Promise<void> {
     return this.appStore._applyStash(repository, stashSha)

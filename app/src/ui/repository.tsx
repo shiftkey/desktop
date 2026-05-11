@@ -26,6 +26,8 @@ import { IMenu } from '../models/app-menu'
 import { StashDiffViewer } from './stashing'
 import { StashedChangesLoadStates, IStashEntry } from '../models/stash-entry'
 import { StashList } from './stashes/stash-list'
+import { IWorktreeEntry } from '../models/worktree'
+import { WorktreeList } from './worktrees/worktree-list'
 import { PopupType } from '../models/popup'
 import { TutorialPanel, TutorialWelcome, TutorialDone } from './tutorial'
 import { TutorialStep, isValidTutorialStep } from '../models/tutorial-step'
@@ -60,6 +62,8 @@ interface IRepositoryViewProps {
   readonly commitSpellcheckEnabled: boolean
   readonly showCommitLengthWarning: boolean
   readonly accounts: ReadonlyArray<Account>
+  readonly worktreeEntries: ReadonlyArray<IWorktreeEntry>
+  readonly worktreesLoading: boolean
 
   /**
    * A value indicating whether or not the application is currently presenting
@@ -126,6 +130,7 @@ const enum Tab {
   Changes = 0,
   History = 1,
   Stashes = 2,
+  Worktrees = 3,
 }
 
 export class RepositoryView extends React.Component<
@@ -197,7 +202,9 @@ export class RepositoryView extends React.Component<
         ? Tab.Changes
         : section === RepositorySectionTab.History
         ? Tab.History
-        : Tab.Stashes
+        : section === RepositorySectionTab.Stashes
+        ? Tab.Stashes
+        : Tab.Worktrees
 
     return (
       <TabBar selectedIndex={selectedTab} onTabClicked={this.onTabClicked}>
@@ -212,6 +219,10 @@ export class RepositoryView extends React.Component<
 
         <div className="with-indicator" id="stashes-tab">
           <span>Stashes</span>
+        </div>
+
+        <div className="with-indicator" id="worktrees-tab">
+          <span>Worktrees</span>
         </div>
       </TabBar>
     )
@@ -346,6 +357,8 @@ export class RepositoryView extends React.Component<
       return this.renderCompareSidebar()
     } else if (selectedSection === RepositorySectionTab.Stashes) {
       return this.renderStashesSidebar()
+    } else if (selectedSection === RepositorySectionTab.Worktrees) {
+      return this.renderWorktreesSidebar()
     } else {
       return assertNever(selectedSection, 'Unknown repository section')
     }
@@ -359,6 +372,15 @@ export class RepositoryView extends React.Component<
         selectedSha={this.state.selectedStashSha}
         onSelect={this.onSelectStash}
         onCreateClick={this.onCreateStashClick}
+      />
+    )
+  }
+
+  private renderWorktreesSidebar(): JSX.Element {
+    return (
+      <WorktreeList
+        entries={this.props.worktreeEntries}
+        loading={this.props.worktreesLoading}
       />
     )
   }
@@ -616,6 +638,8 @@ export class RepositoryView extends React.Component<
       return this.renderContentForHistory()
     } else if (selectedSection === RepositorySectionTab.Stashes) {
       return this.renderContentForStashes()
+    } else if (selectedSection === RepositorySectionTab.Worktrees) {
+      return this.renderContentForWorktrees()
     } else {
       return assertNever(selectedSection, 'Unknown repository section')
     }
@@ -654,6 +678,34 @@ export class RepositoryView extends React.Component<
             Drop&hellip;
           </button>
         </div>
+      </div>
+    )
+  }
+
+  private renderContentForWorktrees(): JSX.Element {
+    return (
+      <div className="worktree-detail-pane">
+        <h3>Linked Worktrees</h3>
+        {this.props.worktreeEntries.length === 0 ? (
+          <p>No linked worktrees found for this repository.</p>
+        ) : (
+          <ul className="worktree-detail-list">
+            {this.props.worktreeEntries.map(entry => (
+              <li key={entry.path} className="worktree-detail-item">
+                <div className="worktree-detail-item__path">{entry.path}</div>
+                <div className="worktree-detail-item__meta">
+                  <span>HEAD: {entry.head.slice(0, 8)}</span>
+                  {entry.changesCount > 0 && (
+                    <span className="worktree-detail-item__changes">
+                      {entry.changesCount} uncommitted change
+                      {entry.changesCount !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     )
   }
@@ -737,6 +789,7 @@ export class RepositoryView extends React.Component<
       RepositorySectionTab.Changes,
       RepositorySectionTab.History,
       RepositorySectionTab.Stashes,
+      RepositorySectionTab.Worktrees,
     ]
     const current = this.props.state.selectedSection
     const idx = order.indexOf(current)
@@ -744,6 +797,9 @@ export class RepositoryView extends React.Component<
     this.props.dispatcher.changeRepositorySection(this.props.repository, next)
     if (next === RepositorySectionTab.Stashes) {
       this.props.dispatcher.loadStashes(this.props.repository)
+    }
+    if (next === RepositorySectionTab.Worktrees) {
+      this.props.dispatcher.loadWorktrees(this.props.repository)
     }
   }
 
@@ -753,6 +809,8 @@ export class RepositoryView extends React.Component<
         ? RepositorySectionTab.History
         : tab === Tab.Stashes
         ? RepositorySectionTab.Stashes
+        : tab === Tab.Worktrees
+        ? RepositorySectionTab.Worktrees
         : RepositorySectionTab.Changes
 
     this.props.dispatcher.changeRepositorySection(
@@ -761,6 +819,9 @@ export class RepositoryView extends React.Component<
     )
     if (section === RepositorySectionTab.Stashes) {
       this.props.dispatcher.loadStashes(this.props.repository)
+    }
+    if (section === RepositorySectionTab.Worktrees) {
+      this.props.dispatcher.loadWorktrees(this.props.repository)
     }
     if (section === RepositorySectionTab.History) {
       this.props.dispatcher.updateCompareForm(this.props.repository, {
