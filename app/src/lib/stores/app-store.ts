@@ -251,6 +251,7 @@ import { ReviewVerdict } from '../../models/pull-request-review'
 import { RepoHealthStore } from './repo-health-store'
 import { IRepoHealthProbes } from '../repo-health/collect-health'
 import { getStatus } from '../git/status'
+import { getWorkingDirectoryStats } from '../git/working-directory-stats'
 import { getAheadBehind } from '../git/rev-list'
 import { git } from '../git/core'
 import {
@@ -2666,8 +2667,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
       return null
     }
 
+    const diffStats = await getWorkingDirectoryStats(repository)
+
     this.repositoryStateCache.updateChangesState(repository, state =>
-      updateChangedFiles(state, status, clearPartialState)
+      updateChangedFiles(state, status, diffStats, clearPartialState)
     )
 
     this.repositoryStateCache.updateChangesState(repository, state => ({
@@ -6294,15 +6297,16 @@ export class AppStore extends TypedBaseStore<IAppState> {
           validatedPath
         )
 
-        // initialize the remotes for this new repository to ensure it can fetch
-        // it's GitHub-related details using the GitHub API (if applicable)
-        const gitStore = this.gitStoreCache.get(addedRepo)
-        await gitStore.loadRemotes()
-
         const [refreshedRepo, usingLFS] = await Promise.all([
           this.repositoryWithRefreshedGitHubRepository(addedRepo),
           this.isUsingLFS(addedRepo),
         ])
+
+        // Ensure the final repository object has a fully initialized state cache
+        // so that push/pull buttons, branch info, and the changes tab render
+        // correctly from the first interaction.
+        await this._refreshRepository(refreshedRepo)
+
         addedRepositories.push(refreshedRepo)
 
         if (usingLFS) {

@@ -3,6 +3,7 @@ import {
   WorkingDirectoryFileChange,
 } from '../../../models/status'
 import { IStatusResult } from '../../git'
+import { IWorkingDirectoryStats } from '../../../models/working-directory-stats'
 import {
   IChangesState,
   ConflictState,
@@ -27,11 +28,13 @@ import { assertNever } from '../../fatal-error'
 type ChangedFilesResult = {
   readonly workingDirectory: WorkingDirectoryStatus
   readonly selection: ChangesSelection
+  readonly diffStats: IWorkingDirectoryStats | null
 }
 
 export function updateChangedFiles(
   state: IChangesState,
   status: IStatusResult,
+  diffStats: IWorkingDirectoryStats | null,
   clearPartialState: boolean
 ): ChangedFilesResult {
   // Populate a map for all files in the current working directory state
@@ -101,11 +104,13 @@ export function updateChangedFiles(
         selectedFileIDs,
         diff,
       },
+      diffStats,
     }
   } else if (state.selection.kind === ChangesSelectionKind.Stash) {
     return {
       workingDirectory,
       selection: state.selection,
+      diffStats,
     }
   } else {
     return assertNever(
