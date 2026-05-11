@@ -34,7 +34,9 @@ class FakeIpcMain implements IIpcMain {
 
   public async invoke(channel: string, args?: any, event: any = newEvent()) {
     const h = this.handlers.get(channel)
-    if (!h) {throw new Error(`no handler for ${channel}`)}
+    if (!h) {
+      throw new Error(`no handler for ${channel}`)
+    }
     return h(event, args)
   }
 }

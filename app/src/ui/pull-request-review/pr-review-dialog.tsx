@@ -188,7 +188,7 @@ export class PRReviewDialog extends React.Component<
   }
 
   private setVerdict(kind: ReviewVerdict['kind']) {
-    if (kind === 'pending') return
+    if (kind === 'pending') {return}
     this.props.dispatcher.setReviewVerdict({ kind } as ReviewVerdict)
   }
 
@@ -196,7 +196,7 @@ export class PRReviewDialog extends React.Component<
     const path = this.state.newCommentPath.trim()
     const line = parseInt(this.state.newCommentLine.trim(), 10)
     const body = this.state.newCommentBody.trim()
-    if (!path || !Number.isFinite(line) || !body) return
+    if (!path || !Number.isFinite(line) || !body) {return}
     this.props.dispatcher.addReviewDraft(path, line, 'RIGHT', body)
     this.setState({
       newCommentBody: '',
@@ -206,11 +206,11 @@ export class PRReviewDialog extends React.Component<
 
   private onSubmit = async () => {
     const { session, repository } = this.props
-    if (session === null || session.status !== 'ready') return
-    if (session.verdict.kind === 'pending') return
+    if (session === null || session.status !== 'ready') {return}
+    if (session.verdict.kind === 'pending') {return}
     const owner = repository.gitHubRepository?.owner?.login
     const repo = repository.gitHubRepository?.name
-    if (!owner || !repo) return
+    if (!owner || !repo) {return}
     const ok = await this.props.dispatcher.submitReview(owner, repo)
     if (ok) {
       this.props.onDismissed()

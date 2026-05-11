@@ -152,12 +152,24 @@ function ciLabel(state: IRepoHealth['defaultBranchStatus']): string {
 }
 
 function formatRelativeUnix(unix: number): string {
-  if (!Number.isFinite(unix) || unix <= 0) {return '—'}
+  if (!Number.isFinite(unix) || unix <= 0) {
+    return '—'
+  }
   const ageSec = Math.floor(Date.now() / 1000) - unix
-  if (ageSec < 60) {return 'just now'}
-  if (ageSec < 3600) {return `${Math.floor(ageSec / 60)}m ago`}
-  if (ageSec < 86400) {return `${Math.floor(ageSec / 3600)}h ago`}
-  if (ageSec < 86400 * 30) {return `${Math.floor(ageSec / 86400)}d ago`}
-  if (ageSec < 86400 * 365) {return `${Math.floor(ageSec / (86400 * 30))}mo ago`}
+  if (ageSec < 60) {
+    return 'just now'
+  }
+  if (ageSec < 3600) {
+    return `${Math.floor(ageSec / 60)}m ago`
+  }
+  if (ageSec < 86400) {
+    return `${Math.floor(ageSec / 3600)}h ago`
+  }
+  if (ageSec < 86400 * 30) {
+    return `${Math.floor(ageSec / 86400)}d ago`
+  }
+  if (ageSec < 86400 * 365) {
+    return `${Math.floor(ageSec / (86400 * 30))}mo ago`
+  }
   return `${Math.floor(ageSec / (86400 * 365))}y ago`
 }

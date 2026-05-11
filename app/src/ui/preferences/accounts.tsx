@@ -112,13 +112,14 @@ export class Accounts extends React.Component<IAccountsProps, IAccountsState> {
     }
 
     const isActive = this.isActiveAccount(account)
-    const className = isFirst && type === 'dotcom'
-      ? DialogPreferredFocusClassName
-      : undefined
+    const className =
+      isFirst && type === 'dotcom' ? DialogPreferredFocusClassName : undefined
 
     return (
       <div
-        className={`account-section${isActive ? ' account-section--active' : ''}`}
+        className={`account-section${
+          isActive ? ' account-section--active' : ''
+        }`}
         key={`${account.endpoint}:${account.id}`}
       >
         <Row className="account-info">

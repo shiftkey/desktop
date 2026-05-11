@@ -386,16 +386,18 @@ export class Preferences extends React.Component<
 
   private getActiveDotComAccount(): Account | null {
     const { dotComAccounts, activeAccountByEndpoint } = this.props
-    if (dotComAccounts.length === 0) return null
+    if (dotComAccounts.length === 0) {return null}
     const activeId = activeAccountByEndpoint.get(dotComAccounts[0].endpoint)
     return dotComAccounts.find(a => a.id === activeId) ?? dotComAccounts[0]
   }
 
   private getActiveEnterpriseAccount(): Account | null {
     const { enterpriseAccounts, activeAccountByEndpoint } = this.props
-    if (enterpriseAccounts.length === 0) return null
+    if (enterpriseAccounts.length === 0) {return null}
     const activeId = activeAccountByEndpoint.get(enterpriseAccounts[0].endpoint)
-    return enterpriseAccounts.find(a => a.id === activeId) ?? enterpriseAccounts[0]
+    return (
+      enterpriseAccounts.find(a => a.id === activeId) ?? enterpriseAccounts[0]
+    )
   }
 
   private renderDisallowedCharactersError() {

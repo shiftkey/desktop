@@ -48,9 +48,9 @@ describe('computeAttentionScore', () => {
   it('adds 2 per open PR, capped at 10', () => {
     expect(computeAttentionScore({ ...base, openPullRequestCount: 1 })).toBe(2)
     expect(computeAttentionScore({ ...base, openPullRequestCount: 5 })).toBe(10)
-    expect(
-      computeAttentionScore({ ...base, openPullRequestCount: 100 })
-    ).toBe(10)
+    expect(computeAttentionScore({ ...base, openPullRequestCount: 100 })).toBe(
+      10
+    )
   })
 
   it('combines signals additively', () => {
@@ -77,8 +77,8 @@ describe('computeAttentionScore', () => {
   })
 
   it('treats negative inputs as zero', () => {
-    expect(
-      computeAttentionScore({ ...base, aheadBy: -5, behindBy: -3 })
-    ).toBe(0)
+    expect(computeAttentionScore({ ...base, aheadBy: -5, behindBy: -3 })).toBe(
+      0
+    )
   })
 })

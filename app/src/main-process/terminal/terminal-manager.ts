@@ -66,7 +66,9 @@ export class TerminalManager {
   /** Kill an active session. No-op when the id is unknown. */
   public kill(sessionId: string): void {
     const session = this.sessions.get(sessionId)
-    if (session === undefined) {return}
+    if (session === undefined) {
+      return
+    }
     session.kill()
     this.sessions.delete(sessionId)
   }

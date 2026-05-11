@@ -6,8 +6,10 @@ import {
 
 const ALL = (): ShellProbe => () => true
 const NONE = (): ShellProbe => () => false
-const ONLY = (paths: ReadonlyArray<string>): ShellProbe => (p: string) =>
-  paths.includes(p)
+const ONLY =
+  (paths: ReadonlyArray<string>): ShellProbe =>
+  (p: string) =>
+    paths.includes(p)
 
 describe('detectShell', () => {
   describe('on win32', () => {
@@ -88,11 +90,7 @@ describe('detectShell', () => {
     })
 
     it('treats $SHELL with surrounding whitespace as missing', () => {
-      const result = detectShell(
-        'linux',
-        { SHELL: '   ' },
-        ONLY(['/bin/bash'])
-      )
+      const result = detectShell('linux', { SHELL: '   ' }, ONLY(['/bin/bash']))
       expect(result.path).toBe('/bin/bash')
     })
 
@@ -134,7 +132,11 @@ describe('buildShellEnv', () => {
   })
 
   it('preserves TERM from base when already set', () => {
-    const env = buildShellEnv({ TERM: 'screen-256color' } as any, '/home/u/proj', 'zsh')
+    const env = buildShellEnv(
+      { TERM: 'screen-256color' } as any,
+      '/home/u/proj',
+      'zsh'
+    )
     expect(env.TERM).toBe('screen-256color')
   })
 

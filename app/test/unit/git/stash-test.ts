@@ -364,7 +364,7 @@ describe('git/stash', () => {
       // git stash push (no -m) generates "WIP on <branch>: <sha> <subject>"
       await FSE.appendFile(readme, generateString())
       const result = await exec(['stash', 'push'], repository.path)
-      if (result.exitCode !== 0) throw new Error(result.stderr)
+      if (result.exitCode !== 0) {throw new Error(result.stderr)}
 
       const all = await getAllStashes(repository)
       expect(all).toHaveLength(1)
@@ -556,10 +556,7 @@ async function generateTestStashEntryWithMessage(
 ): Promise<void> {
   const readme = path.join(repository.path, 'README.md')
   await FSE.appendFile(readme, generateString())
-  const result = await exec(
-    ['stash', 'push', '-m', message],
-    repository.path
-  )
+  const result = await exec(['stash', 'push', '-m', message], repository.path)
   if (result.exitCode !== 0) {
     throw new Error(result.stderr)
   }

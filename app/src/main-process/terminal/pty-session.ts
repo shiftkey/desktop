@@ -104,7 +104,9 @@ export class PtySession {
    * Idempotent: subsequent calls are no-ops once the PTY exists.
    */
   public start(): void {
-    if (this.pty !== null || this.destroyed) {return}
+    if (this.pty !== null || this.destroyed) {
+      return
+    }
 
     this.oscParser.onEvent(evt => this.onOsc(evt))
 
@@ -112,7 +114,9 @@ export class PtySession {
     this.snapshot = { ...this.snapshot, status: 'running' }
 
     this.dataDisposable = this.pty.onData(chunk => {
-      if (this.destroyed) {return}
+      if (this.destroyed) {
+        return
+      }
       const bytes = chunkToBytes(chunk)
       this.oscParser.feed(bytes)
       this.safePost({ type: 'data', bytes })
@@ -143,16 +147,22 @@ export class PtySession {
 
   /** Forward keystrokes / paste payloads to the PTY. */
   public write(bytes: Uint8Array | string): void {
-    if (this.pty === null || this.destroyed) {return}
+    if (this.pty === null || this.destroyed) {
+      return
+    }
     this.pty.write(typeof bytes === 'string' ? bytes : Buffer.from(bytes))
   }
 
   /** Resize the PTY (clamped to >=1 in each dimension). */
   public resize(cols: number, rows: number): void {
-    if (this.pty === null || this.destroyed) {return}
+    if (this.pty === null || this.destroyed) {
+      return
+    }
     const c = Math.max(1, Math.floor(cols))
     const r = Math.max(1, Math.floor(rows))
-    if (c === this.snapshot.cols && r === this.snapshot.rows) {return}
+    if (c === this.snapshot.cols && r === this.snapshot.rows) {
+      return
+    }
     try {
       this.pty.resize(c, r)
     } catch (err) {
@@ -165,7 +175,9 @@ export class PtySession {
 
   /** Kill the PTY and tear down the port. Safe to call multiple times. */
   public kill(signal: string = 'SIGHUP'): void {
-    if (this.destroyed) {return}
+    if (this.destroyed) {
+      return
+    }
     if (this.pty !== null) {
       try {
         this.pty.kill(signal)
@@ -182,8 +194,12 @@ export class PtySession {
   }
 
   private handleRendererMessage(data: any): void {
-    if (this.destroyed) {return}
-    if (data === null || typeof data !== 'object') {return}
+    if (this.destroyed) {
+      return
+    }
+    if (data === null || typeof data !== 'object') {
+      return
+    }
     switch (data.type) {
       case 'input':
         this.write(data.bytes)
@@ -198,7 +214,9 @@ export class PtySession {
   }
 
   private onOsc(evt: OscEvent): void {
-    if (this.destroyed) {return}
+    if (this.destroyed) {
+      return
+    }
     if (evt.type === 'cwd') {
       this.snapshot = { ...this.snapshot, liveCwd: evt.path }
       this.safePost({ type: 'meta', liveCwd: evt.path })
@@ -220,7 +238,9 @@ export class PtySession {
   }
 
   private cleanup(): void {
-    if (this.destroyed) {return}
+    if (this.destroyed) {
+      return
+    }
     this.destroyed = true
     try {
       this.dataDisposable?.dispose()

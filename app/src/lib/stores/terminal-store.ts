@@ -345,7 +345,13 @@ export class TerminalStore extends BaseStore {
       }
     }
 
-    this.update({ sessions, tabsByRepoId, activeByRepoId, activeSessionId, layoutByRepoId })
+    this.update({
+      sessions,
+      tabsByRepoId,
+      activeByRepoId,
+      activeSessionId,
+      layoutByRepoId,
+    })
   }
 
   /**

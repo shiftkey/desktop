@@ -57,7 +57,7 @@ describe('CommandBlockTracker', () => {
   })
 
   it('clears all blocks on reset()', () => {
-    let row = 0
+    const row = 0
     const t = new CommandBlockTracker(() => row)
     t.handle({ type: 'prompt-start' })
     t.handle({ type: 'command-start' })

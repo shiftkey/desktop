@@ -132,8 +132,12 @@ export class RepoHealthDashboard extends React.Component<
     const { repositories, snapshot } = this.props
     const q = this.state.query.trim().toLowerCase()
     const filtered = repositories.filter(r => {
-      if (!this.matchesFilter(r)) {return false}
-      if (q.length === 0) {return true}
+      if (!this.matchesFilter(r)) {
+        return false
+      }
+      if (q.length === 0) {
+        return true
+      }
       const hay = `${r.name ?? ''} ${r.path}`.toLowerCase()
       return hay.includes(q)
     })
@@ -187,10 +191,18 @@ export class RepoHealthDashboard extends React.Component<
     let cleanCount = 0
     for (const r of this.props.repositories) {
       const h = this.props.snapshot.statuses.get(r.id)
-      if ((h?.attentionScore ?? 0) > 0) {needAttention++}
-      if ((h?.openPullRequestCount ?? 0) > 0) {withPRs++}
-      if (h?.defaultBranchStatus === 'failure') {failingCI++}
-      if ((h?.behindBy ?? 0) > 0) {behindCount++}
+      if ((h?.attentionScore ?? 0) > 0) {
+        needAttention++
+      }
+      if ((h?.openPullRequestCount ?? 0) > 0) {
+        withPRs++
+      }
+      if (h?.defaultBranchStatus === 'failure') {
+        failingCI++
+      }
+      if ((h?.behindBy ?? 0) > 0) {
+        behindCount++
+      }
       if (
         (h?.uncommittedCount ?? 0) === 0 &&
         (h?.aheadBy ?? 0) === 0 &&

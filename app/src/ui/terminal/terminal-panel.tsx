@@ -263,7 +263,8 @@ export class TerminalPanel extends React.Component<
   private renderSessions(activeId: string | null): React.ReactNode {
     const { state } = this.props
     const repoId = this.props.repositoryId
-    const layout = repoId !== null ? state.layoutByRepoId.get(repoId) : undefined
+    const layout =
+      repoId !== null ? state.layoutByRepoId.get(repoId) : undefined
 
     if (layout !== undefined) {
       return (
@@ -279,7 +280,8 @@ export class TerminalPanel extends React.Component<
           // eslint-disable-next-line react/jsx-no-bind
           onRatioChange={
             repoId !== null && this.props.onSetSplitRatio
-              ? (path, ratio) => this.props.onSetSplitRatio!(repoId, path, ratio)
+              ? (path, ratio) =>
+                  this.props.onSetSplitRatio!(repoId, path, ratio)
               : undefined
           }
           // eslint-disable-next-line react/jsx-no-bind

@@ -166,13 +166,11 @@ describe('PullRequestReviewStore', () => {
     })
 
     it('on failure: leaves drafts intact and surfaces an error', async () => {
-      const http = new FakeHttp()
-        .enqueue(ok([]))
-        .enqueue({
-          ok: false,
-          status: 422,
-          body: { message: 'Validation Failed' },
-        })
+      const http = new FakeHttp().enqueue(ok([])).enqueue({
+        ok: false,
+        status: 422,
+        body: { message: 'Validation Failed' },
+      })
       const store = new PullRequestReviewStore(http)
       await store.open(1, 'o', 'r', 7)
       store.addDraft('p', 1, 'RIGHT', 'a')
@@ -189,7 +187,13 @@ describe('PullRequestReviewStore', () => {
       const http = new FakeHttp().enqueue(ok([]))
       const store = new PullRequestReviewStore(http)
       await store.open(1, 'o', 'r', 7)
-      const t: any = { id: 't1', path: 'p', line: 1, comments: [], resolved: false }
+      const t: any = {
+        id: 't1',
+        path: 'p',
+        line: 1,
+        comments: [],
+        resolved: false,
+      }
       store.setThreads([t])
       expect(store.getSession()!.threads).toEqual([t])
     })

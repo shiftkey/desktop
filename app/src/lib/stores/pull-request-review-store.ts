@@ -77,8 +77,12 @@ export class PullRequestReviewStore extends BaseStore {
     side: 'LEFT' | 'RIGHT',
     body: string
   ): void {
-    if (this.session === null) {return}
-    if (body.trim().length === 0) {return}
+    if (this.session === null) {
+      return
+    }
+    if (body.trim().length === 0) {
+      return
+    }
     const draft: IDraftComment = {
       id: `draft-${Date.now()}-${randomDraftSuffix()}`,
       path,
@@ -94,7 +98,9 @@ export class PullRequestReviewStore extends BaseStore {
   }
 
   public discardDraft(draftId: string): void {
-    if (this.session === null) {return}
+    if (this.session === null) {
+      return
+    }
     this.session = {
       ...this.session,
       draftComments: this.session.draftComments.filter(d => d.id !== draftId),
@@ -103,13 +109,17 @@ export class PullRequestReviewStore extends BaseStore {
   }
 
   public setVerdict(verdict: ReviewVerdict): void {
-    if (this.session === null) {return}
+    if (this.session === null) {
+      return
+    }
     this.session = { ...this.session, verdict }
     this.emitUpdate()
   }
 
   public setSummary(summary: string): void {
-    if (this.session === null) {return}
+    if (this.session === null) {
+      return
+    }
     this.session = { ...this.session, summary }
     this.emitUpdate()
   }
@@ -122,8 +132,12 @@ export class PullRequestReviewStore extends BaseStore {
    * as a normal error so the dialog never wedges in the 'submitting' state.
    */
   public async submit(owner: string, repo: string): Promise<boolean> {
-    if (this.session === null) {return false}
-    if (this.session.verdict.kind === 'pending') {return false}
+    if (this.session === null) {
+      return false
+    }
+    if (this.session.verdict.kind === 'pending') {
+      return false
+    }
     this.session = { ...this.session, status: 'submitting', error: null }
     this.emitUpdate()
 
@@ -157,7 +171,9 @@ export class PullRequestReviewStore extends BaseStore {
 
     // Session may have been closed while we awaited the network. Don't
     // resurrect it.
-    if (this.session === null) {return result.ok}
+    if (this.session === null) {
+      return result.ok
+    }
 
     if (!result.ok) {
       this.session = {

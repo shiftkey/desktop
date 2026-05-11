@@ -25,13 +25,9 @@ export class ChangeSummaryBadge extends React.Component<
     const filesLabel = files === 1 ? 'file' : 'files'
 
     return (
-      <TooltippedContent
-        tooltip={tooltip}
-        direction={TooltipDirection.NORTH}
-      >
+      <TooltippedContent tooltip={tooltip} direction={TooltipDirection.NORTH}>
         <span className="change-summary-badge">
-          {files} {filesLabel}{' '}
-          <span className="additions">+{additions}</span>{' '}
+          {files} {filesLabel} <span className="additions">+{additions}</span>{' '}
           <span className="deletions">-{deletions}</span>
         </span>
       </TooltippedContent>

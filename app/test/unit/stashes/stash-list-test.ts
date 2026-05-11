@@ -18,14 +18,16 @@ function makeEntry(partial: Partial<IStashEntry>): IStashEntry {
   }
 }
 
-function makeList(props: Partial<{
-  entries: ReadonlyArray<IStashEntry>
-  loading: boolean
-  selectedSha: string | null
-  onSelect: jest.Mock
-  onContextMenu: jest.Mock
-  onCreateClick: jest.Mock
-}>) {
+function makeList(
+  props: Partial<{
+    entries: ReadonlyArray<IStashEntry>
+    loading: boolean
+    selectedSha: string | null
+    onSelect: jest.Mock
+    onContextMenu: jest.Mock
+    onCreateClick: jest.Mock
+  }>
+) {
   const onSelect = props.onSelect ?? jest.fn()
   const onCreateClick = props.onCreateClick ?? jest.fn()
   const list = new StashList({

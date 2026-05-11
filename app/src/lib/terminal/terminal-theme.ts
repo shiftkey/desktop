@@ -6,7 +6,10 @@
  * Phase 1 ships and tests cleanly before we install `@xterm/xterm`.
  */
 
-import { ApplicableTheme, ApplicationTheme } from '../../ui/lib/application-theme'
+import {
+  ApplicableTheme,
+  ApplicationTheme,
+} from '../../ui/lib/application-theme'
 
 /** Subset of the keys xterm.js's `ITheme` accepts. */
 export interface ITerminalThemeColors {

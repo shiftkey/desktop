@@ -13,13 +13,19 @@ import { git } from '.'
 export async function getWorkingDirectoryStats(
   repository: Repository
 ): Promise<IWorkingDirectoryStats | null> {
-  const result = await git(
-    ['diff', '--numstat', '-z', 'HEAD', '--'],
-    repository.path,
-    'getWorkingDirectoryStats'
-  )
+  let result
+  try {
+    result = await git(
+      ['diff', '--numstat', '-z', 'HEAD', '--'],
+      repository.path,
+      'getWorkingDirectoryStats'
+    )
+  } catch {
+    // Repositories without any commits don't have a HEAD yet.
+    return null
+  }
 
-  if (result.exitCode !== 0 || result.stdout.length === 0) {
+  if (result.stdout.length === 0) {
     return null
   }
 

@@ -175,10 +175,18 @@
   margin-right: 6px;
   border-radius: 50%;
 
-  &.running { background: #2196f3; }
-  &.ok      { background: #4caf50; }
-  &.fail    { background: #f44336; }
-  &.dead    { background: #9e9e9e; }
+  &.running {
+    background: #2196f3;
+  }
+  &.ok {
+    background: #4caf50;
+  }
+  &.fail {
+    background: #f44336;
+  }
+  &.dead {
+    background: #9e9e9e;
+  }
 }
 
 // ─── Find bar ───────────────────────────────────────────────────────────
@@ -219,8 +227,12 @@
     align-items: center;
     justify-content: center;
 
-    &:hover { background: var(--box-hover-background-color, #333); }
-    &:focus { outline: 2px solid var(--focus-color, #58a6ff); }
+    &:hover {
+      background: var(--box-hover-background-color, #333);
+    }
+    &:focus {
+      outline: 2px solid var(--focus-color, #58a6ff);
+    }
   }
 }
 
@@ -229,10 +241,18 @@
   background: var(--box-border-color, #333);
   flex-shrink: 0;
 
-  &.horizontal { width: 4px; cursor: col-resize; }
-  &.vertical   { height: 4px; cursor: row-resize; }
+  &.horizontal {
+    width: 4px;
+    cursor: col-resize;
+  }
+  &.vertical {
+    height: 4px;
+    cursor: row-resize;
+  }
 
-  &:hover { background: var(--secondary-button-hover-background, #555); }
+  &:hover {
+    background: var(--secondary-button-hover-background, #555);
+  }
 }
 
 // ─── Command block gutter ───────────────────────────────────────────────
@@ -258,11 +278,19 @@
     cursor: pointer;
     flex-shrink: 0;
 
-    &.ok   { background: #4caf50; }
-    &.fail { background: #f44336; }
+    &.ok {
+      background: #4caf50;
+    }
+    &.fail {
+      background: #f44336;
+    }
 
-    &:hover { transform: scale(1.3); }
-    &:focus { outline: 2px solid var(--focus-color, #58a6ff); }
+    &:hover {
+      transform: scale(1.3);
+    }
+    &:focus {
+      outline: 2px solid var(--focus-color, #58a6ff);
+    }
   }
 }
 
@@ -323,7 +351,9 @@
     color: var(--text-color, #ccc);
     cursor: pointer;
 
-    &:hover { background: var(--box-hover-background-color, #333); }
+    &:hover {
+      background: var(--box-hover-background-color, #333);
+    }
   }
 
   &__confirm {
@@ -335,8 +365,12 @@
     cursor: pointer;
     font-weight: 600;
 
-    &:hover { background: var(--secondary-button-hover-background, #2ea043); }
-    &:focus { outline: 2px solid var(--focus-color, #58a6ff); }
+    &:hover {
+      background: var(--secondary-button-hover-background, #2ea043);
+    }
+    &:focus {
+      outline: 2px solid var(--focus-color, #58a6ff);
+    }
   }
 }
 
@@ -366,8 +400,12 @@
     cursor: pointer;
     font-size: 13px;
 
-    &:hover { background: var(--secondary-button-hover-background, #2ea043); }
-    &:focus { outline: 2px solid var(--focus-color, #58a6ff); }
+    &:hover {
+      background: var(--secondary-button-hover-background, #2ea043);
+    }
+    &:focus {
+      outline: 2px solid var(--focus-color, #58a6ff);
+    }
   }
 }
 
@@ -390,8 +428,12 @@
     cursor: pointer;
     font-size: 13px;
 
-    &:hover { background: var(--box-hover-background-color, #2a2a2a); }
-    &:focus { outline: 2px solid var(--focus-color, #58a6ff); }
+    &:hover {
+      background: var(--box-hover-background-color, #2a2a2a);
+    }
+    &:focus {
+      outline: 2px solid var(--focus-color, #58a6ff);
+    }
   }
 
   &__hints {

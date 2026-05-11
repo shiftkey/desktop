@@ -126,14 +126,20 @@ export async function collectMany(
   concurrency: number = 4,
   signal?: AbortSignal
 ): Promise<ReadonlyArray<IRepoHealth>> {
-  if (concurrency < 1) {concurrency = 1}
+  if (concurrency < 1) {
+    concurrency = 1
+  }
   const results: Array<IRepoHealth | null> = new Array(repos.length).fill(null)
   let cursor = 0
   async function worker() {
     while (true) {
-      if (signal?.aborted) {return}
+      if (signal?.aborted) {
+        return
+      }
       const idx = cursor++
-      if (idx >= repos.length) {return}
+      if (idx >= repos.length) {
+        return
+      }
       results[idx] = await collectRepoHealth(repos[idx], opts)
     }
   }

@@ -187,7 +187,9 @@ describe('RepoHealthStore', () => {
     })
     store2.onDidUpdate(() => {
       const live = [...store2.getSnapshot().refreshing]
-      if (live.length > peakRefreshing.length) {peakRefreshing = live}
+      if (live.length > peakRefreshing.length) {
+        peakRefreshing = live
+      }
     })
     await store2.refreshAll([repo(1)])
     expect(peakRefreshing).toEqual([1])

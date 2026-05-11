@@ -56,7 +56,9 @@ export class RepoHealthStore extends BaseStore {
 
     if (this.inFlight !== null) {
       const covered = isSubsetOf(requestedIds, this.inFlight.repoIds)
-      if (covered) {return this.inFlight.promise}
+      if (covered) {
+        return this.inFlight.promise
+      }
       // The in-flight run doesn't cover everything we need. Wait for it,
       // then run a follow-up. We force=true on the follow-up because the
       // dedup window would otherwise skip the run we just promised to
@@ -75,7 +77,9 @@ export class RepoHealthStore extends BaseStore {
       return
     }
 
-    for (const id of requestedIds) {this.refreshing.add(id)}
+    for (const id of requestedIds) {
+      this.refreshing.add(id)
+    }
     this.emitUpdate()
 
     const controller = new AbortController()
@@ -88,13 +92,17 @@ export class RepoHealthStore extends BaseStore {
           this.options.concurrency ?? 4,
           controller.signal
         )
-        if (controller.signal.aborted) {return}
+        if (controller.signal.aborted) {
+          return
+        }
         for (const r of results) {
           this.statuses.set(r.repositoryId, r)
         }
         this.lastRefreshAt = (this.options.now ?? Date.now)()
       } finally {
-        for (const id of requestedIds) {this.refreshing.delete(id)}
+        for (const id of requestedIds) {
+          this.refreshing.delete(id)
+        }
         this.inFlight = null
         this.emitUpdate()
       }
@@ -116,8 +124,12 @@ export class RepoHealthStore extends BaseStore {
         1,
         controller.signal
       )
-      if (controller.signal.aborted) {return}
-      if (health) {this.statuses.set(repo.id, health)}
+      if (controller.signal.aborted) {
+        return
+      }
+      if (health) {
+        this.statuses.set(repo.id, health)
+      }
     } finally {
       this.refreshing.delete(repo.id)
       this.lastRefreshAt = (this.options.now ?? Date.now)()
@@ -128,9 +140,15 @@ export class RepoHealthStore extends BaseStore {
   /** Drop the snapshot for one repository (e.g., user removed the repo). */
   public forget(repositoryId: number): void {
     let changed = false
-    if (this.statuses.delete(repositoryId)) {changed = true}
-    if (this.refreshing.delete(repositoryId)) {changed = true}
-    if (changed) {this.emitUpdate()}
+    if (this.statuses.delete(repositoryId)) {
+      changed = true
+    }
+    if (this.refreshing.delete(repositoryId)) {
+      changed = true
+    }
+    if (changed) {
+      this.emitUpdate()
+    }
   }
 
   /** Drop all cached state and abort any in-flight collection. */
@@ -142,7 +160,9 @@ export class RepoHealthStore extends BaseStore {
         // Some Node/Electron versions throw on double-abort; ignore.
       }
     }
-    if (this.statuses.size === 0 && this.refreshing.size === 0) {return}
+    if (this.statuses.size === 0 && this.refreshing.size === 0) {
+      return
+    }
     this.statuses.clear()
     this.refreshing.clear()
     this.lastRefreshAt = null
@@ -151,7 +171,13 @@ export class RepoHealthStore extends BaseStore {
 }
 
 function isSubsetOf(a: Set<number>, b: Set<number>): boolean {
-  if (a.size > b.size) {return false}
-  for (const v of a) {if (!b.has(v)) {return false}}
+  if (a.size > b.size) {
+    return false
+  }
+  for (const v of a) {
+    if (!b.has(v)) {
+      return false
+    }
+  }
   return true
 }

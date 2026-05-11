@@ -76,13 +76,15 @@ describe('StashListItem', () => {
     stashedAt: 1700000000, // a known unix seconds
   })
 
-  function instantiate(props: Partial<{
-    selected: boolean
-    onClick: jest.Mock
-    onContextMenu: jest.Mock
-    nowMs: number
-    entry: IStashEntry
-  }>) {
+  function instantiate(
+    props: Partial<{
+      selected: boolean
+      onClick: jest.Mock
+      onContextMenu: jest.Mock
+      nowMs: number
+      entry: IStashEntry
+    }>
+  ) {
     const onClick = props.onClick ?? jest.fn()
     const onContextMenu = props.onContextMenu
     const item = new StashListItem({
@@ -107,7 +109,9 @@ describe('StashListItem', () => {
     // branch span is the first metadata child
     const meta = main.props.children[1]
     const metaChildren = (meta.props.children as any[]).filter(Boolean)
-    expect(metaChildren.some((c: any) => c.props.children === 'main')).toBe(true)
+    expect(metaChildren.some((c: any) => c.props.children === 'main')).toBe(
+      true
+    )
   })
 
   it('adds the "selected" class when selected', () => {
@@ -149,4 +153,3 @@ describe('StashListItem', () => {
     expect(fakeEvent.preventDefault).not.toHaveBeenCalled()
   })
 })
-

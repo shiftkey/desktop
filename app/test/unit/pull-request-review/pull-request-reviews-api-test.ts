@@ -21,7 +21,7 @@ class FakeHttp implements IHttpClient {
   async request(method: any, path: string, body?: unknown) {
     this.calls.push({ method, path, body })
     const r = this.queue.shift()
-    if (!r) throw new Error('FakeHttp: no response queued for ' + path)
+    if (!r) {throw new Error('FakeHttp: no response queued for ' + path)}
     return r
   }
 }
@@ -141,9 +141,7 @@ describe('buildThreads', () => {
   })
 
   it('drops replies whose parent is missing', () => {
-    const cs = [
-      mapComment(rawComment({ id: 1, in_reply_to_id: 999 })),
-    ]
+    const cs = [mapComment(rawComment({ id: 1, in_reply_to_id: 999 }))]
     const t = buildThreads(cs)
     expect(t).toHaveLength(0)
   })
@@ -158,7 +156,9 @@ describe('buildThreads', () => {
 
 describe('fetchPullRequestThreads', () => {
   it('GETs the comments endpoint and returns threads', async () => {
-    const http = new FakeHttp().enqueue(ok([rawComment(), rawComment({ id: 2 })]))
+    const http = new FakeHttp().enqueue(
+      ok([rawComment(), rawComment({ id: 2 })])
+    )
     const threads = await fetchPullRequestThreads(http, 'a', 'b', 7)
     expect(threads).toHaveLength(2)
     expect(http.calls[0].method).toBe('GET')
@@ -287,7 +287,9 @@ describe('submitReview', () => {
   })
 
   it('reports server error message on 4xx', async () => {
-    const http = new FakeHttp().enqueue(err(422, { message: 'Validation Failed' }))
+    const http = new FakeHttp().enqueue(
+      err(422, { message: 'Validation Failed' })
+    )
     const r = await submitReview(http, 'o', 'r', 1, {
       verdict: { kind: 'approve' },
       summary: '',

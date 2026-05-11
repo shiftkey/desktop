@@ -49,7 +49,12 @@ export class SplitContainer extends React.Component<ISplitContainerProps> {
         }}
       >
         <div
-          style={{ flex: node.ratio, overflow: 'hidden', minWidth: 0, minHeight: 0 }}
+          style={{
+            flex: node.ratio,
+            overflow: 'hidden',
+            minWidth: 0,
+            minHeight: 0,
+          }}
         >
           {this.renderNode(node.a, [...path, 'a'])}
         </div>
@@ -57,10 +62,17 @@ export class SplitContainer extends React.Component<ISplitContainerProps> {
         <div
           className={`split-spacer ${node.orientation}`}
           // eslint-disable-next-line react/jsx-no-bind
-          onMouseDown={e => this.onSpacerMouseDown(e, path, node.ratio, node.orientation)}
+          onMouseDown={e =>
+            this.onSpacerMouseDown(e, path, node.ratio, node.orientation)
+          }
         />
         <div
-          style={{ flex: 1 - node.ratio, overflow: 'hidden', minWidth: 0, minHeight: 0 }}
+          style={{
+            flex: 1 - node.ratio,
+            overflow: 'hidden',
+            minWidth: 0,
+            minHeight: 0,
+          }}
         >
           {this.renderNode(node.b, [...path, 'b'])}
         </div>
@@ -80,12 +92,7 @@ export class SplitContainer extends React.Component<ISplitContainerProps> {
     } = this.props
 
     if (!mountedSessionIds.has(sessionId)) {
-      return (
-        <div
-          key={sessionId}
-          style={{ width: '100%', height: '100%' }}
-        />
-      )
+      return <div key={sessionId} style={{ width: '100%', height: '100%' }} />
     }
 
     const ref = this.getOrCreateRef(sessionId, xtermRefs)
@@ -142,7 +149,9 @@ export class SplitContainer extends React.Component<ISplitContainerProps> {
     const startX = e.clientX
     const startY = e.clientY
     const container = (e.currentTarget as HTMLElement).parentElement!
-    const totalSize = isHorizontal ? container.offsetWidth : container.offsetHeight
+    const totalSize = isHorizontal
+      ? container.offsetWidth
+      : container.offsetHeight
 
     const onMove = (me: MouseEvent) => {
       const delta = isHorizontal ? me.clientX - startX : me.clientY - startY

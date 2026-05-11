@@ -366,7 +366,9 @@ export class XtermView extends React.Component<IXtermViewProps> {
         {this.commandBlocks.map((block, i) => (
           <button
             key={i}
-            className={`xterm-block-marker ${block.exitCode === 0 ? 'success' : 'failure'}`}
+            className={`xterm-block-marker ${
+              block.exitCode === 0 ? 'success' : 'failure'
+            }`}
             aria-label="Copy block output"
             // eslint-disable-next-line react/jsx-no-bind
             onClick={() => this.copyBlock(block)}

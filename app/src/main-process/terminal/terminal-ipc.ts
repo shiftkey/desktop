@@ -126,7 +126,9 @@ export function registerTerminalIpc(
   })
 
   ipcMain.handle(TERMINAL_IPC.KILL, async (_event, sessionId: string) => {
-    if (typeof sessionId !== 'string' || sessionId.length === 0) {return}
+    if (typeof sessionId !== 'string' || sessionId.length === 0) {
+      return
+    }
     manager.kill(sessionId)
   })
 
@@ -221,11 +223,17 @@ const DANGEROUS_ENV_KEYS = new Set([
 ])
 
 function sanitizeEnv(raw: unknown): Record<string, string> {
-  if (raw === null || typeof raw !== 'object') {return {}}
+  if (raw === null || typeof raw !== 'object') {
+    return {}
+  }
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (DANGEROUS_ENV_KEYS.has(k)) {continue}
-    if (typeof v === 'string') {out[k] = v}
+    if (DANGEROUS_ENV_KEYS.has(k)) {
+      continue
+    }
+    if (typeof v === 'string') {
+      out[k] = v
+    }
   }
   return out
 }

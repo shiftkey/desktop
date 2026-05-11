@@ -86,9 +86,11 @@ export class AccountsStore extends TypedBaseStore<ReadonlyArray<Account>> {
   public getActiveAccount(endpoint: string): Account | null {
     const activeId = this.activeAccountByEndpoint.get(endpoint)
     const endpointAccounts = this.accounts.filter(a => a.endpoint === endpoint)
-    if (endpointAccounts.length === 0) return null
+    if (endpointAccounts.length === 0) {return null}
     if (activeId !== undefined) {
-      return endpointAccounts.find(a => a.id === activeId) ?? endpointAccounts[0]
+      return (
+        endpointAccounts.find(a => a.id === activeId) ?? endpointAccounts[0]
+      )
     }
     return endpointAccounts[0]
   }
