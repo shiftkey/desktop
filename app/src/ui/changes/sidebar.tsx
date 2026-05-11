@@ -444,6 +444,7 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
           showCommitLengthWarning={this.props.showCommitLengthWarning}
           currentRepoRulesInfo={currentRepoRulesInfo}
           aheadBehind={this.props.aheadBehind}
+          diffStats={this.props.changes.diffStats}
           accounts={this.props.accounts}
         />
         {this.renderUndoCommit(rebaseConflictState)}

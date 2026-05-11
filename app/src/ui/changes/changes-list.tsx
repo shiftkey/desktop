@@ -60,6 +60,7 @@ import { EOL } from 'os'
 import { TooltippedContent } from '../lib/tooltipped-content'
 import { RepoRulesInfo } from '../../models/repo-rules'
 import { IAheadBehind } from '../../models/branch'
+import { IWorkingDirectoryStats } from '../../models/working-directory-stats'
 import { StashDiffViewerId } from '../stashing'
 import { filterChangedFilesByPath } from '../../lib/filter-changed-files'
 
@@ -178,6 +179,9 @@ interface IChangesListProps {
   readonly currentBranchProtected: boolean
   readonly currentRepoRulesInfo: RepoRulesInfo
   readonly aheadBehind: IAheadBehind | null
+
+  /** Aggregate diff statistics for the working directory */
+  readonly diffStats: IWorkingDirectoryStats | null
 
   /**
    * Click event handler passed directly to the onRowClick prop of List, see
@@ -1079,7 +1083,7 @@ export class ChangesList extends React.Component<
             <div className="sr-only" id="changesDescription">
               {selectedChangesDescription}
             </div>
-            <ChangeSummaryBadge stats={this.props.changes.diffStats} />
+            <ChangeSummaryBadge stats={this.props.diffStats} />
           </div>
           <div className="filter">
             <TextBox
