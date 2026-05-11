@@ -17,6 +17,9 @@
     padding: 0 var(--spacing);
     height: 29px;
     flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 
     .checkbox-component {
       align-items: center;
@@ -132,4 +135,28 @@
   max-height: 0;
 
   transition: max-height var(--undo-animation-duration) ease-out;
+}
+
+.change-summary-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-half);
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-color);
+  background-color: var(--list-item-badge-background-color);
+  border-radius: 12px;
+  line-height: 1;
+  cursor: default;
+
+  .additions {
+    color: var(--color-new);
+  }
+
+  .deletions {
+    color: var(--color-deleted);
+  }
 }
