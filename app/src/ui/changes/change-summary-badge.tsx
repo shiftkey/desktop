@@ -21,8 +21,8 @@ export class ChangeSummaryBadge extends React.Component<
 
     const { files, additions, deletions } = stats
 
-    const tooltip = `${files} files changed • ${additions} additions • ${deletions} deletions`
     const filesLabel = files === 1 ? 'file' : 'files'
+    const tooltip = `${files} ${filesLabel} changed • ${additions} additions • ${deletions} deletions`
 
     return (
       <TooltippedContent tooltip={tooltip} direction={TooltipDirection.NORTH}>

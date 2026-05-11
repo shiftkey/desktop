@@ -69,7 +69,7 @@ describe('updateChangedFiles', () => {
         workingDirectory: oldWorkingDirectory,
       })
 
-      const { workingDirectory } = updateChangedFiles(prevState, status, true)
+      const { workingDirectory } = updateChangedFiles(prevState, status, null, true)
 
       const partialFile = workingDirectory.findFileWithID(
         partiallySelectedFile.id
@@ -89,7 +89,7 @@ describe('updateChangedFiles', () => {
         workingDirectory: oldWorkingDirectory,
       })
 
-      const { workingDirectory } = updateChangedFiles(prevState, status, false)
+      const { workingDirectory } = updateChangedFiles(prevState, status, null, false)
 
       const partialFile = workingDirectory.findFileWithID(
         partiallySelectedFile.id
@@ -110,7 +110,7 @@ describe('updateChangedFiles', () => {
         workingDirectory: oldWorkingDirectory,
       })
 
-      const { workingDirectory } = updateChangedFiles(prevState, status, false)
+      const { workingDirectory } = updateChangedFiles(prevState, status, null, false)
 
       expect(workingDirectory).not.toBe(oldWorkingDirectory)
     })
@@ -123,7 +123,7 @@ describe('updateChangedFiles', () => {
       const status = createStatus({
         workingDirectory: WorkingDirectoryStatus.fromFiles(files),
       })
-      const { selection } = updateChangedFiles(prevState, status, false)
+      const { selection } = updateChangedFiles(prevState, status, null, false)
 
       expect(selection.kind).toBe(ChangesSelectionKind.WorkingDirectory)
       const workingDirectorySelection =
@@ -148,7 +148,7 @@ describe('updateChangedFiles', () => {
       const status = createStatus({
         workingDirectory: WorkingDirectoryStatus.fromFiles(files),
       })
-      const { selection } = updateChangedFiles(prevState, status, false)
+      const { selection } = updateChangedFiles(prevState, status, null, false)
 
       expect(selection.kind).toBe(ChangesSelectionKind.WorkingDirectory)
       const workingDirectorySelection =
@@ -169,7 +169,7 @@ describe('updateChangedFiles', () => {
       })
 
       const status = createStatus({})
-      const { selection } = updateChangedFiles(prevState, status, false)
+      const { selection } = updateChangedFiles(prevState, status, null, false)
 
       expect(selection.kind).toBe(ChangesSelectionKind.WorkingDirectory)
       const workingDirectorySelection =
@@ -194,7 +194,7 @@ describe('updateChangedFiles', () => {
       })
 
       const status = createStatus({ workingDirectory })
-      const { selection } = updateChangedFiles(prevState, status, false)
+      const { selection } = updateChangedFiles(prevState, status, null, false)
 
       expect(selection.kind).toBe(ChangesSelectionKind.WorkingDirectory)
 
@@ -222,7 +222,7 @@ describe('updateChangedFiles', () => {
       // same working directory is provided as last time
       const status = createStatus({ workingDirectory })
 
-      const { selection } = updateChangedFiles(prevState, status, false)
+      const { selection } = updateChangedFiles(prevState, status, null, false)
       expect(selection.kind).toBe(ChangesSelectionKind.WorkingDirectory)
       const workingDirectorySelection =
         selection as ChangesWorkingDirectorySelection
