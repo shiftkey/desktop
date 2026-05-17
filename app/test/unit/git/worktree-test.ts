@@ -13,17 +13,16 @@ import { Repository } from '../../../src/models/repository'
 
 describe('git/worktree', () => {
   describe('parseWorktreeListPorcelain', () => {
-    it('parses entries with optional porcelain fields', () => {
+    it('parses the checked-out branch and shortens the ref', () => {
       const result = parseWorktreeListPorcelain(
         [
           'worktree /repo',
           'HEAD 1111111111111111111111111111111111111111',
           'branch refs/heads/main',
           '',
-          'worktree /repo-linked',
+          'worktree /repo-feature',
           'HEAD 2222222222222222222222222222222222222222',
-          'detached',
-          'locked',
+          'branch refs/heads/feature/login',
           '',
         ].join('\n')
       )
@@ -32,12 +31,101 @@ describe('git/worktree', () => {
         {
           path: '/repo',
           head: '1111111111111111111111111111111111111111',
+          branch: 'main',
+          isDetached: false,
+          isBare: false,
+          lockedReason: null,
+          prunableReason: null,
         },
         {
-          path: '/repo-linked',
+          path: '/repo-feature',
           head: '2222222222222222222222222222222222222222',
+          branch: 'feature/login',
+          isDetached: false,
+          isBare: false,
+          lockedReason: null,
+          prunableReason: null,
         },
       ])
+    })
+
+    it('marks a detached worktree and leaves its branch null', () => {
+      const [entry] = parseWorktreeListPorcelain(
+        [
+          'worktree /repo-detached',
+          'HEAD 3333333333333333333333333333333333333333',
+          'detached',
+          '',
+        ].join('\n')
+      )
+
+      expect(entry.branch).toBeNull()
+      expect(entry.isDetached).toBe(true)
+      expect(entry.head).toBe('3333333333333333333333333333333333333333')
+    })
+
+    it('marks the bare repository entry', () => {
+      const [entry] = parseWorktreeListPorcelain(
+        ['worktree /bare-repo', 'bare', ''].join('\n')
+      )
+
+      expect(entry.isBare).toBe(true)
+      expect(entry.branch).toBeNull()
+      expect(entry.head).toBe('0000000000000000000000000000000000000000')
+    })
+
+    it('captures lock state with and without a reason', () => {
+      const result = parseWorktreeListPorcelain(
+        [
+          'worktree /repo-locked-bare',
+          'HEAD 4444444444444444444444444444444444444444',
+          'branch refs/heads/a',
+          'locked',
+          '',
+          'worktree /repo-locked-reason',
+          'HEAD 5555555555555555555555555555555555555555',
+          'branch refs/heads/b',
+          'locked on a removable drive',
+          '',
+        ].join('\n')
+      )
+
+      expect(result[0].lockedReason).toBe('')
+      expect(result[1].lockedReason).toBe('on a removable drive')
+    })
+
+    it('captures prunable state with its reason', () => {
+      const [entry] = parseWorktreeListPorcelain(
+        [
+          'worktree /repo-gone',
+          'HEAD 6666666666666666666666666666666666666666',
+          'detached',
+          'prunable gitdir file points to non-existent location',
+          '',
+        ].join('\n')
+      )
+
+      expect(entry.prunableReason).toBe(
+        'gitdir file points to non-existent location'
+      )
+    })
+
+    it('skips entries with no worktree path and tolerates trailing blank lines', () => {
+      const result = parseWorktreeListPorcelain(
+        [
+          'HEAD 7777777777777777777777777777777777777777',
+          'branch refs/heads/orphan',
+          '',
+          'worktree /repo-valid',
+          'HEAD 8888888888888888888888888888888888888888',
+          'branch refs/heads/main',
+          '',
+          '',
+        ].join('\n')
+      )
+
+      expect(result).toHaveLength(1)
+      expect(result[0].path).toBe('/repo-valid')
     })
   })
 

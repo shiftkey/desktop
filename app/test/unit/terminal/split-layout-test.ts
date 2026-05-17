@@ -4,6 +4,7 @@ import {
   splitLeaf,
   closeSession,
   findLeafIds,
+  replaceLeaf,
 } from '../../../src/lib/terminal/split-layout'
 
 describe('split-layout', () => {
@@ -106,5 +107,54 @@ describe('split-layout', () => {
       },
     }
     expect(findLeafIds(root)).toEqual(['s1', 's2', 's3'])
+  })
+
+  describe('replaceLeaf', () => {
+    it('rebinds a matching leaf to the new id', () => {
+      expect(replaceLeaf(leaf('old'), 'old', 'new')).toEqual(leaf('new'))
+    })
+
+    it('returns the same tree when the id is absent', () => {
+      const root = leaf('s1')
+      expect(replaceLeaf(root, 'missing', 'new')).toBe(root)
+    })
+
+    it('rebinds the matching leaf inside a split tree', () => {
+      const root: Layout = {
+        kind: 'split',
+        orientation: 'horizontal',
+        ratio: 0.5,
+        a: leaf('s1'),
+        b: leaf('s2'),
+      }
+      expect(replaceLeaf(root, 's2', 's2-restarted')).toEqual({
+        kind: 'split',
+        orientation: 'horizontal',
+        ratio: 0.5,
+        a: leaf('s1'),
+        b: leaf('s2-restarted'),
+      })
+    })
+
+    it('preserves nested structure and untouched leaves', () => {
+      const root: Layout = {
+        kind: 'split',
+        orientation: 'horizontal',
+        ratio: 0.5,
+        a: leaf('s1'),
+        b: {
+          kind: 'split',
+          orientation: 'vertical',
+          ratio: 0.3,
+          a: leaf('s2'),
+          b: leaf('s3'),
+        },
+      }
+      expect(findLeafIds(replaceLeaf(root, 's3', 's3b'))).toEqual([
+        's1',
+        's2',
+        's3b',
+      ])
+    })
   })
 })

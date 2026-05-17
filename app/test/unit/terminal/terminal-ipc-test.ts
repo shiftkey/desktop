@@ -104,6 +104,41 @@ describe('registerTerminalIpc', () => {
       expect(ptyInstances).toHaveLength(1)
     })
 
+    it('closes both ports when the PTY fails to spawn', async () => {
+      const ipc = new FakeIpcMain()
+      const ptyMod = {
+        spawn: () => {
+          throw new Error('spawn ENOENT')
+        },
+      }
+      const portPairs: Array<{ main: MockPort; renderer: MockPort }> = []
+      const portPairFactory = () => {
+        const pair = { main: new MockPort(), renderer: new MockPort() }
+        portPairs.push(pair)
+        return pair
+      }
+      registerTerminalIpc(ipc, () => ptyMod, portPairFactory)
+
+      await expect(
+        ipc.invoke(TERMINAL_IPC.SPAWN, {
+          repositoryId: 1,
+          options: {
+            shell: '/no/such/shell',
+            args: [],
+            cwd: '/tmp',
+            env: {},
+            cols: 80,
+            rows: 24,
+          },
+        })
+      ).rejects.toThrow('spawn ENOENT')
+
+      // The MessageChannel must not leak — both ends are closed.
+      expect(portPairs).toHaveLength(1)
+      expect(portPairs[0].main.closed).toBe(true)
+      expect(portPairs[0].renderer.closed).toBe(true)
+    })
+
     it('kill terminates the session', async () => {
       const { ipc, ptyInstances } = setup()
       const r = await ipc.invoke(TERMINAL_IPC.SPAWN, {

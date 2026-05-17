@@ -2,6 +2,22 @@ import { git } from './core'
 import { Repository, LinkedWorkTree } from '../../models/repository'
 import { getStatus } from './status'
 
+const NULL_SHA = '0000000000000000000000000000000000000000'
+
+/** Strip the `refs/heads/` prefix from a branch ref reported by Git. */
+function shortenBranchRef(ref: string): string {
+  const prefix = 'refs/heads/'
+  return ref.startsWith(prefix) ? ref.substring(prefix.length) : ref
+}
+
+/**
+ * Parse the output of `git worktree list --porcelain`.
+ *
+ * Each worktree is a block of `attribute [value]` lines separated by a
+ * blank line. Every attribute the UI needs is surfaced: the checked-out
+ * branch, detached/bare state, and the lock/prune reasons. A `locked` or
+ * `prunable` line may appear with or without a trailing reason.
+ */
 export function parseWorktreeListPorcelain(
   output: string
 ): ReadonlyArray<LinkedWorkTree> {
@@ -14,13 +30,29 @@ export function parseWorktreeListPorcelain(
     }
 
     let path: string | null = null
-    let head = '0000000000000000000000000000000000000000'
+    let head = NULL_SHA
+    let branch: string | null = null
+    let isDetached = false
+    let isBare = false
+    let lockedReason: string | null = null
+    let prunableReason: string | null = null
 
     for (const line of lines) {
       if (line.startsWith('worktree ')) {
         path = line.substring('worktree '.length)
       } else if (line.startsWith('HEAD ')) {
         head = line.substring('HEAD '.length)
+      } else if (line.startsWith('branch ')) {
+        branch = shortenBranchRef(line.substring('branch '.length))
+      } else if (line === 'detached') {
+        isDetached = true
+      } else if (line === 'bare') {
+        isBare = true
+      } else if (line === 'locked' || line.startsWith('locked ')) {
+        lockedReason = line === 'locked' ? '' : line.substring('locked '.length)
+      } else if (line === 'prunable' || line.startsWith('prunable ')) {
+        prunableReason =
+          line === 'prunable' ? '' : line.substring('prunable '.length)
       }
     }
 
@@ -31,7 +63,15 @@ export function parseWorktreeListPorcelain(
       continue
     }
 
-    worktrees.push({ path, head })
+    worktrees.push({
+      path,
+      head,
+      branch,
+      isDetached,
+      isBare,
+      lockedReason,
+      prunableReason,
+    })
   }
 
   return worktrees

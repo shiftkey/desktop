@@ -83,6 +83,26 @@ export class Repository {
 export type LinkedWorkTree = WorkingTree & {
   /** The sha of the head commit in this work tree */
   readonly head: string
+  /**
+   * Short name of the branch this worktree has checked out, or `null` when
+   * the worktree is in detached-HEAD state or is the bare repository entry.
+   */
+  readonly branch: string | null
+  /** `true` when the worktree's HEAD is detached (no branch checked out). */
+  readonly isDetached: boolean
+  /** `true` for the bare repository entry — it has no working tree. */
+  readonly isBare: boolean
+  /**
+   * Lock state. `null` when the worktree is unlocked; otherwise the lock
+   * reason reported by Git (which may be an empty string when locked
+   * without a reason).
+   */
+  readonly lockedReason: string | null
+  /**
+   * Prune state. `null` when the worktree is healthy; otherwise the reason
+   * Git considers it prunable (e.g. its gitdir points at a missing path).
+   */
+  readonly prunableReason: string | null
 }
 
 /** Identical to `Repository`, except it **must** have a `gitHubRepository` */

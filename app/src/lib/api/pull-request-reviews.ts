@@ -114,12 +114,25 @@ export function buildThreads(
   })
 }
 
+/** Comments requested per page — GitHub's documented maximum. */
+const COMMENTS_PER_PAGE = 100
+
 /**
- * Fetch every line-comment for a PR (paginated). Returns the threaded view.
+ * Hard ceiling on pages walked. At {@link COMMENTS_PER_PAGE} per page this
+ * covers 5,000 line comments — far beyond any realistic PR — and stops a
+ * server that always returns a full page from spinning the loop forever.
+ */
+const MAX_COMMENT_PAGES = 50
+
+/**
+ * Fetch every line-comment for a PR and return the threaded view.
  *
- * The 401 / 403 / 404 responses produce an empty array + no throw — callers
- * decide whether to surface an error to the user (typically yes for 401,
- * "no permission" message for 403).
+ * The endpoint is paginated: pages are walked until one comes back shorter
+ * than a full page (the last page) or empty. A non-2xx / non-array response
+ * on the first page yields an empty array with no throw — callers decide
+ * whether to surface an error (typically yes for 401, a "no permission"
+ * message for 403). A failure on a later page returns whatever was collected
+ * so far rather than discarding a partially-loaded review.
  */
 export async function fetchPullRequestThreads(
   client: IHttpClient,
@@ -127,12 +140,22 @@ export async function fetchPullRequestThreads(
   repo: string,
   prNumber: number
 ): Promise<ReadonlyArray<IReviewThread>> {
-  const path = `/repos/${owner}/${repo}/pulls/${prNumber}/comments?per_page=100`
-  const res = await client.request('GET', path)
-  if (!res.ok || !Array.isArray(res.body)) {
-    return []
+  const comments: IReviewComment[] = []
+  for (let page = 1; page <= MAX_COMMENT_PAGES; page++) {
+    const path =
+      `/repos/${owner}/${repo}/pulls/${prNumber}/comments` +
+      `?per_page=${COMMENTS_PER_PAGE}&page=${page}`
+    const res = await client.request('GET', path)
+    if (!res.ok || !Array.isArray(res.body)) {
+      break
+    }
+    for (const raw of res.body) {
+      comments.push(mapComment(raw))
+    }
+    if (res.body.length < COMMENTS_PER_PAGE) {
+      break
+    }
   }
-  const comments = res.body.map(mapComment)
   return buildThreads(comments)
 }
 

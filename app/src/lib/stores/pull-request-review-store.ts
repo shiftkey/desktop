@@ -36,7 +36,12 @@ export class PullRequestReviewStore extends BaseStore {
     repo: string,
     prNumber: number
   ): Promise<void> {
-    this.session = {
+    // Capture the session we create so the post-await writes can detect
+    // that the user closed the dialog — or opened a different PR — while
+    // the threads request was in flight. Spreading `this.session` blindly
+    // there would resurrect a closed session (`{...null}`) or clobber a
+    // newer PR's session with this PR's stale threads.
+    const session: IPRReviewSession = {
       prNumber,
       repoId,
       status: 'loading',
@@ -46,6 +51,7 @@ export class PullRequestReviewStore extends BaseStore {
       summary: '',
       error: null,
     }
+    this.session = session
     this.emitUpdate()
 
     try {
@@ -55,13 +61,18 @@ export class PullRequestReviewStore extends BaseStore {
         repo,
         prNumber
       )
-      this.session = { ...this.session, threads, status: 'ready' }
+      if (this.session !== session) {
+        return
+      }
+      this.session = { ...session, threads, status: 'ready' }
       this.emitUpdate()
     } catch (e) {
       const error = e instanceof Error ? e : new Error(String(e))
-      this.session = { ...this.session, status: 'error', error }
+      if (this.session === session) {
+        this.session = { ...session, status: 'error', error }
+        this.emitUpdate()
+      }
       this.emitError(error)
-      this.emitUpdate()
     }
   }
 

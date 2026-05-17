@@ -90,4 +90,24 @@ describe('extractBlockText', () => {
     const result = extractBlockText(r => `row${r}`, block)
     expect(result).toBe('row4')
   })
+
+  it('caps retained blocks and drops the oldest', () => {
+    let row = 0
+    const t = new CommandBlockTracker(() => row)
+    const TOTAL = 400
+    for (let i = 1; i <= TOTAL; i++) {
+      t.handle({ type: 'prompt-start' })
+      row = i
+      t.handle({ type: 'command-start' })
+      t.handle({ type: 'output-start' })
+      t.handle({ type: 'command-end', exitCode: 0 })
+    }
+    const blocks = t.getBlocks()
+    // The tracker keeps a bounded window — never the full 400.
+    expect(blocks.length).toBeLessThan(TOTAL)
+    expect(blocks.length).toBeGreaterThan(0)
+    // The most recent command is always retained; the oldest are dropped.
+    expect(blocks[blocks.length - 1].commandStartRow).toBe(TOTAL)
+    expect(blocks[0].commandStartRow).toBeGreaterThan(1)
+  })
 })

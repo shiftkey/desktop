@@ -88,7 +88,20 @@ export function registerTerminalIpc(
   ipcMain.handle(TERMINAL_IPC.SPAWN, async (event, args) => {
     const { repositoryId, options } = validateSpawnArgs(args)
     const port = createPortPair()
-    const snapshot = manager.spawn(repositoryId, options, port.main)
+
+    let snapshot
+    try {
+      snapshot = manager.spawn(repositoryId, options, port.main)
+    } catch (err) {
+      // The PTY failed to launch (missing shell, bad cwd, …). No session
+      // was created, so close both ends of the channel ourselves —
+      // otherwise the MessageChannelMain leaks for the lifetime of the
+      // process. Then reject so the renderer can show the error.
+      closePortQuietly(port.main)
+      closePortQuietly(port.renderer)
+      throw err
+    }
+
     // Transfer the renderer-side port out-of-band. ipcMain.handle return
     // values go through structured clone, which does NOT support
     // MessagePortMain; the only supported path is postMessage with a
@@ -119,7 +132,10 @@ export function registerTerminalIpc(
         )
       }
     } catch (err) {
+      // `manager.kill` closes the main port via the session's cleanup; the
+      // renderer port was never successfully transferred, so close it too.
       manager.kill(snapshot.id)
+      closePortQuietly(port.renderer)
       throw err
     }
     return { sessionId: snapshot.id }
@@ -156,6 +172,21 @@ export function registerTerminalIpc(
       manager.killAll()
     },
     manager,
+  }
+}
+
+/**
+ * Close a `MessagePortMain` without letting a throw escape. Electron can
+ * throw if the port was already closed or never fully constructed; in the
+ * cleanup paths here that is never actionable.
+ */
+function closePortQuietly(
+  port: { close?: () => void } | null | undefined
+): void {
+  try {
+    port?.close?.()
+  } catch {
+    // already closed / not a real port — nothing to do
   }
 }
 

@@ -1,6 +1,12 @@
 import { BaseStore } from './base-store'
 import { ITerminalSessionSnapshot } from '../terminal/pty-types'
-import { Layout, leaf, splitLeaf, closeSession } from '../terminal/split-layout'
+import {
+  Layout,
+  leaf,
+  splitLeaf,
+  closeSession,
+  replaceLeaf,
+} from '../terminal/split-layout'
 
 /**
  * Renderer-side state for the integrated terminal panel.
@@ -292,7 +298,25 @@ export class TerminalStore extends BaseStore {
       activeSessionId = newSnapshot.id
     }
 
-    this.update({ sessions, tabsByRepoId, activeByRepoId, activeSessionId })
+    // The split-pane layout tree references sessions by id — rebind the
+    // restarted session's leaf, or the pane would keep rendering the dead
+    // (port-less) old session instead of the fresh one.
+    const layoutByRepoId = new Map(this.state.layoutByRepoId)
+    const layout = layoutByRepoId.get(cur.repositoryId)
+    if (layout !== undefined) {
+      layoutByRepoId.set(
+        cur.repositoryId,
+        replaceLeaf(layout, oldSessionId, newSnapshot.id)
+      )
+    }
+
+    this.update({
+      sessions,
+      tabsByRepoId,
+      activeByRepoId,
+      activeSessionId,
+      layoutByRepoId,
+    })
   }
 
   /**

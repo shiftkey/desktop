@@ -76,3 +76,27 @@ export function findLeafIds(root: Layout): ReadonlyArray<string> {
   }
   return [...findLeafIds(root.a), ...findLeafIds(root.b)]
 }
+
+/**
+ * Rebind the leaf for `oldId` to `newId`, preserving the tree shape.
+ *
+ * Used when an exited session is restarted in place: the session id
+ * changes, and the layout tree must follow the swap or the pane would
+ * keep pointing at the dead session. Returns `root` unchanged when
+ * `oldId` is not present.
+ */
+export function replaceLeaf(
+  root: Layout,
+  oldId: string,
+  newId: string
+): Layout {
+  if (root.kind === 'leaf') {
+    return root.sessionId === oldId ? leaf(newId) : root
+  }
+  const a = replaceLeaf(root.a, oldId, newId)
+  const b = replaceLeaf(root.b, oldId, newId)
+  if (a === root.a && b === root.b) {
+    return root
+  }
+  return { ...root, a, b }
+}

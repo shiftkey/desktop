@@ -53,13 +53,17 @@ line comments, set a verdict, and submit a review in a single shot.
 - API: `fetchPullRequestThreads`, `postLineComment`, `submitReview`. The
   `IHttpClient` interface is fully injectable so the wrapper is testable
   without `fetch`. Production uses `makeAccountHttpClient(account)`.
+  `fetchPullRequestThreads` walks every comment page (100 per page, 50-page
+  safety cap) so large PRs aren't truncated.
 - Store: `PullRequestReviewStore` holds at most one active session.
   Drafts are kept locally; on submit success they're cleared, on
-  failure they survive so the user can retry.
+  failure they survive so the user can retry. `open()` captures its
+  session object and bails after the await if the dialog was closed or a
+  different PR was opened mid-fetch.
 - UI: opened via `PopupType.PullRequestReviewSession` (carries
   `repository` + `prNumber`). The diff-rendered inline comment overlay
   is Phase 2 work.
-- 50 unit tests, 100% line coverage on the API + store + model.
+- 55 unit tests, 100% line coverage on the API + store + model.
 
 ### Repository Health Dashboard (`app/src/lib/repo-health/`, `app/src/lib/stores/repo-health-store.ts`, `app/src/ui/repo-health/`)
 
@@ -76,10 +80,12 @@ PR count, CI status, attention score per repo.
 - UI: `RepoHealthDashboard` (sort + filter + refresh) + `RepoHealthRow`,
   wrapped in `RepoHealthDashboardDialog`, opened via
   `PopupType.RepoHealthDashboard`.
-- Default probes (`makeDefaultRepoHealthProbes` in `app-store.ts`)
-  currently wire `getStatus` and `getAheadBehind`. PR / CI / activity
-  probes return 0 in v1 — extend incrementally without breaking the
-  contract.
+- Probes (`makeRepoHealthProbes` in `app-store.ts`) are all wired to
+  real data sources: `getStatus`, `getAheadBehind` (`HEAD...@{u}`
+  symmetric range), the GitHub combined-ref-status API for CI,
+  `PullRequestCoordinator` for the open-PR count, and `git log` /
+  `git for-each-ref` for last-activity and stale-branch counts. Probe
+  failures degrade per-signal via `safe()` — they never poison a snapshot.
 - 45 unit tests, 100% on store/scoring/row, 89% on the dashboard component.
 
 ### Integrated Terminal (`app/src/lib/terminal/`, `app/src/main-process/terminal/`, `app/src/ui/terminal/`)
@@ -104,7 +110,7 @@ full design):
 - **Dispatcher**: `toggleTerminal`, `spawnTerminal`, `killTerminal`,
   `resizeTerminal`, `getTerminalPort`, `setTerminalHeight`.
 
-Tests: 100 unit tests across 8 files in `app/test/unit/terminal/`. Mock PTY
+Tests: 264 unit tests across 18 files in `app/test/unit/terminal/`. Mock PTY
 + MockPort helpers in `app/test/helpers/mock-pty.ts` so tests run without
 node-pty's native binding.
 
@@ -116,6 +122,37 @@ End-user stash management. Three layers:
 3. **UI**: `StashList` + `StashListItem` render the sidebar; `StashCreateDialog` is a popup (`PopupType.StashCreate`). The Stashes tab lives next to Changes/History inside `RepositoryView` (`RepositorySectionTab.Stashes`).
 
 `IStashEntry` has been extended with `message: string` and `stashedAt: number`. Test fixtures that construct `IStashEntry` literals must include both.
+
+### Worktrees (`app/src/lib/git/worktree.ts`, `app/src/lib/stores/worktree-store.ts`, `app/src/ui/worktrees/`)
+
+A read-only Worktrees tab listing the repository's linked worktrees.
+
+- **Git layer** (`worktree.ts`): `parseWorktreeListPorcelain` parses
+  `git worktree list --porcelain` into `LinkedWorkTree` — `path`, `head`,
+  `branch` (short name, `null` when detached/bare), `isDetached`,
+  `isBare`, `lockedReason`, `prunableReason`. `listWorkTrees` runs the
+  command; `getWorktreeStatusCount` runs `git status` inside a worktree.
+- **`WorktreeStore`**: per-`repositoryId` cache of `IRepoWorktreeState`
+  (`{entries, loading, error, loadedAt}`). The main worktree is filtered
+  out — only linked worktrees are listed, each enriched with a
+  `changesCount`. Concurrent loads coalesce. Surfaced via
+  `IAppState.worktreesByRepoId`.
+- **UI**: `WorktreeList` + `WorktreeListItem` render the branch/ref,
+  uncommitted-change count, and Locked/Prunable badges. The same
+  `WorktreeList` component backs both the sidebar and the detail pane
+  inside `RepositoryView` (`RepositorySectionTab.Worktrees`).
+- **Dispatcher**: `loadWorktrees`.
+
+### Working-directory change summary (`app/src/lib/git/working-directory-stats.ts`, `app/src/models/working-directory-stats.ts`, `app/src/ui/changes/change-summary-badge.tsx`)
+
+The Changes tab shows aggregate diff stats alongside the file count.
+
+- `getWorkingDirectoryStats` runs `git diff --numstat -z HEAD` and sums
+  `{files, additions, deletions}`. Binary files count as 0/0; only tracked
+  changes are reported (`git diff HEAD` excludes untracked files). Returns
+  `null` for a repo with no commits or a clean working directory.
+- `ChangeSummaryBadge` renders the added/removed line counts; the stats are
+  threaded through repository status updates as `IWorkingDirectoryStats`.
 
 ## Commit & Pull Request Guidelines
 

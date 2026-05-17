@@ -24,6 +24,14 @@ interface IPending {
  * Tolerates missing events: an unmatched `command-end` is dropped, and a
  * fresh `prompt-start` resets any half-built pending block.
  */
+/**
+ * Upper bound on retained command blocks. A long-lived shell can run
+ * thousands of commands; without a cap the array — and the gutter markers
+ * the UI renders one-per-block — would grow unbounded. The oldest blocks
+ * are dropped, matching how scrollback itself ages out.
+ */
+const MAX_BLOCKS = 256
+
 export class CommandBlockTracker {
   private blocks: ICommandBlock[] = []
   private pending: IPending = { commandStartRow: null, outputStartRow: null }
@@ -53,7 +61,11 @@ export class CommandBlockTracker {
           endRow: this.getRow(),
           exitCode: evt.exitCode,
         }
-        this.blocks = [...this.blocks, block]
+        const appended = [...this.blocks, block]
+        this.blocks =
+          appended.length > MAX_BLOCKS
+            ? appended.slice(appended.length - MAX_BLOCKS)
+            : appended
         this.pending = { commandStartRow: null, outputStartRow: null }
         this.emit()
         return

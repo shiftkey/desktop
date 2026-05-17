@@ -40,6 +40,22 @@ describe('TerminalManager', () => {
     expect(manager.size()).toBe(1)
   })
 
+  it('does not retain a session when the PTY fails to spawn', () => {
+    // node-pty throws synchronously for a missing shell / bad cwd.
+    const manager = new TerminalManager({
+      factory: () => {
+        throw new Error('spawn ENOENT')
+      },
+      newId: () => 'id-fail',
+    })
+    expect(() => manager.spawn(1, baseOptions(), new MockPort())).toThrow(
+      'spawn ENOENT'
+    )
+    // The half-constructed session must not be left stranded in the map.
+    expect(manager.size()).toBe(0)
+    expect(manager.getSnapshot('id-fail')).toBeNull()
+  })
+
   it('isolates state across multiple sessions', () => {
     const { manager } = makeManager()
     const port1 = new MockPort()

@@ -59,7 +59,16 @@ export class TerminalManager {
     session.onExit(snap => {
       this.sessions.delete(snap.id)
     })
-    session.start()
+    try {
+      session.start()
+    } catch (e) {
+      // node-pty's spawn can throw synchronously — a missing shell binary,
+      // a deleted working directory, a permissions failure. Don't leave a
+      // half-constructed session stranded in the map; drop it and let the
+      // caller surface the error.
+      this.sessions.delete(id)
+      throw e
+    }
     return session.getSnapshot()
   }
 

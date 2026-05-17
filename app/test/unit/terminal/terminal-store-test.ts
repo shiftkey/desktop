@@ -288,6 +288,35 @@ describe('TerminalStore', () => {
       s.markExited('unknown', 1)
       expect(s.getState().sessions.size).toBe(0)
     })
+
+    it('replaceSession rebinds the single-pane layout leaf', () => {
+      const s = new TerminalStore(memStore())
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.markExited('s1', 1)
+      s.replaceSession('s1', snap({ id: 'sNew', repositoryId: 7 }))
+      // The layout leaf must follow the id swap — otherwise the restarted
+      // terminal renders as a dead, port-less pane.
+      expect(s.getState().layoutByRepoId.get(7)).toEqual({
+        kind: 'leaf',
+        sessionId: 'sNew',
+      })
+    })
+
+    it('replaceSession rebinds a leaf nested in a split layout', () => {
+      const s = new TerminalStore(memStore())
+      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
+      s.registerSession(snap({ id: 's2', repositoryId: 7 }))
+      s.applySplit(7, 's1', 'horizontal', 's2')
+      s.markExited('s2', 1)
+      s.replaceSession('s2', snap({ id: 's2b', repositoryId: 7 }))
+      expect(s.getState().layoutByRepoId.get(7)).toEqual({
+        kind: 'split',
+        orientation: 'horizontal',
+        ratio: 0.5,
+        a: { kind: 'leaf', sessionId: 's1' },
+        b: { kind: 'leaf', sessionId: 's2b' },
+      })
+    })
   })
 
   describe('selectRepo', () => {

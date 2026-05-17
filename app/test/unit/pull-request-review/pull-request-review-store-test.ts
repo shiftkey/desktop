@@ -58,6 +58,43 @@ describe('PullRequestReviewStore', () => {
       expect(store.getSession()!.error?.message).toBe('network')
       expect(errors).toBe(1)
     })
+
+    it('does not resurrect a session closed during the in-flight fetch', async () => {
+      let resolve: (r: IHttpResponse) => void = () => undefined
+      const http: IHttpClient = {
+        request: () => new Promise<IHttpResponse>(r => (resolve = r)),
+      }
+      const store = new PullRequestReviewStore(http)
+      const opening = store.open(1, 'o', 'r', 7)
+      // User dismisses the dialog before the threads arrive.
+      store.close()
+      resolve(ok([]))
+      await opening
+      expect(store.getSession()).toBeNull()
+    })
+
+    it('does not let a stale PR clobber a newer session', async () => {
+      const resolvers: Array<(r: IHttpResponse) => void> = []
+      const http: IHttpClient = {
+        request: () =>
+          new Promise<IHttpResponse>(r => {
+            resolvers.push(r)
+          }),
+      }
+      const store = new PullRequestReviewStore(http)
+      const openA = store.open(1, 'o', 'r', 7)
+      const openB = store.open(2, 'o', 'r', 9)
+      // PR B resolves first, then PR A's late response arrives — it must
+      // not overwrite the active PR B session.
+      resolvers[1](ok([{ id: 1, in_reply_to_id: null }]))
+      resolvers[0](ok([]))
+      await Promise.all([openA, openB])
+      const s = store.getSession()!
+      expect(s.prNumber).toBe(9)
+      expect(s.repoId).toBe(2)
+      expect(s.status).toBe('ready')
+      expect(s.threads).toHaveLength(1)
+    })
   })
 
   describe('close', () => {

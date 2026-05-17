@@ -3,12 +3,19 @@
   flex-direction: column;
   height: 100%;
   padding: var(--spacing);
+  overflow-y: auto;
 
   &__loading,
   &__empty {
     padding: var(--spacing-double);
     text-align: center;
     color: var(--text-secondary-color);
+  }
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
   }
 
   &__item {
@@ -27,50 +34,74 @@
 
   &__meta {
     display: flex;
-    gap: var(--spacing);
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-half) var(--spacing);
     margin-top: var(--spacing-half);
     font-size: var(--font-size-sm);
     color: var(--text-secondary-color);
   }
 
+  &__ref {
+    font-family: var(--font-family-monospace);
+    color: var(--text-color);
+
+    &--detached {
+      color: var(--text-secondary-color);
+      font-style: italic;
+    }
+  }
+
   &__changes {
     color: var(--color-new);
+  }
+
+  &__status {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-half);
+  }
+
+  &__reason {
+    color: var(--text-secondary-color);
+  }
+
+  &__badge {
+    padding: 0 var(--spacing-half);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+
+    &--locked {
+      background: var(--color-modified-subtle, rgba(219, 171, 9, 0.2));
+      color: var(--color-modified, #dbab09);
+    }
+
+    &--prunable {
+      background: var(--color-deleted-subtle, rgba(207, 34, 46, 0.15));
+      color: var(--color-deleted, #cf222e);
+    }
   }
 }
 
 .worktree-detail-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   padding: var(--spacing-double);
 
   h3 {
-    margin-bottom: var(--spacing);
+    margin: 0 0 var(--spacing);
+    flex-shrink: 0;
   }
 
-  .worktree-detail-list {
-    list-style: none;
+  // The shared WorktreeList already paints its own padding; drop its
+  // duplicate inset so the pane controls the outer spacing.
+  .worktree-list {
     padding: 0;
-  }
-
-  .worktree-detail-item {
-    padding: var(--spacing);
-    border: 1px solid var(--box-border-color);
-    border-radius: var(--border-radius);
-    margin-bottom: var(--spacing);
-
-    &__path {
-      font-weight: var(--font-weight-semibold);
-      word-break: break-all;
-    }
-
-    &__meta {
-      display: flex;
-      gap: var(--spacing);
-      margin-top: var(--spacing-half);
-      font-size: var(--font-size-sm);
-      color: var(--text-secondary-color);
-    }
-
-    &__changes {
-      color: var(--color-new);
-    }
+    flex: 1;
+    min-height: 0;
   }
 }

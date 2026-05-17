@@ -684,29 +684,16 @@ export class RepositoryView extends React.Component<
   }
 
   private renderContentForWorktrees(): JSX.Element {
+    // Reuse the same WorktreeList component the sidebar renders so the
+    // detail pane and sidebar never drift apart. WorktreeList owns the
+    // loading and empty states.
     return (
       <div className="worktree-detail-pane">
         <h3>Linked Worktrees</h3>
-        {this.props.worktreeEntries.length === 0 ? (
-          <p>No linked worktrees found for this repository.</p>
-        ) : (
-          <ul className="worktree-detail-list">
-            {this.props.worktreeEntries.map(entry => (
-              <li key={entry.path} className="worktree-detail-item">
-                <div className="worktree-detail-item__path">{entry.path}</div>
-                <div className="worktree-detail-item__meta">
-                  <span>HEAD: {entry.head.slice(0, 8)}</span>
-                  {entry.changesCount > 0 && (
-                    <span className="worktree-detail-item__changes">
-                      {entry.changesCount} uncommitted change
-                      {entry.changesCount !== 1 ? 's' : ''}
-                    </span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        <WorktreeList
+          entries={this.props.worktreeEntries}
+          loading={this.props.worktreesLoading}
+        />
       </div>
     )
   }

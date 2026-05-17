@@ -7,8 +7,9 @@ import { git } from '.'
  * by running `git diff --numstat -z HEAD`.
  *
  * Binary files appear as `-\t-\t` and are counted as 0 additions / 0 deletions.
- * Untracked files are included because diffing against HEAD picks them up
- * as additions (the entire file).
+ * Only tracked changes are counted — `git diff HEAD` does not report
+ * untracked files, so brand-new files contribute to the stats only once
+ * they have been staged.
  */
 export async function getWorkingDirectoryStats(
   repository: Repository

@@ -157,14 +157,39 @@ describe('buildThreads', () => {
 })
 
 describe('fetchPullRequestThreads', () => {
-  it('GETs the comments endpoint and returns threads', async () => {
+  it('GETs the first comments page and returns threads', async () => {
     const http = new FakeHttp().enqueue(
       ok([rawComment(), rawComment({ id: 2 })])
     )
     const threads = await fetchPullRequestThreads(http, 'a', 'b', 7)
     expect(threads).toHaveLength(2)
     expect(http.calls[0].method).toBe('GET')
-    expect(http.calls[0].path).toBe('/repos/a/b/pulls/7/comments?per_page=100')
+    expect(http.calls[0].path).toBe(
+      '/repos/a/b/pulls/7/comments?per_page=100&page=1'
+    )
+  })
+
+  it('stops after a single request when the first page is short', async () => {
+    const http = new FakeHttp().enqueue(ok([rawComment()]))
+    await fetchPullRequestThreads(http, 'a', 'b', 7)
+    expect(http.calls).toHaveLength(1)
+  })
+
+  it('walks every page until a short page ends pagination', async () => {
+    // First page is full (100) so a second page is requested; the second
+    // page is short, ending the walk.
+    const fullPage = Array.from({ length: 100 }, (_, i) =>
+      rawComment({ id: i + 1, node_id: `NODE_${i + 1}` })
+    )
+    const http = new FakeHttp()
+      .enqueue(ok(fullPage))
+      .enqueue(ok([rawComment({ id: 101, node_id: 'NODE_101' })]))
+    const threads = await fetchPullRequestThreads(http, 'a', 'b', 7)
+    expect(threads).toHaveLength(101)
+    expect(http.calls.map(c => c.path)).toEqual([
+      '/repos/a/b/pulls/7/comments?per_page=100&page=1',
+      '/repos/a/b/pulls/7/comments?per_page=100&page=2',
+    ])
   })
 
   it('returns empty array on non-2xx', async () => {
@@ -175,6 +200,15 @@ describe('fetchPullRequestThreads', () => {
   it('returns empty array when body is not an array', async () => {
     const http = new FakeHttp().enqueue(ok({ message: 'oops' }))
     expect(await fetchPullRequestThreads(http, 'a', 'b', 1)).toEqual([])
+  })
+
+  it('keeps comments collected before a later page fails', async () => {
+    const fullPage = Array.from({ length: 100 }, (_, i) =>
+      rawComment({ id: i + 1, node_id: `NODE_${i + 1}` })
+    )
+    const http = new FakeHttp().enqueue(ok(fullPage)).enqueue(err(500))
+    const threads = await fetchPullRequestThreads(http, 'a', 'b', 7)
+    expect(threads).toHaveLength(100)
   })
 })
 

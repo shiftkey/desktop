@@ -38,6 +38,24 @@ Desktop codebase:
 
   [![Commit AI generation](https://i.ibb.co/p7zh9yY/Screenshot-From-2026-05-08-23-15-33.png)](https://ibb.co/tGsLWXV)
 
+- **Integrated terminal**: a repo-scoped terminal panel docked at the bottom of
+  the window, toggled with `` Ctrl+` ``. It runs real shell sessions
+  (`node-pty` + `xterm.js`) with multiple tabs, split panes, command-block
+  markers, and per-repository session persistence.
+- **Repository health dashboard**: a cross-repository status view showing
+  uncommitted files, ahead/behind counts, open pull request count,
+  default-branch CI status, and a per-repository attention score, with sorting,
+  filtering, and refresh.
+- **In-app pull request review**: review a pull request without leaving the
+  app — load its review threads, draft line comments, set a verdict (approve,
+  request changes, or comment), and submit the review in one shot.
+- **Stash management**: a Stashes tab listing every stash entry — created by
+  Desktop or the Git CLI — with apply and create-with-message actions.
+- **Worktrees view**: a Worktrees tab listing the repository's linked worktrees
+  with each one's checked-out branch, uncommitted-change count, and
+  locked/prunable state.
+- **Working-directory change summary**: the Changes tab shows aggregate
+  added/removed line counts next to the changed-file count.
 - **Changed-file filtering**: filter the Changes view by path using one or more
   case-insensitive search terms while keeping the existing file selection flow.
 - **Organization diagnostics**: see visible organizations for each signed-in
