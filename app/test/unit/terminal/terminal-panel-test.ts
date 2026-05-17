@@ -103,9 +103,21 @@ function makePanel(
 }
 
 describe('TerminalPanel', () => {
-  it('renders nothing when not visible', () => {
+  it('stays mounted but hidden when not visible', () => {
+    // The panel must not unmount when hidden — doing so would dispose
+    // every xterm.js instance and lose scrollback on a Ctrl+` toggle.
     const { panel } = makePanel({ ...baseState, visible: false })
-    expect(panel.render()).toBeNull()
+    const tree: any = panel.render()
+    expect(tree).not.toBeNull()
+    expect(tree.props.className).toBe('terminal-panel terminal-panel--hidden')
+    expect(tree.props['aria-hidden']).toBe(true)
+  })
+
+  it('drops the hidden modifier and aria-hidden when visible', () => {
+    const { panel } = makePanel({ ...baseState, visible: true })
+    const tree: any = panel.render()
+    expect(tree.props.className).toBe('terminal-panel')
+    expect(tree.props['aria-hidden']).toBe(false)
   })
 
   it('renders the panel container with the supplied height', () => {
@@ -779,11 +791,12 @@ describe('TerminalPanel', () => {
         ...stateActiveS2,
         activeSessionId: 's3',
       }
+      const prevPropsS2: any = { ...(panel as any).props }
       ;(panel as any).props = {
         ...(panel as any).props,
         state: stateActiveS3,
       }
-      panel.componentDidUpdate()
+      panel.componentDidUpdate(prevPropsS2)
 
       const tree2: any = panel.render()
       const wrappers2 = tree2.props.children[3].props.children[2] as any[]
@@ -795,11 +808,12 @@ describe('TerminalPanel', () => {
         ...stateActiveS3,
         activeSessionId: 's2',
       }
+      const prevPropsS3: any = { ...(panel as any).props }
       ;(panel as any).props = {
         ...(panel as any).props,
         state: stateBackToS2,
       }
-      panel.componentDidUpdate()
+      panel.componentDidUpdate(prevPropsS3)
       const tree3: any = panel.render()
       const wrappers3 = tree3.props.children[3].props.children[2] as any[]
       const ids3 = wrappers3.map(w => w.key).sort()
@@ -833,15 +847,128 @@ describe('TerminalPanel', () => {
         sessions: new Map([[s1.id, s1]]),
         tabsByRepoId: new Map([[1, ['s1']]]),
       }
+      const prevPropsRemove: any = { ...(panel as any).props }
       ;(panel as any).props = {
         ...(panel as any).props,
         state: stateAfterRemove,
       }
-      panel.componentDidUpdate()
+      panel.componentDidUpdate(prevPropsRemove)
 
       expect(
         Array.from((panel as any).state.mountedSessionIds as Set<string>)
       ).toEqual(['s1'])
+    })
+  })
+
+  describe('auto-focus', () => {
+    // Install a fake XtermView ref carrying a focus spy.
+    const installRef = (panel: TerminalPanel, sessionId: string) => {
+      const focus = jest.fn()
+      ;(panel as any).xtermRefs.set(sessionId, { current: { focus } })
+      return focus
+    }
+
+    it('focuses the active session on mount when the panel is visible', () => {
+      const s1 = snap({ id: 's1' })
+      const { panel } = makePanel({
+        ...baseState,
+        visible: true,
+        activeSessionId: 's1',
+        sessions: new Map([[s1.id, s1]]),
+        tabsByRepoId: new Map([[1, ['s1']]]),
+      })
+      const focus = installRef(panel, 's1')
+      panel.componentDidMount()
+      expect(focus).toHaveBeenCalledTimes(1)
+      panel.componentWillUnmount()
+    })
+
+    it('does not focus on mount when the panel is hidden', () => {
+      const s1 = snap({ id: 's1' })
+      const { panel } = makePanel({
+        ...baseState,
+        visible: false,
+        activeSessionId: 's1',
+        sessions: new Map([[s1.id, s1]]),
+        tabsByRepoId: new Map([[1, ['s1']]]),
+      })
+      const focus = installRef(panel, 's1')
+      panel.componentDidMount()
+      expect(focus).not.toHaveBeenCalled()
+      panel.componentWillUnmount()
+    })
+
+    it('focuses the active session when the panel becomes visible', () => {
+      const s1 = snap({ id: 's1' })
+      const visibleState: any = {
+        ...baseState,
+        visible: true,
+        activeSessionId: 's1',
+        sessions: new Map([[s1.id, s1]]),
+        tabsByRepoId: new Map([[1, ['s1']]]),
+      }
+      const { panel } = makePanel({ ...visibleState, visible: false })
+      const focus = installRef(panel, 's1')
+      ;(panel as any).props = { ...(panel as any).props, state: visibleState }
+      panel.componentDidUpdate({
+        ...(panel as any).props,
+        state: { ...visibleState, visible: false },
+      })
+      expect(focus).toHaveBeenCalledTimes(1)
+    })
+
+    it('focuses the newly active session on a tab switch', () => {
+      const s1 = snap({ id: 's1' })
+      const s2 = snap({ id: 's2' })
+      const sessions = new Map([
+        [s1.id, s1],
+        [s2.id, s2],
+      ])
+      const onS1: any = {
+        ...baseState,
+        visible: true,
+        activeSessionId: 's1',
+        sessions,
+        tabsByRepoId: new Map([[1, ['s1', 's2']]]),
+      }
+      const { panel } = makePanel(onS1)
+      const focus1 = installRef(panel, 's1')
+      const focus2 = installRef(panel, 's2')
+      // Mount focuses s1.
+      panel.componentDidMount()
+      expect(focus1).toHaveBeenCalledTimes(1)
+      // Switch to s2.
+      const onS2 = { ...onS1, activeSessionId: 's2' }
+      const prevProps = { ...(panel as any).props } as any
+      ;(panel as any).props = { ...(panel as any).props, state: onS2 }
+      panel.componentDidUpdate(prevProps)
+      expect(focus2).toHaveBeenCalledTimes(1)
+      expect(focus1).toHaveBeenCalledTimes(1)
+      panel.componentWillUnmount()
+    })
+
+    it('retries focus once the active XtermView has mounted', () => {
+      const s1 = snap({ id: 's1' })
+      const state: any = {
+        ...baseState,
+        visible: true,
+        activeSessionId: 's1',
+        sessions: new Map([[s1.id, s1]]),
+        tabsByRepoId: new Map([[1, ['s1']]]),
+      }
+      const { panel } = makePanel(state)
+      // First update: XtermView not mounted yet (no ref) — focus skipped.
+      panel.componentDidUpdate({
+        ...(panel as any).props,
+        state: { ...state, activeSessionId: null },
+      })
+      const focus = installRef(panel, 's1')
+      // Second update: ref now present — focus is applied.
+      panel.componentDidUpdate({
+        ...(panel as any).props,
+        state,
+      })
+      expect(focus).toHaveBeenCalledTimes(1)
     })
   })
 })

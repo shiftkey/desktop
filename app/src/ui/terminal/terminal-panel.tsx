@@ -133,6 +133,15 @@ export class TerminalPanel extends React.Component<
   private xtermRefs = new Map<string, React.RefObject<XtermView>>()
   /** Session id of the tab currently being drag-reordered, or null. */
   private dragSessionId: string | null = null
+  /**
+   * Session id whose XtermView most recently received programmatic focus.
+   * Tracked so we only auto-focus on a real transition (panel shown, tab
+   * switched) rather than on every unrelated re-render — and so the focus
+   * can be retried on the next update if the target XtermView has not
+   * mounted yet (a freshly-spawned tab mounts one render after it becomes
+   * active, once `mountedSessionIds` catches up).
+   */
+  private lastFocusedSessionId: string | null = null
 
   public constructor(props: ITerminalPanelProps) {
     super(props)
@@ -151,25 +160,61 @@ export class TerminalPanel extends React.Component<
 
   public componentDidMount(): void {
     window.addEventListener('keydown', this.handleGlobalKeyDown)
+    // The terminal is useless until its xterm helper textarea has focus;
+    // grab it on first mount so the user can type without clicking in.
+    this.focusActiveSession(true)
   }
 
-  public componentDidUpdate(): void {
+  public componentDidUpdate(prevProps: ITerminalPanelProps): void {
     const active = this.props.state.activeSessionId
     const sessions = this.props.state.sessions
     const current = this.state.mountedSessionIds
     const needsAdd = active !== null && !current.has(active)
     const stale = Array.from(current).filter(id => !sessions.has(id))
-    if (!needsAdd && stale.length === 0) {
+    if (needsAdd || stale.length > 0) {
+      const next = new Set(current)
+      if (needsAdd) {
+        next.add(active!)
+      }
+      for (const id of stale) {
+        next.delete(id)
+      }
+      this.setState({ mountedSessionIds: next })
+    }
+    // Re-focus the active terminal when the panel is opened or the active
+    // tab changes. A panel-shown transition forces a refocus even if the
+    // active session is unchanged.
+    const becameVisible = !prevProps.state.visible && this.props.state.visible
+    this.focusActiveSession(becameVisible)
+  }
+
+  /**
+   * Focus the active session's XtermView so keystrokes reach its PTY.
+   *
+   * When `force` is true the focus is applied even if the active session
+   * is the same one we last focused (used when the panel is re-shown).
+   * If the target XtermView has not mounted yet — a just-spawned tab
+   * mounts one render after becoming active — `lastFocusedSessionId` is
+   * left unchanged so the next `componentDidUpdate` retries.
+   */
+  private focusActiveSession(force: boolean): void {
+    const { visible, activeSessionId } = this.props.state
+    if (!visible || activeSessionId === null) {
       return
     }
-    const next = new Set(current)
-    if (needsAdd) {
-      next.add(active!)
+    if (force) {
+      this.lastFocusedSessionId = null
     }
-    for (const id of stale) {
-      next.delete(id)
+    if (activeSessionId === this.lastFocusedSessionId) {
+      return
     }
-    this.setState({ mountedSessionIds: next })
+    const view = this.xtermRefs.get(activeSessionId)?.current ?? null
+    if (view === null) {
+      // XtermView not mounted yet — retry on the next update.
+      return
+    }
+    view.focus()
+    this.lastFocusedSessionId = activeSessionId
   }
 
   public componentWillUnmount(): void {
@@ -179,20 +224,25 @@ export class TerminalPanel extends React.Component<
 
   public render() {
     const { state } = this.props
-    if (!state.visible) {
-      return null
-    }
-
     const tabIds = this.tabsForCurrentRepo()
     const activeId = state.activeSessionId
     const height = this.state.dragHeight ?? state.height
 
+    // The panel is kept mounted even while hidden — it's only removed from
+    // layout via the `--hidden` modifier. Unmounting it would dispose
+    // every xterm.js instance and kill the byte pump, so a Ctrl+` toggle
+    // would lose all scrollback and leave a blank terminal on re-open.
     return (
       <div
-        className="terminal-panel"
+        className={
+          state.visible
+            ? 'terminal-panel'
+            : 'terminal-panel terminal-panel--hidden'
+        }
         style={{ height }}
         role="region"
         aria-label="Terminal"
+        aria-hidden={!state.visible}
       >
         {/*
           The resize gutter has role="separator" + tabIndex=0 + key/mouse

@@ -313,6 +313,20 @@ export class XtermView extends React.Component<IXtermViewProps> {
   }
 
   /**
+   * Focus the terminal so keystrokes reach the PTY.
+   *
+   * xterm.js routes keyboard input through a hidden helper `<textarea>`;
+   * until that textarea is focused, typing goes to the rest of the app
+   * and the terminal looks unresponsive. `TerminalPanel` calls this when
+   * the panel becomes visible or the active tab changes so the user can
+   * type immediately without first clicking into the view. No-op before
+   * mount.
+   */
+  public focus(): void {
+    this.term?.focus()
+  }
+
+  /**
    * Find the next occurrence of `text` in the terminal buffer. Returns
    * `false` when the search addon failed to load or threw.
    */

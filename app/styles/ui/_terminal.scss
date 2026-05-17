@@ -10,6 +10,14 @@
   border-top: var(--base-border);
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
 
+  // Hidden state: the panel stays mounted (so every xterm.js instance,
+  // its scrollback, and the live PTY survive a Ctrl+` toggle) but is
+  // removed from layout. Re-showing it re-fits xterm via the
+  // ResizeObserver in XtermView.
+  &--hidden {
+    display: none;
+  }
+
   &__resize {
     position: absolute;
     top: -3px;

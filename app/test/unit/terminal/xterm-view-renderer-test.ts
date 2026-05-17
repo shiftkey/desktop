@@ -369,4 +369,22 @@ describe('XtermView renderer fallback', () => {
     view.componentWillUnmount()
     jest.useRealTimers()
   })
+
+  it('focus() forwards to the underlying xterm instance', () => {
+    let focusCount = 0
+    const { view } = mount({
+      __terminalExtras: { focus: () => (focusCount += 1) },
+    })
+    view.focus()
+    expect(focusCount).toBe(1)
+    if ((view as any).resizeObserver) {
+      ;(view as any).resizeObserver.disconnect = () => undefined
+    }
+    view.componentWillUnmount()
+  })
+
+  it('focus() is a no-op before mount', () => {
+    const view = new XtermView({ port: null, theme: _palettes.DARK_THEME })
+    expect(() => view.focus()).not.toThrow()
+  })
 })
