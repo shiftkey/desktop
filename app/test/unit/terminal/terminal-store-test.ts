@@ -7,10 +7,10 @@ import { ITerminalSessionSnapshot } from '../../../src/lib/terminal/pty-types'
 
 class FakeHeightStore implements IHeightStore {
   public data: Map<string, string> = new Map()
-  getItem(key: string) {
+  public getItem(key: string) {
     return this.data.get(key) ?? null
   }
-  setItem(key: string, value: string) {
+  public setItem(key: string, value: string) {
     this.data.set(key, value)
   }
 }

@@ -890,7 +890,7 @@ export class SideBySideDiff extends React.Component<
 
     return (
       <CellMeasurer
-        cache={listRowsHeightCache}
+        cache={this.listRowsHeightCache}
         columnIndex={0}
         key={key}
         parent={parent}
@@ -1279,10 +1279,11 @@ export class SideBySideDiff extends React.Component<
     // contains the mouse, we scroll to it and update the temporary selection.
     for (let index = 0; index < totalRows; index++) {
       // Use row height cache in order to do the math faster
-      let height = listRowsHeightCache.getHeight(index, 0)
+      let height = this.listRowsHeightCache.getHeight(index, 0)
       if (height === undefined) {
         list.recomputeRowHeights(index)
-        height = listRowsHeightCache.getHeight(index, 0) ?? DefaultRowHeight
+        height =
+          this.listRowsHeightCache.getHeight(index, 0) ?? DefaultRowHeight
       }
 
       if (

@@ -364,7 +364,9 @@ describe('git/stash', () => {
       // git stash push (no -m) generates "WIP on <branch>: <sha> <subject>"
       await FSE.appendFile(readme, generateString())
       const result = await exec(['stash', 'push'], repository.path)
-      if (result.exitCode !== 0) {throw new Error(result.stderr)}
+      if (result.exitCode !== 0) {
+        throw new Error(result.stderr)
+      }
 
       const all = await getAllStashes(repository)
       expect(all).toHaveLength(1)

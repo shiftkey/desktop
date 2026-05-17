@@ -67,24 +67,14 @@ export class RepoHealthDashboard extends React.Component<
             className="repo-health-dashboard__search"
             placeholder="Search repositories…"
             value={this.state.query}
-            onChange={e => this.setState({ query: e.currentTarget.value })}
+            onChange={this.onQueryChange}
           />
-          <select
-            value={this.state.sort}
-            onChange={e =>
-              this.setState({ sort: e.currentTarget.value as SortMode })
-            }
-          >
+          <select value={this.state.sort} onChange={this.onSortChange}>
             <option value="attention">Sort: Attention score</option>
             <option value="recent">Sort: Recent activity</option>
             <option value="name">Sort: Name</option>
           </select>
-          <select
-            value={this.state.filter}
-            onChange={e =>
-              this.setState({ filter: e.currentTarget.value as FilterMode })
-            }
-          >
+          <select value={this.state.filter} onChange={this.onFilterChange}>
             <option value="all">All ({this.props.repositories.length})</option>
             <option value="attention">
               Needs attention ({summary.needAttention})
@@ -126,6 +116,18 @@ export class RepoHealthDashboard extends React.Component<
         )}
       </div>
     )
+  }
+
+  private onQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    this.setState({ query: e.currentTarget.value })
+  }
+
+  private onSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    this.setState({ sort: e.currentTarget.value as SortMode })
+  }
+
+  private onFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    this.setState({ filter: e.currentTarget.value as FilterMode })
   }
 
   private applySortFilter(): ReadonlyArray<Repository> {

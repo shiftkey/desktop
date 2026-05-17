@@ -13,15 +13,17 @@ class FakeHttp implements IHttpClient {
   public calls: Array<{ method: string; path: string; body?: unknown }> = []
   public queue: IHttpResponse[] = []
 
-  enqueue(res: IHttpResponse) {
+  public enqueue(res: IHttpResponse) {
     this.queue.push(res)
     return this
   }
 
-  async request(method: any, path: string, body?: unknown) {
+  public async request(method: any, path: string, body?: unknown) {
     this.calls.push({ method, path, body })
     const r = this.queue.shift()
-    if (!r) {throw new Error('FakeHttp: no response queued for ' + path)}
+    if (!r) {
+      throw new Error('FakeHttp: no response queued for ' + path)
+    }
     return r
   }
 }

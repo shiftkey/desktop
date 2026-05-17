@@ -125,21 +125,21 @@ export class PRReviewDialog extends React.Component<
           <TextBox
             label="Path"
             value={this.state.newCommentPath}
-            onValueChanged={p => this.setState({ newCommentPath: p })}
+            onValueChanged={this.onNewCommentPathChange}
           />
         </Row>
         <Row>
           <TextBox
             label="Line"
             value={this.state.newCommentLine}
-            onValueChanged={l => this.setState({ newCommentLine: l })}
+            onValueChanged={this.onNewCommentLineChange}
           />
         </Row>
         <Row>
           <TextBox
             label="Comment"
             value={this.state.newCommentBody}
-            onValueChanged={b => this.setState({ newCommentBody: b })}
+            onValueChanged={this.onNewCommentBodyChange}
           />
         </Row>
         <Row>
@@ -169,8 +169,9 @@ export class PRReviewDialog extends React.Component<
               <input
                 type="radio"
                 name="verdict"
+                value={kind}
                 checked={session.verdict.kind === kind}
-                onChange={() => this.setVerdict(kind)}
+                onChange={this.onVerdictChange}
               />
               {labelFor(kind)}
             </label>
@@ -180,7 +181,7 @@ export class PRReviewDialog extends React.Component<
           <TextBox
             label="Summary"
             value={session.summary}
-            onValueChanged={s => this.props.dispatcher.setReviewSummary(s)}
+            onValueChanged={this.onSummaryChange}
           />
         </Row>
       </>
@@ -188,15 +189,39 @@ export class PRReviewDialog extends React.Component<
   }
 
   private setVerdict(kind: ReviewVerdict['kind']) {
-    if (kind === 'pending') {return}
+    if (kind === 'pending') {
+      return
+    }
     this.props.dispatcher.setReviewVerdict({ kind } as ReviewVerdict)
+  }
+
+  private onVerdictChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    this.setVerdict(e.currentTarget.value as ReviewVerdict['kind'])
+  }
+
+  private onNewCommentPathChange = (p: string) => {
+    this.setState({ newCommentPath: p })
+  }
+
+  private onNewCommentLineChange = (l: string) => {
+    this.setState({ newCommentLine: l })
+  }
+
+  private onNewCommentBodyChange = (b: string) => {
+    this.setState({ newCommentBody: b })
+  }
+
+  private onSummaryChange = (s: string) => {
+    this.props.dispatcher.setReviewSummary(s)
   }
 
   private onAddDraftClick = () => {
     const path = this.state.newCommentPath.trim()
     const line = parseInt(this.state.newCommentLine.trim(), 10)
     const body = this.state.newCommentBody.trim()
-    if (!path || !Number.isFinite(line) || !body) {return}
+    if (!path || !Number.isFinite(line) || !body) {
+      return
+    }
     this.props.dispatcher.addReviewDraft(path, line, 'RIGHT', body)
     this.setState({
       newCommentBody: '',
@@ -206,11 +231,17 @@ export class PRReviewDialog extends React.Component<
 
   private onSubmit = async () => {
     const { session, repository } = this.props
-    if (session === null || session.status !== 'ready') {return}
-    if (session.verdict.kind === 'pending') {return}
+    if (session === null || session.status !== 'ready') {
+      return
+    }
+    if (session.verdict.kind === 'pending') {
+      return
+    }
     const owner = repository.gitHubRepository?.owner?.login
     const repo = repository.gitHubRepository?.name
-    if (!owner || !repo) {return}
+    if (!owner || !repo) {
+      return
+    }
     const ok = await this.props.dispatcher.submitReview(owner, repo)
     if (ok) {
       this.props.onDismissed()

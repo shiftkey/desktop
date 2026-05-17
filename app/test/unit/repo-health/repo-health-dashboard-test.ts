@@ -50,14 +50,18 @@ function makeDashboard(
 function findByClassName(tree: any, substring: string): any[] {
   const out: any[] = []
   const walk = (node: any) => {
-    if (node === null || node === undefined) {return}
+    if (node === null || node === undefined) {
+      return
+    }
     if (Array.isArray(node)) {
       node.forEach(walk)
       return
     }
     if (typeof node === 'object' && node.props) {
       const cn: string | undefined = node.props.className
-      if (typeof cn === 'string' && cn.includes(substring)) {out.push(node)}
+      if (typeof cn === 'string' && cn.includes(substring)) {
+        out.push(node)
+      }
       walk(node.props.children)
     }
   }

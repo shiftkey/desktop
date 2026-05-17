@@ -38,6 +38,10 @@ import { installAuthenticatedImageFilter } from './authenticated-image-filter'
 import { installAliveOriginFilter } from './alive-origin-filter'
 import { installSameOriginFilter } from './same-origin-filter'
 import * as ipcMain from './ipc-main'
+// The integrated terminal registers its own IPC channels, which are not
+// part of the strongly-typed `RequestChannels` the `ipc-main` wrapper
+// covers, so it needs the raw Electron `ipcMain`.
+// eslint-disable-next-line no-restricted-imports
 import { ipcMain as electronIpcMain } from 'electron'
 import { registerTerminalIpc } from './terminal/terminal-ipc'
 import {
@@ -587,10 +591,12 @@ app.on('ready', () => {
   })
 
   ipcMain.handle('open-external', async (_, path: string) => {
-    let url: URL
+    // NB: `URL` here is the `url` module namespace (`import * as URL`),
+    // not the global WHATWG `URL` class — `URL.URL` is the constructor.
+    let url: URL.URL
 
     try {
-      url = new URL(path)
+      url = new URL.URL(path)
     } catch (e) {
       log.warn(`Refusing to open malformed external URL: ${path}`)
       return false

@@ -60,7 +60,9 @@ export function buildThreads(
   comments: ReadonlyArray<IReviewComment>
 ): ReadonlyArray<IReviewThread> {
   const byId = new Map<number, IReviewComment>()
-  for (const c of comments) {byId.set(c.id, c)}
+  for (const c of comments) {
+    byId.set(c.id, c)
+  }
 
   const rootIds: number[] = []
   const childrenByRoot = new Map<number, IReviewComment[]>()
@@ -73,7 +75,9 @@ export function buildThreads(
   }
 
   for (const c of comments) {
-    if (c.inReplyToId === null) {continue}
+    if (c.inReplyToId === null) {
+      continue
+    }
     // Walk up to the root of the chain in case replies-of-replies exist.
     // Track visited ids so a corrupt API response with a cycle can't hang
     // the renderer in an infinite loop.
@@ -81,12 +85,16 @@ export function buildThreads(
     let current = c
     while (current.inReplyToId !== null) {
       const parent = byId.get(current.inReplyToId)
-      if (parent === undefined || visited.has(parent.id)) {break}
+      if (parent === undefined || visited.has(parent.id)) {
+        break
+      }
       visited.add(parent.id)
       current = parent
     }
     const list = childrenByRoot.get(current.id)
-    if (list !== undefined) {list.push(c)}
+    if (list !== undefined) {
+      list.push(c)
+    }
   }
 
   return rootIds.map(rootId => {
@@ -121,7 +129,9 @@ export async function fetchPullRequestThreads(
 ): Promise<ReadonlyArray<IReviewThread>> {
   const path = `/repos/${owner}/${repo}/pulls/${prNumber}/comments?per_page=100`
   const res = await client.request('GET', path)
-  if (!res.ok || !Array.isArray(res.body)) {return []}
+  if (!res.ok || !Array.isArray(res.body)) {
+    return []
+  }
   const comments = res.body.map(mapComment)
   return buildThreads(comments)
 }
@@ -222,7 +232,9 @@ function verdictToEvent(
 }
 
 function extractErrorMessage(body: unknown): string {
-  if (body === null || typeof body !== 'object') {return 'Unknown error'}
+  if (body === null || typeof body !== 'object') {
+    return 'Unknown error'
+  }
   const m = (body as any).message
   return typeof m === 'string' ? m : 'Unknown error'
 }

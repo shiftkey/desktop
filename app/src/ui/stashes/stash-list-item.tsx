@@ -55,8 +55,10 @@ export class StashListItem extends React.PureComponent<IStashListItemProps> {
       <div
         className={`stash-list-item${selected ? ' selected' : ''}`}
         onClick={this.onClick}
+        onKeyDown={this.onKeyDown}
         onContextMenu={this.onContextMenu}
         role="row"
+        tabIndex={0}
         aria-selected={selected}
       >
         <Octicon symbol={octicons.fileDirectory} />
@@ -77,6 +79,13 @@ export class StashListItem extends React.PureComponent<IStashListItemProps> {
 
   private onClick = () => {
     this.props.onClick(this.props.entry)
+  }
+
+  private onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      this.props.onClick(this.props.entry)
+    }
   }
 
   private onContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {

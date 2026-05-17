@@ -783,10 +783,7 @@ describe('TerminalPanel', () => {
         ...(panel as any).props,
         state: stateActiveS3,
       }
-      panel.componentDidUpdate({
-        ...(panel as any).props,
-        state: stateActiveS2,
-      } as any)
+      panel.componentDidUpdate()
 
       const tree2: any = panel.render()
       const wrappers2 = tree2.props.children[3].props.children[2] as any[]
@@ -802,10 +799,7 @@ describe('TerminalPanel', () => {
         ...(panel as any).props,
         state: stateBackToS2,
       }
-      panel.componentDidUpdate({
-        ...(panel as any).props,
-        state: stateActiveS3,
-      } as any)
+      panel.componentDidUpdate()
       const tree3: any = panel.render()
       const wrappers3 = tree3.props.children[3].props.children[2] as any[]
       const ids3 = wrappers3.map(w => w.key).sort()
@@ -843,10 +837,7 @@ describe('TerminalPanel', () => {
         ...(panel as any).props,
         state: stateAfterRemove,
       }
-      panel.componentDidUpdate({
-        ...(panel as any).props,
-        state: stateActiveS1,
-      } as any)
+      panel.componentDidUpdate()
 
       expect(
         Array.from((panel as any).state.mountedSessionIds as Set<string>)

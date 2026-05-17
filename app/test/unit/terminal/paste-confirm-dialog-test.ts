@@ -5,44 +5,61 @@ import { PasteConfirmDialog } from '../../../src/ui/terminal/paste-confirm-dialo
 // ---------------------------------------------------------------------------
 
 function collectStrings(node: any, out: string[] = []): string[] {
-  if (node === null || node === undefined || node === false) {return out}
+  if (node === null || node === undefined || node === false) {
+    return out
+  }
   if (typeof node === 'string' || typeof node === 'number') {
     out.push(String(node))
     return out
   }
   if (Array.isArray(node)) {
-    for (const child of node) {collectStrings(child, out)}
+    for (const child of node) {
+      collectStrings(child, out)
+    }
     return out
   }
-  if (typeof node === 'object' && node.props)
-    {collectStrings(node.props.children, out)}
+  if (typeof node === 'object' && node.props) {
+    collectStrings(node.props.children, out)
+  }
   return out
 }
 
 function findByType(node: any, tag: string): any {
-  if (node === null || node === undefined || node === false) {return null}
+  if (node === null || node === undefined || node === false) {
+    return null
+  }
   if (Array.isArray(node)) {
     for (const c of node) {
       const h = findByType(c, tag)
-      if (h) {return h}
+      if (h) {
+        return h
+      }
     }
     return null
   }
   if (typeof node === 'object' && node.props) {
-    if (node.type === tag) {return node}
+    if (node.type === tag) {
+      return node
+    }
     return findByType(node.props.children, tag)
   }
   return null
 }
 
 function findAllByType(node: any, tag: string, out: any[] = []): any[] {
-  if (node === null || node === undefined || node === false) {return out}
+  if (node === null || node === undefined || node === false) {
+    return out
+  }
   if (Array.isArray(node)) {
-    for (const c of node) {findAllByType(c, tag, out)}
+    for (const c of node) {
+      findAllByType(c, tag, out)
+    }
     return out
   }
   if (typeof node === 'object' && node.props) {
-    if (node.type === tag) {out.push(node)}
+    if (node.type === tag) {
+      out.push(node)
+    }
     findAllByType(node.props.children, tag, out)
   }
   return out

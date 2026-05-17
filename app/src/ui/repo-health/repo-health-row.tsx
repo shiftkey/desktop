@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Repository } from '../../models/repository'
 import { IRepoHealth } from '../../lib/repo-health/types'
+import { TooltippedContent } from '../lib/tooltipped-content'
 
 interface IRepoHealthRowProps {
   readonly repository: Repository
@@ -33,17 +34,25 @@ export class RepoHealthRow extends React.PureComponent<IRepoHealthRowProps> {
             {refreshing ? '…' : score}
           </span>
         </div>
-        <div className="repo-health-card__path" title={repository.path}>
+        <TooltippedContent
+          tagName="div"
+          className="repo-health-card__path"
+          tooltip={repository.path}
+        >
           {repository.path}
-        </div>
+        </TooltippedContent>
         {health === null ? (
           <div className="repo-health-card__hint">
             {refreshing ? 'Loading…' : 'Awaiting refresh'}
           </div>
         ) : health.error ? (
-          <div className="repo-health-card__error" title={health.error}>
+          <TooltippedContent
+            tagName="div"
+            className="repo-health-card__error"
+            tooltip={health.error}
+          >
             ⚠ {health.error}
-          </div>
+          </TooltippedContent>
         ) : (
           this.renderSignals(health)
         )}

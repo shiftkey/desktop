@@ -84,11 +84,9 @@ describe('collectMany', () => {
     const repos = [repo(1), repo(2), repo(3), repo(4), repo(5)]
     const probes: IRepoHealthProbes = {
       ...okProbes(),
-      // deliberately resolve out of order
+      // deliberately resolve out of order — later ids settle first
       uncommittedCount: r =>
-        new Promise(resolve =>
-          setTimeout(() => resolve(r.id), Math.random() * 5)
-        ),
+        new Promise(resolve => setTimeout(() => resolve(r.id), (6 - r.id) * 2)),
     }
     const results = await collectMany(repos, { probes }, 3)
     expect(results.map(r => r.repositoryId)).toEqual([1, 2, 3, 4, 5])

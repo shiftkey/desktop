@@ -7,11 +7,11 @@ import {
 class FakeHttp implements IHttpClient {
   public calls: Array<{ method: string; path: string; body?: unknown }> = []
   public queue: IHttpResponse[] = []
-  enqueue(r: IHttpResponse) {
+  public enqueue(r: IHttpResponse) {
     this.queue.push(r)
     return this
   }
-  async request(method: any, path: string, body?: unknown) {
+  public async request(method: any, path: string, body?: unknown) {
     this.calls.push({ method, path, body })
     const r = this.queue.shift()
     if (!r) {

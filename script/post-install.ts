@@ -1,4 +1,5 @@
 #!/usr/bin/env ts-node
+/* eslint-disable no-sync */
 
 import * as Fs from 'fs'
 import * as Path from 'path'

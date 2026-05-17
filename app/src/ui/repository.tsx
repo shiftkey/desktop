@@ -645,12 +645,17 @@ export class RepositoryView extends React.Component<
     }
   }
 
-  private renderContentForStashes(): JSX.Element {
+  /** Resolve the currently selected stash entry, or null when none. */
+  private getSelectedStashEntry(): IStashEntry | null {
     const sha = this.state.selectedStashSha
-    const entry =
-      sha === null
-        ? null
-        : this.props.stashEntries.find(e => e.stashSha === sha) ?? null
+    if (sha === null) {
+      return null
+    }
+    return this.props.stashEntries.find(e => e.stashSha === sha) ?? null
+  }
+
+  private renderContentForStashes(): JSX.Element {
+    const entry = this.getSelectedStashEntry()
     if (entry === null) {
       return (
         <div className="stash-empty-pane">
@@ -668,15 +673,11 @@ export class RepositoryView extends React.Component<
           <span>SHA: {entry.stashSha.slice(0, 8)}</span>
         </div>
         <div className="stash-detail-pane__actions">
-          <button onClick={() => this.applySelectedStash(entry)}>
-            Apply (keep)
-          </button>
-          <button onClick={() => this.popSelectedStash(entry)}>
+          <button onClick={this.applySelectedStash}>Apply (keep)</button>
+          <button onClick={this.popSelectedStash}>
             Pop (apply &amp; drop)
           </button>
-          <button onClick={() => this.dropSelectedStash(entry)}>
-            Drop&hellip;
-          </button>
+          <button onClick={this.dropSelectedStash}>Drop&hellip;</button>
         </div>
       </div>
     )
@@ -710,16 +711,28 @@ export class RepositoryView extends React.Component<
     )
   }
 
-  private applySelectedStash = (entry: IStashEntry) => {
+  private applySelectedStash = () => {
+    const entry = this.getSelectedStashEntry()
+    if (entry === null) {
+      return
+    }
     this.props.dispatcher.applyStash(this.props.repository, entry.stashSha)
   }
 
-  private popSelectedStash = (entry: IStashEntry) => {
+  private popSelectedStash = () => {
+    const entry = this.getSelectedStashEntry()
+    if (entry === null) {
+      return
+    }
     this.props.dispatcher.popStash(this.props.repository, entry)
     this.setState({ selectedStashSha: null })
   }
 
-  private dropSelectedStash = (entry: IStashEntry) => {
+  private dropSelectedStash = () => {
+    const entry = this.getSelectedStashEntry()
+    if (entry === null) {
+      return
+    }
     this.props.dispatcher.dropStash(this.props.repository, entry)
     this.setState({ selectedStashSha: null })
   }

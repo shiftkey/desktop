@@ -32,8 +32,7 @@ export async function findGitHubTrampolineAccount(
     return undefined
   }
 
-  const remoteLogin =
-    parsedUrl.username === '' ? undefined : parsedUrl.username
+  const remoteLogin = parsedUrl.username === '' ? undefined : parsedUrl.username
   if (remoteLogin !== undefined) {
     const matchingLogin = accounts.find(
       a =>

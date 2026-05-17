@@ -2714,10 +2714,12 @@ export class App extends React.Component<IAppProps, IAppState> {
             key="repo-health-dashboard"
             repositories={repos}
             snapshot={this.state.repoHealth}
+            // eslint-disable-next-line react/jsx-no-bind
             onSelectRepository={r => {
               this.props.dispatcher.selectRepository(r)
               onPopupDismissedFn()
             }}
+            // eslint-disable-next-line react/jsx-no-bind
             onRefreshClick={() => this.props.dispatcher.refreshRepoHealth(true)}
             onDismissed={onPopupDismissedFn}
           />
@@ -2742,6 +2744,7 @@ export class App extends React.Component<IAppProps, IAppState> {
             dispatcher={this.props.dispatcher}
             repository={popup.repository}
             session={this.state.pullRequestReviewSession}
+            // eslint-disable-next-line react/jsx-no-bind
             onDismissed={() => {
               this.props.dispatcher.closePullRequestReview()
               onPopupDismissedFn()
@@ -3626,21 +3629,31 @@ export class App extends React.Component<IAppProps, IAppState> {
         }
         // eslint-disable-next-line react/jsx-no-bind
         onResetFontSize={() => this.props.dispatcher.resetTerminalFontSize()}
+        // eslint-disable-next-line react/jsx-no-bind
         portFor={sessionId => this.props.dispatcher.getTerminalPort(sessionId)}
+        // eslint-disable-next-line react/jsx-no-bind
         onResize={px => this.props.dispatcher.setTerminalHeight(px)}
+        // eslint-disable-next-line react/jsx-no-bind
         onCloseClick={() => this.props.dispatcher.toggleTerminal()}
+        // eslint-disable-next-line react/jsx-no-bind
         onNewTab={() => this.props.dispatcher.spawnNewTerminalTab()}
+        // eslint-disable-next-line react/jsx-no-bind
         onSelectTab={sid => this.props.dispatcher.selectTerminalTab(sid)}
+        // eslint-disable-next-line react/jsx-no-bind
         onCloseTab={sid => this.props.dispatcher.closeTerminalTab(sid)}
+        // eslint-disable-next-line react/jsx-no-bind
         onReorderTab={(repoId, sid, ix) =>
           this.props.dispatcher.reorderTerminalTab(repoId, sid, ix)
         }
+        // eslint-disable-next-line react/jsx-no-bind
         onRenameTab={(sid, title) =>
           this.props.dispatcher.renameTerminalTab(sid, title)
         }
+        // eslint-disable-next-line react/jsx-no-bind
         onFocusTabByIndex={(repoId, idx) =>
           this.props.dispatcher.focusTerminalTabByIndex(repoId, idx)
         }
+        // eslint-disable-next-line react/jsx-no-bind
         onFilePathClick={(_repoId, _sessionId, p, line, col) => {
           const r = this.getRepository()
           if (r instanceof Repository) {

@@ -153,7 +153,7 @@ export class TerminalPanel extends React.Component<
     window.addEventListener('keydown', this.handleGlobalKeyDown)
   }
 
-  public componentDidUpdate(_prev: ITerminalPanelProps): void {
+  public componentDidUpdate(): void {
     const active = this.props.state.activeSessionId
     const sessions = this.props.state.sessions
     const current = this.state.mountedSessionIds

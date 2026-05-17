@@ -261,7 +261,7 @@ import {
   attachStoreToPort as attachTerminalStoreToPort,
 } from '../terminal/terminal-client'
 import { IPtyOptions, ITerminalSessionSnapshot } from '../terminal/pty-types'
-import { detectShell } from '../terminal/shell-detection'
+import { detectShell, IDetectedShell } from '../terminal/shell-detection'
 import {
   updateChangedFiles,
   updateConflictState,
@@ -7205,21 +7205,31 @@ export class AppStore extends TypedBaseStore<IAppState> {
     await this._killTerminal(sessionId)
   }
 
+  /**
+   * Resolve the shell to launch for an integrated terminal session.
+   * `detectShell` takes a synchronous existence probe by contract, so a
+   * synchronous filesystem call is required here.
+   */
+  private detectTerminalShell(): IDetectedShell {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const fs = require('fs') as typeof import('fs')
+    return detectShell(
+      process.platform,
+      process.env as Record<string, string>,
+      (p: string) => {
+        try {
+          // eslint-disable-next-line no-sync
+          return fs.existsSync(p)
+        } catch {
+          return false
+        }
+      }
+    )
+  }
+
   private async spawnTerminalForRepo(repo: Repository): Promise<void> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const fs = require('fs') as typeof import('fs')
-      const detected = detectShell(
-        process.platform,
-        process.env as Record<string, string>,
-        (p: string) => {
-          try {
-            return fs.existsSync(p)
-          } catch {
-            return false
-          }
-        }
-      )
+      const detected = this.detectTerminalShell()
       await this._spawnTerminal(repo.id, {
         shell: detected.path,
         args: detected.args,
@@ -7350,19 +7360,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     this.terminalPorts.delete(oldSessionId)
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const fs = require('fs') as typeof import('fs')
-      const detected = detectShell(
-        process.platform,
-        process.env as Record<string, string>,
-        (p: string) => {
-          try {
-            return fs.existsSync(p)
-          } catch {
-            return false
-          }
-        }
-      )
+      const detected = this.detectTerminalShell()
       const snapshot = await this._spawnTerminalCore(repository.id, {
         shell: detected.path,
         args: detected.args,
@@ -7411,19 +7409,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
     const cwd = activeSession.liveCwd ?? activeSession.cwd ?? repository.path
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const fs = require('fs') as typeof import('fs')
-      const detected = detectShell(
-        process.platform,
-        process.env as Record<string, string>,
-        (p: string) => {
-          try {
-            return fs.existsSync(p)
-          } catch {
-            return false
-          }
-        }
-      )
+      const detected = this.detectTerminalShell()
       const newSessionId = await this._spawnTerminal(repository.id, {
         shell: detected.path,
         args: detected.args,

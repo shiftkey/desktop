@@ -24,7 +24,9 @@ export class MockPty implements IPty {
     this.dataCb = cb
     return {
       dispose: () => {
-        if (this.dataCb === cb) {this.dataCb = null}
+        if (this.dataCb === cb) {
+          this.dataCb = null
+        }
       },
     }
   }
@@ -33,7 +35,9 @@ export class MockPty implements IPty {
     this.exitCb = cb
     return {
       dispose: () => {
-        if (this.exitCb === cb) {this.exitCb = null}
+        if (this.exitCb === cb) {
+          this.exitCb = null
+        }
       },
     }
   }
@@ -79,8 +83,12 @@ export class MockPort implements IPtyPort {
   }
 
   public on(event: 'message' | 'close', cb: any) {
-    if (event === 'message') {this.messageCb = cb}
-    if (event === 'close') {this.closeCb = cb}
+    if (event === 'message') {
+      this.messageCb = cb
+    }
+    if (event === 'close') {
+      this.closeCb = cb
+    }
   }
 
   public removeAllListeners() {
