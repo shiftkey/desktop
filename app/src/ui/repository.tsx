@@ -377,12 +377,44 @@ export class RepositoryView extends React.Component<
   }
 
   private renderWorktreesSidebar(): JSX.Element {
+    return this.renderWorktreeList()
+  }
+
+  /**
+   * Shared `WorktreeList` render used by both the sidebar and the detail
+   * pane so the two never drift apart. WorktreeList owns the toolbar,
+   * loading, and empty states.
+   */
+  private renderWorktreeList(): JSX.Element {
     return (
       <WorktreeList
         entries={this.props.worktreeEntries}
         loading={this.props.worktreesLoading}
+        onCreateWorktree={this.onCreateWorktree}
+        onPruneWorktrees={this.onPruneWorktrees}
+        onRemoveWorktree={this.onRemoveWorktree}
       />
     )
+  }
+
+  private onCreateWorktree = () => {
+    this.props.dispatcher.showPopup({
+      type: PopupType.WorktreeCreate,
+      repository: this.props.repository,
+    })
+  }
+
+  private onPruneWorktrees = () => {
+    this.props.dispatcher.pruneWorktrees(this.props.repository)
+  }
+
+  private onRemoveWorktree = (entry: IWorktreeEntry) => {
+    this.props.dispatcher.showPopup({
+      type: PopupType.WorktreeRemove,
+      repository: this.props.repository,
+      worktreePath: entry.path,
+      branch: entry.branch,
+    })
   }
 
   private onSelectStash = (entry: IStashEntry) => {
@@ -690,10 +722,7 @@ export class RepositoryView extends React.Component<
     return (
       <div className="worktree-detail-pane">
         <h3>Linked Worktrees</h3>
-        <WorktreeList
-          entries={this.props.worktreeEntries}
-          loading={this.props.worktreesLoading}
-        />
+        {this.renderWorktreeList()}
       </div>
     )
   }

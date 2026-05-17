@@ -51,9 +51,10 @@ Desktop codebase:
   request changes, or comment), and submit the review in one shot.
 - **Stash management**: a Stashes tab listing every stash entry — created by
   Desktop or the Git CLI — with apply and create-with-message actions.
-- **Worktrees view**: a Worktrees tab listing the repository's linked worktrees
-  with each one's checked-out branch, uncommitted-change count, and
-  locked/prunable state.
+- **Worktrees management**: a Worktrees tab listing the repository's linked
+  worktrees with each one's checked-out branch, uncommitted-change count, and
+  locked/prunable state — and actions to add a worktree (on a new or existing
+  branch), remove one, and prune stale entries.
 - **Working-directory change summary**: the Changes tab shows aggregate
   added/removed line counts next to the changed-file count.
 - **Changed-file filtering**: filter the Changes view by path using one or more

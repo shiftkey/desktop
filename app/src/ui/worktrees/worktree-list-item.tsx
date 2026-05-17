@@ -1,34 +1,51 @@
 import * as React from 'react'
 import { IWorktreeEntry } from '../../models/worktree'
+import { Button } from '../lib/button'
 
 interface IWorktreeListItemProps {
   readonly entry: IWorktreeEntry
+  /** Invoked when the user asks to remove this worktree. */
+  readonly onRemove: (entry: IWorktreeEntry) => void
 }
 
 /**
  * A single linked-worktree row: its filesystem path, the ref it has checked
  * out (branch name, or `detached @ <sha>` when in detached-HEAD state), an
- * uncommitted-change count, and badges for locked / prunable worktrees.
+ * uncommitted-change count, badges for locked / prunable worktrees, and a
+ * Remove action.
  */
 export class WorktreeListItem extends React.Component<IWorktreeListItemProps> {
   public render() {
     const { entry } = this.props
     return (
       <li className="worktree-list__item">
-        <div className="worktree-list__path">{entry.path}</div>
-        <div className="worktree-list__meta">
-          {this.renderRef()}
-          {entry.changesCount > 0 && (
-            <span className="worktree-list__changes">
-              {entry.changesCount} uncommitted change
-              {entry.changesCount !== 1 ? 's' : ''}
-            </span>
-          )}
-          {this.renderBadge('locked', 'Locked', entry.lockedReason)}
-          {this.renderBadge('prunable', 'Prunable', entry.prunableReason)}
+        <div className="worktree-list__item-main">
+          <div className="worktree-list__path">{entry.path}</div>
+          <div className="worktree-list__meta">
+            {this.renderRef()}
+            {entry.changesCount > 0 && (
+              <span className="worktree-list__changes">
+                {entry.changesCount} uncommitted change
+                {entry.changesCount !== 1 ? 's' : ''}
+              </span>
+            )}
+            {this.renderBadge('locked', 'Locked', entry.lockedReason)}
+            {this.renderBadge('prunable', 'Prunable', entry.prunableReason)}
+          </div>
         </div>
+        <Button
+          className="worktree-list__remove"
+          onClick={this.onRemoveClick}
+          tooltip={`Remove the worktree at ${entry.path}`}
+        >
+          Remove
+        </Button>
       </li>
     )
+  }
+
+  private onRemoveClick = () => {
+    this.props.onRemove(this.props.entry)
   }
 
   /** The checked-out ref: branch name, bare marker, or detached sha. */

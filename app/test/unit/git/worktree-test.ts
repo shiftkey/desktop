@@ -8,6 +8,9 @@ import {
   listWorkTrees,
   getWorktreeStatusCount,
   parseWorktreeListPorcelain,
+  addWorktree,
+  removeWorktree,
+  pruneWorktrees,
 } from '../../../src/lib/git/worktree'
 import { Repository } from '../../../src/models/repository'
 
@@ -246,6 +249,73 @@ describe('git/worktree', () => {
 
       const count = await getWorktreeStatusCount(workTreePath)
       expect(count).toBe(1)
+    })
+  })
+
+  describe('addWorktree / removeWorktree / pruneWorktrees', () => {
+    let repository: Repository
+    let worktreePath: string
+
+    beforeEach(async () => {
+      repository = await setupEmptyRepository()
+      await exec(
+        ['commit', '--allow-empty', '-m', 'initial commit'],
+        repository.path
+      )
+      // git worktree add wants a path it can create itself.
+      const parent = await FSE.mkdtemp(Path.join(Os.tmpdir(), 'wt-actions-'))
+      worktreePath = Path.join(parent, 'linked')
+    })
+
+    afterEach(async () => {
+      await exec(
+        ['worktree', 'remove', '--force', worktreePath],
+        repository.path
+      ).catch(() => undefined)
+      await FSE.remove(Path.dirname(worktreePath)).catch(() => undefined)
+    })
+
+    const linkedEntry = async () => {
+      const trees = await listWorkTrees(repository)
+      return trees.find(
+        t => Path.resolve(t.path) === Path.resolve(worktreePath)
+      )
+    }
+
+    it('creates a worktree on a new branch', async () => {
+      await addWorktree(repository, worktreePath, { newBranch: 'feature-x' })
+      expect(await listWorkTrees(repository)).toHaveLength(2)
+      expect((await linkedEntry())?.branch).toBe('feature-x')
+    })
+
+    it('creates a worktree checking out an existing branch', async () => {
+      await exec(['branch', 'existing'], repository.path)
+      await addWorktree(repository, worktreePath, { committish: 'existing' })
+      expect((await linkedEntry())?.branch).toBe('existing')
+    })
+
+    it('removes a worktree', async () => {
+      await addWorktree(repository, worktreePath, { newBranch: 'feature-x' })
+      await removeWorktree(repository, worktreePath)
+      expect(await listWorkTrees(repository)).toHaveLength(1)
+    })
+
+    it('refuses to remove a dirty worktree without force', async () => {
+      await addWorktree(repository, worktreePath, { newBranch: 'feature-x' })
+      await FSE.writeFile(Path.join(worktreePath, 'dirty.txt'), 'uncommitted')
+      await expect(
+        removeWorktree(repository, worktreePath, false)
+      ).rejects.toThrow()
+      // With force the removal succeeds.
+      await removeWorktree(repository, worktreePath, true)
+      expect(await listWorkTrees(repository)).toHaveLength(1)
+    })
+
+    it('prunes bookkeeping for a worktree whose folder is gone', async () => {
+      await addWorktree(repository, worktreePath, { newBranch: 'feature-x' })
+      await FSE.remove(worktreePath)
+      await pruneWorktrees(repository)
+      expect(await listWorkTrees(repository)).toHaveLength(1)
     })
   })
 })

@@ -240,6 +240,12 @@ import { ExternalEditorError, suggestedExternalEditor } from '../editors/shared'
 import { ApiRepositoriesStore } from './api-repositories-store'
 import { StashStore } from './stash-store'
 import { WorktreeStore } from './worktree-store'
+import {
+  addWorktree,
+  removeWorktree,
+  pruneWorktrees,
+  IAddWorktreeOptions,
+} from '../git/worktree'
 import { TerminalStore } from './terminal-store'
 import {
   TerminalSettings,
@@ -7079,6 +7085,52 @@ export class AppStore extends TypedBaseStore<IAppState> {
   /** Get the current cached worktree state for the given repository. */
   public _getWorktreeState(repository: Repository) {
     return this.worktreeStore.getState(repository)
+  }
+
+  /**
+   * Create a new linked worktree, then refresh the cached list. Throws on
+   * Git failure so the create dialog can surface the message.
+   */
+  public async _addWorktree(
+    repository: Repository,
+    worktreePath: string,
+    options: IAddWorktreeOptions
+  ): Promise<void> {
+    try {
+      await addWorktree(repository, worktreePath, options)
+    } finally {
+      await this.worktreeStore.loadWorktrees(repository)
+    }
+  }
+
+  /**
+   * Remove a linked worktree, then refresh the cached list. Throws on Git
+   * failure so the remove dialog can surface the message.
+   */
+  public async _removeWorktree(
+    repository: Repository,
+    worktreePath: string,
+    force: boolean
+  ): Promise<void> {
+    try {
+      await removeWorktree(repository, worktreePath, force)
+    } finally {
+      await this.worktreeStore.loadWorktrees(repository)
+    }
+  }
+
+  /**
+   * Prune stale worktree bookkeeping. Button-driven (no dialog), so a
+   * failure is surfaced via `emitError` rather than thrown.
+   */
+  public async _pruneWorktrees(repository: Repository): Promise<void> {
+    try {
+      await pruneWorktrees(repository)
+    } catch (err) {
+      this.emitError(err instanceof Error ? err : new Error(String(err)))
+    } finally {
+      await this.worktreeStore.loadWorktrees(repository)
+    }
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */

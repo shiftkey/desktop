@@ -99,6 +99,8 @@ export enum PopupType {
   StashCreate = 'StashCreate',
   PullRequestReviewSession = 'PullRequestReviewSession',
   RepoHealthDashboard = 'RepoHealthDashboard',
+  WorktreeCreate = 'WorktreeCreate',
+  WorktreeRemove = 'WorktreeRemove',
 }
 
 interface IBasePopup {
@@ -438,5 +440,15 @@ export type PopupDetail =
       prNumber: number
     }
   | { type: PopupType.RepoHealthDashboard }
+  | {
+      type: PopupType.WorktreeCreate
+      repository: Repository
+    }
+  | {
+      type: PopupType.WorktreeRemove
+      repository: Repository
+      worktreePath: string
+      branch: string | null
+    }
 
 export type Popup = IBasePopup & PopupDetail

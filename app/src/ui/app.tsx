@@ -73,6 +73,8 @@ import { UpdateAvailable, renderBanner } from './banners'
 import { Preferences } from './preferences'
 import { ConfirmRestart } from './preferences/confirm-restart'
 import { StashCreateDialog } from './stashes/stash-create-dialog'
+import { WorktreeCreateDialog } from './worktrees/worktree-create-dialog'
+import { WorktreeRemoveDialog } from './worktrees/worktree-remove-dialog'
 import { TerminalPanel } from './terminal/terminal-panel'
 import { getTerminalTheme } from '../lib/terminal/terminal-theme'
 import { PRReviewDialog } from './pull-request-review/pr-review-dialog'
@@ -2699,6 +2701,28 @@ export class App extends React.Component<IAppProps, IAppState> {
             key="stash-create"
             dispatcher={this.props.dispatcher}
             repository={popup.repository}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
+      case PopupType.WorktreeCreate: {
+        return (
+          <WorktreeCreateDialog
+            key="worktree-create"
+            dispatcher={this.props.dispatcher}
+            repository={popup.repository}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
+      case PopupType.WorktreeRemove: {
+        return (
+          <WorktreeRemoveDialog
+            key="worktree-remove"
+            dispatcher={this.props.dispatcher}
+            repository={popup.repository}
+            worktreePath={popup.worktreePath}
+            branch={popup.branch}
             onDismissed={onPopupDismissedFn}
           />
         )

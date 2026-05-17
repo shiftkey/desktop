@@ -16,13 +16,25 @@ const entry = (over: Partial<IWorktreeEntry> = {}): IWorktreeEntry => ({
   ...over,
 })
 
+const noop = () => undefined
+
 const renderList = (props: {
   entries: ReadonlyArray<IWorktreeEntry>
   loading: boolean
-}): string => renderToStaticMarkup(React.createElement(WorktreeList, props))
+}): string =>
+  renderToStaticMarkup(
+    React.createElement(WorktreeList, {
+      ...props,
+      onCreateWorktree: noop,
+      onPruneWorktrees: noop,
+      onRemoveWorktree: noop,
+    })
+  )
 
 const renderItem = (e: IWorktreeEntry): string =>
-  renderToStaticMarkup(React.createElement(WorktreeListItem, { entry: e }))
+  renderToStaticMarkup(
+    React.createElement(WorktreeListItem, { entry: e, onRemove: noop })
+  )
 
 describe('WorktreeList', () => {
   it('shows a loading message while refreshing', () => {
@@ -95,5 +107,34 @@ describe('WorktreeListItem', () => {
   it('hides the change count when the worktree is clean', () => {
     const html = renderItem(entry({ changesCount: 0 }))
     expect(html).not.toContain('uncommitted change')
+  })
+
+  it('renders a Remove button for each worktree', () => {
+    const html = renderItem(entry())
+    expect(html).toContain('worktree-list__remove')
+    expect(html).toContain('Remove')
+  })
+
+  it('invokes onRemove with its entry when removed', () => {
+    const e = entry({ path: '/wt/x' })
+    const onRemove = jest.fn()
+    const item = new WorktreeListItem({ entry: e, onRemove })
+    // Exercise the click handler directly.
+    ;(item as any).onRemoveClick()
+    expect(onRemove).toHaveBeenCalledWith(e)
+  })
+})
+
+describe('WorktreeList toolbar', () => {
+  it('always renders Add and Prune actions, even when empty', () => {
+    const html = renderList({ entries: [], loading: false })
+    expect(html).toContain('worktree-list__toolbar')
+    expect(html).toContain('Add worktree')
+    expect(html).toContain('Prune')
+  })
+
+  it('renders the toolbar while loading', () => {
+    const html = renderList({ entries: [], loading: true })
+    expect(html).toContain('worktree-list__toolbar')
   })
 })

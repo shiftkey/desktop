@@ -125,23 +125,31 @@ End-user stash management. Three layers:
 
 ### Worktrees (`app/src/lib/git/worktree.ts`, `app/src/lib/stores/worktree-store.ts`, `app/src/ui/worktrees/`)
 
-A read-only Worktrees tab listing the repository's linked worktrees.
+A Worktrees tab listing the repository's linked worktrees and managing
+their lifecycle (add / remove / prune).
 
 - **Git layer** (`worktree.ts`): `parseWorktreeListPorcelain` parses
   `git worktree list --porcelain` into `LinkedWorkTree` — `path`, `head`,
   `branch` (short name, `null` when detached/bare), `isDetached`,
   `isBare`, `lockedReason`, `prunableReason`. `listWorkTrees` runs the
   command; `getWorktreeStatusCount` runs `git status` inside a worktree.
+  `addWorktree` (new or existing branch, optional `--force`),
+  `removeWorktree` (optional `--force`), and `pruneWorktrees` wrap the
+  corresponding `git worktree` subcommands and throw `GitError` on refusal.
 - **`WorktreeStore`**: per-`repositoryId` cache of `IRepoWorktreeState`
   (`{entries, loading, error, loadedAt}`). The main worktree is filtered
   out — only linked worktrees are listed, each enriched with a
   `changesCount`. Concurrent loads coalesce. Surfaced via
   `IAppState.worktreesByRepoId`.
 - **UI**: `WorktreeList` + `WorktreeListItem` render the branch/ref,
-  uncommitted-change count, and Locked/Prunable badges. The same
-  `WorktreeList` component backs both the sidebar and the detail pane
-  inside `RepositoryView` (`RepositorySectionTab.Worktrees`).
-- **Dispatcher**: `loadWorktrees`.
+  uncommitted-change count, Locked/Prunable badges, a per-row Remove
+  action, and a toolbar with Add/Prune. The same `WorktreeList` component
+  backs both the sidebar and the detail pane inside `RepositoryView`
+  (`RepositorySectionTab.Worktrees`). `WorktreeCreateDialog` and
+  `WorktreeRemoveDialog` are popups (`PopupType.WorktreeCreate` /
+  `PopupType.WorktreeRemove`).
+- **Dispatcher**: `loadWorktrees`, `createWorktree`, `removeWorktree`,
+  `pruneWorktrees`.
 
 ### Working-directory change summary (`app/src/lib/git/working-directory-stats.ts`, `app/src/models/working-directory-stats.ts`, `app/src/ui/changes/change-summary-badge.tsx`)
 

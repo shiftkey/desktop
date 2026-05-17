@@ -106,6 +106,7 @@ import { IStashEntry } from '../../models/stash-entry'
 import { WorkflowPreferences } from '../../models/workflow-preferences'
 import { resolveWithin } from '../../lib/path'
 import { CherryPickResult } from '../../lib/git/cherry-pick'
+import { IAddWorktreeOptions } from '../../lib/git/worktree'
 import { sleep } from '../../lib/promise'
 import { DragElement, DragType } from '../../models/drag-drop'
 import { ILastThankYou } from '../../models/last-thank-you'
@@ -2673,6 +2674,35 @@ export class Dispatcher {
   /** Refresh the cached worktree list for the given repository. */
   public loadWorktrees(repository: Repository): Promise<void> {
     return this.appStore._loadWorktrees(repository)
+  }
+
+  /**
+   * Create a new linked worktree. Rejects on Git failure so the create
+   * dialog can show the error.
+   */
+  public createWorktree(
+    repository: Repository,
+    worktreePath: string,
+    options: IAddWorktreeOptions
+  ): Promise<void> {
+    return this.appStore._addWorktree(repository, worktreePath, options)
+  }
+
+  /**
+   * Remove a linked worktree. Rejects on Git failure so the remove dialog
+   * can show the error.
+   */
+  public removeWorktree(
+    repository: Repository,
+    worktreePath: string,
+    force: boolean
+  ): Promise<void> {
+    return this.appStore._removeWorktree(repository, worktreePath, force)
+  }
+
+  /** Prune stale worktree bookkeeping for the given repository. */
+  public pruneWorktrees(repository: Repository): Promise<void> {
+    return this.appStore._pruneWorktrees(repository)
   }
 
   /** Apply (without dropping) a stash entry by its commit SHA. */

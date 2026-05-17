@@ -106,3 +106,77 @@ export async function getWorktreeStatusCount(
     return 0
   }
 }
+
+/** Options controlling how a new worktree is created. */
+export interface IAddWorktreeOptions {
+  /**
+   * When set, create a new branch with this name in the worktree
+   * (`git worktree add -b <name>`). When omitted, `committish` is checked
+   * out directly.
+   */
+  readonly newBranch?: string
+  /**
+   * Branch name or commit-ish the worktree starts from. When `newBranch`
+   * is set this is the start point; otherwise it is the ref to check out.
+   * Omitted entirely, Git derives a branch from the path basename.
+   */
+  readonly committish?: string
+  /**
+   * Pass `--force`. Needed when the target branch is already checked out
+   * in another worktree, or the target directory already exists.
+   */
+  readonly force?: boolean
+}
+
+/**
+ * Create a new linked worktree for `repository` at `worktreePath`.
+ *
+ * Throws `GitError` when Git refuses (path already populated, branch
+ * already checked out elsewhere, …) so the caller can surface the message.
+ */
+export async function addWorktree(
+  repository: Repository,
+  worktreePath: string,
+  options: IAddWorktreeOptions = {}
+): Promise<void> {
+  const args = ['worktree', 'add']
+  if (options.force === true) {
+    args.push('--force')
+  }
+  if (options.newBranch !== undefined && options.newBranch.length > 0) {
+    args.push('-b', options.newBranch)
+  }
+  args.push(worktreePath)
+  if (options.committish !== undefined && options.committish.length > 0) {
+    args.push(options.committish)
+  }
+  await git(args, repository.path, 'addWorktree')
+}
+
+/**
+ * Remove the linked worktree at `worktreePath`.
+ *
+ * Git refuses to remove a worktree with uncommitted changes or a locked
+ * worktree unless `force` is set. Throws `GitError` on refusal.
+ */
+export async function removeWorktree(
+  repository: Repository,
+  worktreePath: string,
+  force: boolean = false
+): Promise<void> {
+  const args = ['worktree', 'remove']
+  if (force) {
+    args.push('--force')
+  }
+  args.push(worktreePath)
+  await git(args, repository.path, 'removeWorktree')
+}
+
+/**
+ * Prune worktree administrative entries whose working directory is gone
+ * (`git worktree prune`). Safe to run at any time — it only clears stale
+ * bookkeeping, never a live worktree.
+ */
+export async function pruneWorktrees(repository: Repository): Promise<void> {
+  await git(['worktree', 'prune'], repository.path, 'pruneWorktrees')
+}

@@ -12,6 +12,15 @@
     color: var(--text-secondary-color);
   }
 
+  &__toolbar {
+    display: flex;
+    gap: var(--spacing-half);
+    padding-bottom: var(--spacing);
+    margin-bottom: var(--spacing-half);
+    border-bottom: 1px solid var(--box-border-color);
+    flex-shrink: 0;
+  }
+
   ul {
     list-style: none;
     margin: 0;
@@ -19,12 +28,25 @@
   }
 
   &__item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing);
     padding: var(--spacing);
     border-bottom: 1px solid var(--box-border-color);
 
     &:last-child {
       border-bottom: none;
     }
+  }
+
+  &__item-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__remove {
+    flex-shrink: 0;
   }
 
   &__path {
