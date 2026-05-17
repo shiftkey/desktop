@@ -23,8 +23,31 @@ export async function findGitHubTrampolineAccount(
 ): Promise<Account | undefined> {
   const accounts = await accountsStore.getAll()
   const parsedUrl = new URL(remoteUrl)
-  return accounts.find(
+
+  const endpointAccount = accounts.find(
     a => new URL(getHTMLURL(a.endpoint)).origin === parsedUrl.origin
+  )
+
+  if (endpointAccount === undefined) {
+    return undefined
+  }
+
+  const remoteLogin =
+    parsedUrl.username === '' ? undefined : parsedUrl.username
+  if (remoteLogin !== undefined) {
+    const matchingLogin = accounts.find(
+      a =>
+        new URL(getHTMLURL(a.endpoint)).origin === parsedUrl.origin &&
+        a.login === remoteLogin
+    )
+
+    if (matchingLogin !== undefined) {
+      return matchingLogin
+    }
+  }
+
+  return (
+    accountsStore.getActiveAccount(endpointAccount.endpoint) ?? endpointAccount
   )
 }
 

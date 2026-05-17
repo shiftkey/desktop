@@ -781,7 +781,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   private onTokenInvalidated = (endpoint: string, token: string) => {
-    const account = getAccountForEndpoint(this.accounts, endpoint)
+    const account =
+      this.accounts.find(a => a.endpoint === endpoint && a.token === token) ??
+      this.getActiveAccountForEndpoint(endpoint)
 
     if (account === null) {
       return
@@ -803,6 +805,13 @@ export class AppStore extends TypedBaseStore<IAppState> {
       type: PopupType.InvalidatedToken,
       account,
     })
+  }
+
+  private getActiveAccountForEndpoint(endpoint: string): Account | null {
+    return (
+      this.accountsStore.getActiveAccount(endpoint) ??
+      getAccountForEndpoint(this.accounts, endpoint)
+    )
   }
 
   private onShowInstallingUpdate = () => {
@@ -1288,7 +1297,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     const branchName = findRemoteBranchName(tip, currentRemote, gitHubRepo)
 
     if (branchName !== null) {
-      const account = getAccountForEndpoint(this.accounts, gitHubRepo.endpoint)
+      const account = this.getActiveAccountForEndpoint(gitHubRepo.endpoint)
 
       if (account === null) {
         return
@@ -2081,7 +2090,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   public async _refreshIssues(repository: GitHubRepository) {
-    const user = getAccountForEndpoint(this.accounts, repository.endpoint)
+    const user = this.getActiveAccountForEndpoint(repository.endpoint)
     if (!user) {
       return
     }
@@ -2102,7 +2111,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   private refreshMentionables(repository: GitHubRepository) {
-    const account = getAccountForEndpoint(this.accounts, repository.endpoint)
+    const account = this.getActiveAccountForEndpoint(repository.endpoint)
     if (!account) {
       return
     }
@@ -2132,7 +2141,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   public async fetchPullRequest(repoUrl: string, pr: string) {
     const endpoint = getEndpointForRepository(repoUrl)
-    const account = getAccountForEndpoint(this.accounts, endpoint)
+    const account = this.getActiveAccountForEndpoint(endpoint)
 
     if (account) {
       const api = API.fromAccount(account)
@@ -3002,6 +3011,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
         includingStatus: true,
         clearPartialState: false,
       })
+    } else if (selectedSection === RepositorySectionTab.Stashes) {
+      await this.stashStore.loadStashes(repository)
+    } else if (selectedSection === RepositorySectionTab.Worktrees) {
+      await this.worktreeStore.loadWorktrees(repository)
     }
 
     if (forceButtonFocus) {
@@ -4376,8 +4389,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     const { owner, name } = repository.gitHubRepository
 
-    const account = getAccountForEndpoint(
-      this.accounts,
+    const account = this.getActiveAccountForEndpoint(
       repository.gitHubRepository.endpoint
     )
 
@@ -7453,7 +7465,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     if (!ghr) {
       return
     }
-    const account = getAccountForEndpoint(this.accounts, ghr.endpoint)
+    const account = this.getActiveAccountForEndpoint(ghr.endpoint)
     if (!account) {
       return
     }
@@ -7539,7 +7551,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
         if (!ghr) {
           return 'unknown'
         }
-        const account = getAccountForEndpoint(this.accounts, ghr.endpoint)
+        const account = this.getActiveAccountForEndpoint(ghr.endpoint)
         if (!account) {
           return 'unknown'
         }

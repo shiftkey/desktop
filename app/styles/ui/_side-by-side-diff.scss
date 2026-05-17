@@ -412,7 +412,7 @@
     .content {
       display: flex;
       white-space: pre-wrap;
-      overflow-y: auto;
+      overflow: visible;
       flex-grow: 1;
       word-break: break-all;
 

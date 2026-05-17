@@ -222,17 +222,16 @@ interface ISideBySideDiffState {
   } | null
 }
 
-const listRowsHeightCache = new CellMeasurerCache({
-  defaultHeight: DefaultRowHeight,
-  fixedWidth: true,
-})
-
 export class SideBySideDiff extends React.Component<
   ISideBySideDiffProps,
   ISideBySideDiffState
 > {
   private virtualListRef = React.createRef<List>()
   private diffContainer: HTMLDivElement | null = null
+  private readonly listRowsHeightCache = new CellMeasurerCache({
+    defaultHeight: DefaultRowHeight,
+    fixedWidth: true,
+  })
 
   /** Diff to restore when "Collapse all expanded lines" option is used */
   private diffToRestore: ITextDiff | null = null
@@ -437,6 +436,7 @@ export class SideBySideDiff extends React.Component<
 
     if (!textDiffEquals(this.props.diff, prevProps.diff)) {
       this.diffToRestore = null
+      this.clearListRowsHeightCache()
       this.setState({ diff: this.props.diff, lastExpandedHunk: null })
       this.rowSelectableGroupStaticDataCache.clear()
     }
@@ -626,7 +626,7 @@ export class SideBySideDiff extends React.Component<
           <AutoSizer onResize={this.clearListRowsHeightCache}>
             {({ height, width }) => (
               <List
-                deferredMeasurementCache={listRowsHeightCache}
+                deferredMeasurementCache={this.listRowsHeightCache}
                 width={width}
                 height={height}
                 rowCount={rows.length}
@@ -969,11 +969,12 @@ export class SideBySideDiff extends React.Component<
   }
 
   private getRowHeight = (row: { index: number }) => {
-    return listRowsHeightCache.rowHeight(row) ?? DefaultRowHeight
+    return this.listRowsHeightCache.rowHeight(row) ?? DefaultRowHeight
   }
 
   private clearListRowsHeightCache = () => {
-    listRowsHeightCache.clearAll()
+    this.listRowsHeightCache.clearAll()
+    this.virtualListRef.current?.recomputeRowHeights()
   }
 
   private async initDiffSyntaxMode() {

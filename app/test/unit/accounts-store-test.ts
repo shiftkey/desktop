@@ -110,5 +110,38 @@ describe('AccountsStore', () => {
         'https://my-company-repos.com/api/v3'
       )
     })
+
+    it('ignores invalid persisted users data', async () => {
+      const dataStore = new InMemoryStore()
+      dataStore.setItem('users', '{')
+      accountsStore = new AccountsStore(dataStore, new AsyncInMemoryStore())
+
+      const users = await accountsStore.getAll()
+      expect(users).toHaveLength(0)
+    })
+
+    it('does not crash when a persisted endpoint is malformed', async () => {
+      const dataStore = new InMemoryStore()
+      dataStore.setItem(
+        'users',
+        JSON.stringify([
+          {
+            login: 'joan',
+            endpoint: 'not a valid URL',
+            token: 'deadbeef',
+            emails: [],
+            avatarURL: '',
+            id: 1,
+            name: '',
+            plan: 'free',
+          },
+        ])
+      )
+      accountsStore = new AccountsStore(dataStore, new AsyncInMemoryStore())
+
+      const users = await accountsStore.getAll()
+      expect(users[0].login).toBe('joan')
+      expect(users[0].endpoint).toBe('not a valid URL')
+    })
   })
 })

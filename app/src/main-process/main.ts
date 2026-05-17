@@ -66,6 +66,7 @@ const launchTime = now()
 
 let preventQuit = false
 let readyTime: number | null = null
+const allowedExternalProtocols = new Set(['http:', 'https:', 'mailto:'])
 
 type OnDidLoadFn = (window: AppWindow) => void
 /** See the `onDidLoad` function. */
@@ -586,15 +587,22 @@ app.on('ready', () => {
   })
 
   ipcMain.handle('open-external', async (_, path: string) => {
-    const pathLowerCase = path.toLowerCase()
-    if (
-      pathLowerCase.startsWith('http://') ||
-      pathLowerCase.startsWith('https://')
-    ) {
-      log.info(`opening in browser: ${path}`)
+    let url: URL
+
+    try {
+      url = new URL(path)
+    } catch (e) {
+      log.warn(`Refusing to open malformed external URL: ${path}`)
+      return false
+    }
+
+    if (!allowedExternalProtocols.has(url.protocol)) {
+      log.warn(`Refusing to open external URL with protocol ${url.protocol}`)
+      return false
     }
 
     try {
+      log.info(`opening in browser: ${path}`)
       await shell.openExternal(path)
       return true
     } catch (e) {

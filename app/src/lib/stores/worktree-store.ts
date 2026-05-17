@@ -1,3 +1,4 @@
+import * as Path from 'path'
 import { BaseStore } from './base-store'
 import { Repository } from '../../models/repository'
 import { IWorktreeEntry } from '../../models/worktree'
@@ -51,10 +52,13 @@ export class WorktreeStore extends BaseStore {
     this.update(repository.id, current ?? EMPTY_STATE, { loading: true })
 
     try {
-      const linkedWorktrees = await listWorkTrees(repository)
-      // Skip the main worktree (first entry) and get change counts for linked worktrees
+      const worktrees = await listWorkTrees(repository)
+      // Exclude the main worktree and get change counts for linked worktrees.
+      const repositoryPath = Path.resolve(repository.path)
       const entries: Array<IWorktreeEntry> = []
-      for (const wt of linkedWorktrees.slice(1)) {
+      for (const wt of worktrees.filter(
+        wt => Path.resolve(wt.path) !== repositoryPath
+      )) {
         const changesCount = await getWorktreeStatusCount(wt.path)
         entries.push({ ...wt, changesCount })
       }

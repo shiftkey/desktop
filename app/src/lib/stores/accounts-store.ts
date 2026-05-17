@@ -218,7 +218,14 @@ export class AccountsStore extends TypedBaseStore<ReadonlyArray<Account>> {
     let migrated = false
     const migratedAccounts = accounts.map(account => {
       let endpoint = account.endpoint
-      const endpointURL = new URL(endpoint)
+      let endpointURL: URL
+      try {
+        endpointURL = new URL(endpoint)
+      } catch (e) {
+        log.warn(`Skipping account endpoint migration for invalid URL`, e)
+        return account
+      }
+
       // Migrate endpoints of subdomains of `.ghe.com` that use the `/api/v3`
       // path to the correct URL using the `api.` subdomain.
       if (isGHE(endpoint) && !endpointURL.hostname.startsWith('api.')) {
@@ -244,7 +251,21 @@ export class AccountsStore extends TypedBaseStore<ReadonlyArray<Account>> {
       return
     }
 
-    const parsedAccounts: ReadonlyArray<IAccount> = JSON.parse(raw)
+    let parsedAccounts: ReadonlyArray<IAccount>
+    try {
+      const parsed = JSON.parse(raw)
+      if (!Array.isArray(parsed)) {
+        log.warn('Ignoring persisted accounts: expected an array')
+        this.emitUpdate(this.accounts)
+        return
+      }
+      parsedAccounts = parsed
+    } catch (e) {
+      log.warn('Failed to parse persisted accounts', e)
+      this.emitUpdate(this.accounts)
+      return
+    }
+
     const migratedAccounts = this.getMigratedGHEAccounts(parsedAccounts)
     const rawAccounts = migratedAccounts ?? parsedAccounts
 

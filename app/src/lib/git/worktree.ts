@@ -2,6 +2,41 @@ import { git } from './core'
 import { Repository, LinkedWorkTree } from '../../models/repository'
 import { getStatus } from './status'
 
+export function parseWorktreeListPorcelain(
+  output: string
+): ReadonlyArray<LinkedWorkTree> {
+  const worktrees = new Array<LinkedWorkTree>()
+
+  for (const entry of output.split(/\n{2,}/)) {
+    const lines = entry.trim().split('\n')
+    if (lines.length === 0 || lines[0] === '') {
+      continue
+    }
+
+    let path: string | null = null
+    let head = '0000000000000000000000000000000000000000'
+
+    for (const line of lines) {
+      if (line.startsWith('worktree ')) {
+        path = line.substring('worktree '.length)
+      } else if (line.startsWith('HEAD ')) {
+        head = line.substring('HEAD '.length)
+      }
+    }
+
+    if (path === null) {
+      log.debug(
+        `[listWorkTrees] entry '${entry}' does not have a worktree path. Skipping...`
+      )
+      continue
+    }
+
+    worktrees.push({ path, head })
+  }
+
+  return worktrees
+}
+
 /** Enumerate the list of work trees reported by Git for a repository */
 export async function listWorkTrees(
   repository: Repository
@@ -12,27 +47,7 @@ export async function listWorkTrees(
     'listWorkTrees'
   )
 
-  const worktrees = new Array<LinkedWorkTree>()
-
-  // the porcelain output from git-worktree covers multiple lines
-  const listWorkTreeRe =
-    /worktree (.*)\nHEAD ([a-f0-9]*)\n(branch .*|detached)\n/gm
-
-  const matches = Array.from(result.stdout.matchAll(listWorkTreeRe))
-  matches.forEach(m => {
-    if (m.length === 4) {
-      worktrees.push({
-        path: m[1],
-        head: m[2],
-      })
-    } else {
-      log.debug(
-        `[listWorkTrees] match '${m[0]}' does not have the expected data or output. Skipping...`
-      )
-    }
-  })
-
-  return worktrees
+  return parseWorktreeListPorcelain(result.stdout)
 }
 
 /**

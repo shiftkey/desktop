@@ -7,10 +7,40 @@ import { setupEmptyRepository } from '../../helpers/repositories'
 import {
   listWorkTrees,
   getWorktreeStatusCount,
+  parseWorktreeListPorcelain,
 } from '../../../src/lib/git/worktree'
 import { Repository } from '../../../src/models/repository'
 
 describe('git/worktree', () => {
+  describe('parseWorktreeListPorcelain', () => {
+    it('parses entries with optional porcelain fields', () => {
+      const result = parseWorktreeListPorcelain(
+        [
+          'worktree /repo',
+          'HEAD 1111111111111111111111111111111111111111',
+          'branch refs/heads/main',
+          '',
+          'worktree /repo-linked',
+          'HEAD 2222222222222222222222222222222222222222',
+          'detached',
+          'locked',
+          '',
+        ].join('\n')
+      )
+
+      expect(result).toEqual([
+        {
+          path: '/repo',
+          head: '1111111111111111111111111111111111111111',
+        },
+        {
+          path: '/repo-linked',
+          head: '2222222222222222222222222222222222222222',
+        },
+      ])
+    })
+  })
+
   describe('listWorktrees', () => {
     describe('for an unborn repository', () => {
       let repository: Repository
