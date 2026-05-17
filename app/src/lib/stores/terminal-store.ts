@@ -1,12 +1,5 @@
 import { BaseStore } from './base-store'
 import { ITerminalSessionSnapshot } from '../terminal/pty-types'
-import {
-  Layout,
-  leaf,
-  splitLeaf,
-  closeSession,
-  replaceLeaf,
-} from '../terminal/split-layout'
 
 /**
  * Renderer-side state for the integrated terminal panel.

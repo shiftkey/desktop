@@ -9,6 +9,8 @@ interface IProps {
   readonly snapshot: IRepoHealthSnapshot
   readonly onSelectRepository: (repo: Repository) => void
   readonly onRefreshClick: () => void
+  /** Fired once when the dialog mounts so the caller can kick a refresh. */
+  readonly onMounted: () => void
   readonly onDismissed: () => void
 }
 
@@ -20,6 +22,13 @@ interface IProps {
  * width, and let the body scroll.
  */
 export class RepoHealthDashboardDialog extends React.Component<IProps> {
+  public componentDidMount() {
+    // Kick the initial refresh here — not in the parent's render() — so it
+    // fires exactly once when the dialog opens rather than on every
+    // unrelated app re-render while the dialog is mounted.
+    this.props.onMounted()
+  }
+
   public render() {
     return (
       <Dialog

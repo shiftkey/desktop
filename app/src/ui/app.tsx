@@ -2728,8 +2728,6 @@ export class App extends React.Component<IAppProps, IAppState> {
         )
       }
       case PopupType.RepoHealthDashboard: {
-        // Kick a refresh on first render.
-        this.props.dispatcher.refreshRepoHealth()
         const repos = this.state.repositories.filter(
           (r): r is Repository => r instanceof Repository
         )
@@ -2738,6 +2736,8 @@ export class App extends React.Component<IAppProps, IAppState> {
             key="repo-health-dashboard"
             repositories={repos}
             snapshot={this.state.repoHealth}
+            // eslint-disable-next-line react/jsx-no-bind
+            onMounted={() => this.props.dispatcher.refreshRepoHealth()}
             // eslint-disable-next-line react/jsx-no-bind
             onSelectRepository={r => {
               this.props.dispatcher.selectRepository(r)
@@ -2750,23 +2750,12 @@ export class App extends React.Component<IAppProps, IAppState> {
         )
       }
       case PopupType.PullRequestReviewSession: {
-        // Kick off the load if we don't yet have a session bound to this PR.
-        const session = this.state.pullRequestReviewSession
-        if (
-          session === null ||
-          session.prNumber !== popup.prNumber ||
-          session.repoId !== popup.repository.id
-        ) {
-          this.props.dispatcher.openPullRequestReview(
-            popup.repository,
-            popup.prNumber
-          )
-        }
         return (
           <PRReviewDialog
             key={`pr-review-${popup.prNumber}`}
             dispatcher={this.props.dispatcher}
             repository={popup.repository}
+            prNumber={popup.prNumber}
             session={this.state.pullRequestReviewSession}
             // eslint-disable-next-line react/jsx-no-bind
             onDismissed={() => {

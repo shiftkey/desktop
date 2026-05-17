@@ -103,6 +103,11 @@ if (!process.env.TEST_ENV) {
   /* This is the magic trigger for webpack to go compile
    * our sass into css and inject it into the DOM. */
   require('../../styles/desktop.scss')
+  /* xterm.js ships its own stylesheet and does not function without it:
+   * the rules position the hidden helper <textarea> offscreen (so it can
+   * sink keystrokes) and stack the renderer's canvas layers. Omitting it
+   * leaves the integrated terminal an inert, misrendered box. */
+  require('@xterm/xterm/css/xterm.css')
 }
 
 // TODO (electron): Remove this once

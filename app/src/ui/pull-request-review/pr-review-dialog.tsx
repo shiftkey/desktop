@@ -14,6 +14,8 @@ import { Row } from '../lib/row'
 interface IPRReviewDialogProps {
   readonly dispatcher: Dispatcher
   readonly repository: Repository
+  /** Pull request number this dialog is reviewing. */
+  readonly prNumber: number
   readonly session: IPRReviewSession | null
   readonly onDismissed: () => void
 }
@@ -42,6 +44,20 @@ export class PRReviewDialog extends React.Component<
   public constructor(props: IPRReviewDialogProps) {
     super(props)
     this.state = { newCommentBody: '', newCommentPath: '', newCommentLine: '' }
+  }
+
+  public componentDidMount() {
+    // Load the review threads here — not in the parent's render() — so the
+    // fetch fires once when the dialog opens rather than on every unrelated
+    // app re-render that occurs before the session resolves.
+    const { session, prNumber, repository } = this.props
+    if (
+      session === null ||
+      session.prNumber !== prNumber ||
+      session.repoId !== repository.id
+    ) {
+      this.props.dispatcher.openPullRequestReview(repository, prNumber)
+    }
   }
 
   public render() {

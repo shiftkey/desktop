@@ -316,11 +316,16 @@ export class TerminalPanel extends React.Component<
     const layout =
       repoId !== null ? state.layoutByRepoId.get(repoId) : undefined
 
-    if (layout !== undefined) {
+    // Route through SplitContainer only for a real split tree. A bare
+    // `leaf` layout — the common single- and multi-tab case — must fall
+    // through to the flat per-tab render below: SplitContainer renders
+    // only the sessions present in the layout tree, so a second tab that
+    // was never added to the tree would render nothing and the panel
+    // would appear blank.
+    if (layout !== undefined && layout.kind === 'split') {
       return (
         <SplitContainer
           layout={layout}
-          activeSessionId={activeId}
           portFor={this.props.portFor}
           theme={this.props.theme}
           fontSize={this.props.fontSize}
