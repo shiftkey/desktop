@@ -119,10 +119,12 @@ export class BackgroundFetcher {
   private async getFetchInterval(
     repository: GitHubRepository
   ): Promise<number> {
-    const account = getAccountForEndpoint(
-      await this.accountsStore.getAll(),
-      repository.endpoint
-    )
+    const account =
+      this.accountsStore.getActiveAccount(repository.endpoint) ??
+      getAccountForEndpoint(
+        await this.accountsStore.getAll(),
+        repository.endpoint
+      )
 
     let interval = DefaultFetchInterval
 

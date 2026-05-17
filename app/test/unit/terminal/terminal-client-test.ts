@@ -225,11 +225,15 @@ describe('terminal-client', () => {
       })
     })
 
-    it('starts the port (so paused MessagePorts deliver)', () => {
+    it('does not start the port (XtermView owns the single start())', () => {
       const port = new FakePort()
       const store = new FakeStore()
       attachStoreToPort(store, 's1', port)
-      expect(port.started).toBe(1)
+      // Starting the port here would flush the PTY's buffered initial
+      // output (the shell prompt/banner) into this side-channel listener
+      // before XtermView attaches its byte consumer — the prompt would be
+      // lost and the panel would open blank. XtermView calls start().
+      expect(port.started).toBe(0)
     })
 
     it('throttles markActivity to one call per 250ms per session', () => {

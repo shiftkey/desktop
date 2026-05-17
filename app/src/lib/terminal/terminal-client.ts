@@ -129,7 +129,17 @@ export function attachStoreToPort(
     // Tests / fakes that only expose onmessage.
     port.onmessage = handler
   }
-  port.start?.()
+  // NB: deliberately does NOT call `port.start()`. A MessagePort buffers
+  // every message posted before `start()`, then flushes the whole backlog
+  // to whatever listeners are attached at that moment. The PTY prints its
+  // prompt (and any shell banner) the instant it spawns — well before the
+  // XtermView for this session mounts. If this side-channel started the
+  // port here, that backlog would drain into this meta/activity listener
+  // (which ignores `data` frames) and the terminal's initial output would
+  // be lost, leaving a blank panel with no prompt. XtermView owns the
+  // single `start()` call (see `XtermView.bindPort`); this listener is
+  // registered first, so it still receives the full backlog once the
+  // byte consumer is ready and starts the port.
 }
 
 /** Test-only: clear the per-session throttle map. */

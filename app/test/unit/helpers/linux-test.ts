@@ -1,4 +1,5 @@
 import {
+  cleanSpawnEnv,
   convertToFlatpakPath,
   formatWorkingDirectoryForFlatpak,
 } from '../../../src/lib/helpers/linux'
@@ -30,6 +31,43 @@ describe('convertToFlatpakPath()', () => {
       expect(convertToFlatpakPath(path)).toEqual(path)
     })
   }
+})
+
+describe('cleanSpawnEnv()', () => {
+  it('strips loader-hijacking variables', () => {
+    const cleaned = cleanSpawnEnv({
+      PATH: '/usr/bin',
+      HOME: '/home/user',
+      LD_PRELOAD: '/opt/ghd/libffmpeg.so',
+      LD_LIBRARY_PATH: '/opt/ghd',
+      LD_AUDIT: '/opt/ghd/audit.so',
+    })
+    expect(cleaned.LD_PRELOAD).toBeUndefined()
+    expect(cleaned.LD_LIBRARY_PATH).toBeUndefined()
+    expect(cleaned.LD_AUDIT).toBeUndefined()
+  })
+
+  it('preserves variables the spawned terminal needs', () => {
+    const cleaned = cleanSpawnEnv({
+      PATH: '/usr/bin',
+      HOME: '/home/user',
+      DISPLAY: ':0',
+      DBUS_SESSION_BUS_ADDRESS: 'unix:path=/run/user/1000/bus',
+      LD_PRELOAD: '/opt/ghd/libffmpeg.so',
+    })
+    expect(cleaned.PATH).toEqual('/usr/bin')
+    expect(cleaned.HOME).toEqual('/home/user')
+    expect(cleaned.DISPLAY).toEqual(':0')
+    expect(cleaned.DBUS_SESSION_BUS_ADDRESS).toEqual(
+      'unix:path=/run/user/1000/bus'
+    )
+  })
+
+  it('does not mutate the source environment', () => {
+    const source = { LD_PRELOAD: '/opt/ghd/libffmpeg.so' }
+    cleanSpawnEnv(source)
+    expect(source.LD_PRELOAD).toEqual('/opt/ghd/libffmpeg.so')
+  })
 })
 
 describe('formatWorkingDirectoryForFlatpak()', () => {

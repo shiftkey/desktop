@@ -252,7 +252,7 @@ import { RepoHealthStore } from './repo-health-store'
 import { IRepoHealthProbes } from '../repo-health/collect-health'
 import { getStatus } from '../git/status'
 import { getWorkingDirectoryStats } from '../git/working-directory-stats'
-import { getAheadBehind } from '../git/rev-list'
+import { getAheadBehind, revSymmetricDifference } from '../git/rev-list'
 import { git } from '../git/core'
 import {
   spawnTerminal as spawnTerminalIpc,
@@ -7540,7 +7540,17 @@ export class AppStore extends TypedBaseStore<IAppState> {
         return status?.workingDirectory.files.length ?? 0
       },
       aheadBehind: async repo => {
-        const ab = await getAheadBehind(repo, '@{u}').catch(() => null)
+        // `getAheadBehind` runs `git rev-list --left-right --count <range>`.
+        // `--left-right` requires a symmetric-difference range (`a...b`) —
+        // passing a bare ref like `@{u}` makes git mark *every* commit
+        // reachable from the upstream as the "right" side, so the dashboard
+        // reported the entire repository history as the behind count.
+        // `HEAD...@{u}` compares the checked-out tip against its upstream;
+        // when HEAD has no upstream `@{u}` fails and we degrade to 0/0.
+        const ab = await getAheadBehind(
+          repo,
+          revSymmetricDifference('HEAD', '@{u}')
+        ).catch(() => null)
         if (ab === null) {
           return { ahead: 0, behind: 0 }
         }

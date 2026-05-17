@@ -58,6 +58,40 @@ export async function pathExists(path: string): Promise<boolean> {
 }
 
 /**
+ * Dynamic-loader environment variables that, when inherited by a spawned
+ * native GUI application, can point its loader at GitHub Desktop's bundled
+ * Electron/Chromium libraries instead of the system ones. Inheriting these
+ * into an external terminal (e.g. gnome-terminal) on a packaged build
+ * (AppImage / Snap) makes it fail to start with symbol-lookup errors —
+ * the terminal silently never appears. The integrated terminal already
+ * strips the same set (see `sanitizeEnv` in
+ * `main-process/terminal/terminal-ipc.ts`); externally launched shells
+ * need the same treatment.
+ */
+const LOADER_ENV_KEYS: ReadonlyArray<string> = [
+  'LD_PRELOAD',
+  'LD_LIBRARY_PATH',
+  'LD_AUDIT',
+]
+
+/**
+ * Build a child environment with loader-hijacking variables removed.
+ *
+ * Exported for testing; production callers go through `spawn`.
+ *
+ * @param base environment to clean. Defaults to the current process env.
+ */
+export function cleanSpawnEnv(
+  base: NodeJS.ProcessEnv = process.env
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...base }
+  for (const key of LOADER_ENV_KEYS) {
+    delete env[key]
+  }
+  return env
+}
+
+/**
  * Spawn a particular shell in a way that works for Flatpak-based usage
  *
  * @param path path to shell, relative to the root of the filesystem
@@ -71,11 +105,19 @@ export function spawn(
   args: ReadonlyArray<string>,
   options?: SpawnOptionsWithoutStdio
 ): ChildProcess {
-  if (isFlatpakBuild()) {
-    return nodeSpawn('flatpak-spawn', ['--host', path, ...args], options)
+  // Strip loader-hijacking env vars so an externally launched terminal
+  // loads system libraries rather than GitHub Desktop's bundled ones.
+  // A caller that supplies its own `env` is respected as-is.
+  const mergedOptions: SpawnOptionsWithoutStdio = {
+    env: cleanSpawnEnv(),
+    ...options,
   }
 
-  return nodeSpawn(path, args, options)
+  if (isFlatpakBuild()) {
+    return nodeSpawn('flatpak-spawn', ['--host', path, ...args], mergedOptions)
+  }
+
+  return nodeSpawn(path, args, mergedOptions)
 }
 
 /**
