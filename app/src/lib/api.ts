@@ -408,6 +408,34 @@ export interface IAPIWorkflowRun {
   readonly rerun_url: string
   readonly check_suite_id: number
   readonly event: string
+  readonly head_branch: string
+  readonly head_sha: string
+  readonly run_number: number
+  readonly status: string
+  readonly conclusion: string | null
+  readonly updated_at: string
+  readonly run_started_at: string | null
+  readonly html_url: string
+  readonly jobs_url: string
+  readonly path: string
+  readonly pull_requests: ReadonlyArray<unknown>
+}
+
+export interface IAPIWorkflow {
+  readonly id: number
+  readonly name: string
+  readonly path: string
+  readonly state:
+    | 'active'
+    | 'deleted'
+    | 'disabled_fork'
+    | 'disabled_inactivity'
+    | 'disabled_manually'
+}
+
+interface IAPIWorkflows {
+  readonly total_count: number
+  readonly workflows: ReadonlyArray<IAPIWorkflow>
 }
 
 export interface IAPIWorkflowJobs {
@@ -1471,6 +1499,92 @@ export class API {
       )
     }
     return null
+  }
+
+  /**
+   * List workflow runs for a repository filtered by branch.
+   */
+  public async fetchWorkflowRuns(
+    owner: string,
+    name: string,
+    branch: string,
+    workflowName?: string,
+    status?: string
+  ): Promise<IAPIWorkflowRuns | null> {
+    const params: Record<string, string> = { branch }
+    if (status !== undefined) {
+      params.status = status
+    }
+    const path = urlWithQueryString(
+      `repos/${owner}/${name}/actions/runs`,
+      params
+    )
+    const response = await this.request('GET', path)
+
+    if (response.status === 404) {
+      return null
+    }
+
+    try {
+      return await parsedResponse<IAPIWorkflowRuns>(response)
+    } catch (e) {
+      log.warn(`Failed fetching workflow runs for ${branch} (${owner}/${name})`)
+      return null
+    }
+  }
+
+  /**
+   * Trigger a workflow_dispatch event for a workflow.
+   */
+  public async dispatchWorkflowRun(
+    owner: string,
+    name: string,
+    workflowId: number | string,
+    ref: string,
+    inputs?: Record<string, string>
+  ): Promise<boolean> {
+    const path = `repos/${owner}/${name}/actions/workflows/${workflowId}/dispatches`
+    const body: Record<string, unknown> = { ref }
+    if (inputs !== undefined) {
+      body.inputs = inputs
+    }
+    const response = await this.request('POST', path, body)
+    return response.status === 204
+  }
+
+  /**
+   * Cancel a workflow run.
+   */
+  public async cancelWorkflowRun(
+    owner: string,
+    name: string,
+    workflowRunId: number
+  ): Promise<boolean> {
+    const path = `repos/${owner}/${name}/actions/runs/${workflowRunId}/cancel`
+    const response = await this.request('POST', path)
+    return response.status === 202
+  }
+
+  /**
+   * List workflows for a repository.
+   */
+  public async fetchWorkflows(
+    owner: string,
+    name: string
+  ): Promise<IAPIWorkflows | null> {
+    const path = `repos/${owner}/${name}/actions/workflows`
+    const response = await this.request('GET', path)
+
+    if (response.status === 404) {
+      return null
+    }
+
+    try {
+      return await parsedResponse<IAPIWorkflows>(response)
+    } catch (e) {
+      log.warn(`Failed fetching workflows for ${owner}/${name})`)
+      return null
+    }
   }
 
   /**
