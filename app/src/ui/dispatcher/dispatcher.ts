@@ -1,6 +1,7 @@
 import { Disposable, DisposableLike } from 'event-kit'
 
 import {
+  API,
   IAPIOrganization,
   IAPIPullRequest,
   IAPIFullRepository,
@@ -36,6 +37,7 @@ import {
   getRebaseSnapshot,
   getRepositoryType,
 } from '../../lib/git'
+import { getAccountForRepository } from '../../lib/get-account-for-repository'
 import { isGitOnPath } from '../../lib/is-git-on-path'
 import {
   IOpenRepositoryFromURLAction,
@@ -2676,6 +2678,103 @@ export class Dispatcher {
     return this.appStore._loadWorktrees(repository)
   }
 
+  /** Refresh the cached workflow runs for the given repository. */
+  public loadWorkflowRuns(repository: Repository): Promise<void> {
+    return this.appStore._loadWorkflowRuns(repository)
+  }
+
+  /**
+   * Dispatch a workflow run for the given repository.
+   */
+  public async dispatchWorkflowRun(
+    repository: Repository,
+    workflowId: number | string,
+    branch: string,
+    inputs?: Record<string, string>
+  ): Promise<void> {
+    if (repository.gitHubRepository === null) {
+      return
+    }
+
+    const account = getAccountForRepository(
+      this.appStore.getState().accounts,
+      repository
+    )
+    if (account === null) {
+      return
+    }
+
+    const { owner, name } = repository.gitHubRepository
+
+    try {
+      const api = API.fromAccount(account)
+      await api.dispatchWorkflowRun(owner.login, name, workflowId, branch, inputs)
+      await this.loadWorkflowRuns(repository)
+    } catch (error) {
+      log.error('Error dispatching workflow run:', error)
+    }
+  }
+
+  /**
+   * Re-run failed jobs for a workflow run in the given repository.
+   */
+  public async reRunWorkflowRun(
+    repository: Repository,
+    runId: number
+  ): Promise<void> {
+    if (repository.gitHubRepository === null) {
+      return
+    }
+
+    const account = getAccountForRepository(
+      this.appStore.getState().accounts,
+      repository
+    )
+    if (account === null) {
+      return
+    }
+
+    const { owner, name } = repository.gitHubRepository
+
+    try {
+      const api = API.fromAccount(account)
+      await api.rerunFailedJobs(owner.login, name, runId)
+      await this.loadWorkflowRuns(repository)
+    } catch (error) {
+      log.error('Error re-running workflow run:', error)
+    }
+  }
+
+  /**
+   * Cancel a workflow run in the given repository.
+   */
+  public async cancelWorkflowRun(
+    repository: Repository,
+    runId: number
+  ): Promise<void> {
+    if (repository.gitHubRepository === null) {
+      return
+    }
+
+    const account = getAccountForRepository(
+      this.appStore.getState().accounts,
+      repository
+    )
+    if (account === null) {
+      return
+    }
+
+    const { owner, name } = repository.gitHubRepository
+
+    try {
+      const api = API.fromAccount(account)
+      await api.cancelWorkflowRun(owner.login, name, runId)
+      await this.loadWorkflowRuns(repository)
+    } catch (error) {
+      log.error('Error cancelling workflow run:', error)
+    }
+  }
+
   /**
    * Create a new linked worktree. Rejects on Git failure so the create
    * dialog can show the error.
@@ -4199,3 +4298,4 @@ export class Dispatcher {
     return this.appStore._updateShowDiffCheckMarks(diffCheckMarks)
   }
 }
+test
