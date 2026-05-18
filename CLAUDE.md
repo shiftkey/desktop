@@ -162,10 +162,20 @@ for manually triggering workflows.
   coalesce. Surfaced via `IAppState.workflowRunsByRepoId`.
 - **UI**: `WorkflowRunList` + `WorkflowRunListItem` render the sidebar with a
   status-filter toolbar (`WorkflowRunToolbar`) and a "Run workflow" button.
-  `WorkflowRunDispatchDialog` is a popup (`PopupType.WorkflowRunDispatch`)
-  with a workflow dropdown and branch input. The Actions tab lives inside
-  `RepositoryView` (`RepositorySectionTab.Actions`).
-- **Dispatcher**: `loadWorkflowRuns`, `dispatchWorkflowRun`.
+  Selecting a run highlights the row and opens `WorkflowRunDetail` in the
+  content pane: a status header, run metadata, the triggering commit
+  summary, run actions (re-run failed jobs / cancel / open on GitHub /
+  download logs), and the run's jobs with their steps. `WorkflowRunDetail`
+  fetches jobs straight from the API (`fetchWorkflowRunJobs`) on selection
+  rather than via a store. `WorkflowRunDispatchDialog` is a popup
+  (`PopupType.WorkflowRunDispatch`) with a workflow dropdown and branch
+  input. The Actions tab lives inside `RepositoryView`
+  (`RepositorySectionTab.Actions`); `RepositoryView` holds the selected
+  run id in local state (`selectedWorkflowRunId`). Status icon / class /
+  label mapping is shared across the list, detail pane, and job list via
+  `workflow-run-status.ts`.
+- **Dispatcher**: `loadWorkflowRuns`, `dispatchWorkflowRun`,
+  `reRunWorkflowRun`, `cancelWorkflowRun`.
 
 ### Working-directory change summary (`app/src/lib/git/working-directory-stats.ts`, `app/src/models/working-directory-stats.ts`, `app/src/ui/changes/change-summary-badge.tsx`)
 

@@ -30,6 +30,7 @@ import { IWorktreeEntry } from '../models/worktree'
 import { WorktreeList } from './worktrees/worktree-list'
 import { IWorkflowRun } from '../models/workflow-run'
 import { WorkflowRunList } from './workflow-runs/workflow-run-list'
+import { WorkflowRunDetail } from './workflow-runs/workflow-run-detail'
 import { PopupType } from '../models/popup'
 import { TutorialPanel, TutorialWelcome, TutorialDone } from './tutorial'
 import { TutorialStep, isValidTutorialStep } from '../models/tutorial-step'
@@ -130,6 +131,7 @@ interface IRepositoryViewState {
   readonly changesListScrollTop: number
   readonly compareListScrollTop: number
   readonly selectedStashSha: string | null
+  readonly selectedWorkflowRunId: number | null
 }
 
 const enum Tab {
@@ -164,6 +166,7 @@ export class RepositoryView extends React.Component<
       changesListScrollTop: 0,
       compareListScrollTop: 0,
       selectedStashSha: null,
+      selectedWorkflowRunId: null,
     }
   }
 
@@ -392,8 +395,14 @@ export class RepositoryView extends React.Component<
         dispatcher={this.props.dispatcher}
         accounts={this.props.accounts}
         branch={currentBranch}
+        onSelectRun={this.onSelectWorkflowRun}
+        selectedRunId={this.state.selectedWorkflowRunId}
       />
     )
+  }
+
+  private onSelectWorkflowRun = (entry: IWorkflowRun) => {
+    this.setState({ selectedWorkflowRunId: entry.id })
   }
 
   private renderStashesSidebar(): JSX.Element {
@@ -711,8 +720,31 @@ export class RepositoryView extends React.Component<
     }
   }
 
-  private renderContentForActions(): JSX.Element | null {
-    return null
+  private renderContentForActions(): JSX.Element {
+    const runId = this.state.selectedWorkflowRunId
+    const run =
+      runId === null
+        ? null
+        : this.props.workflowRunEntries.find(r => r.id === runId) ?? null
+
+    if (run === null) {
+      return (
+        <div className="workflow-run-empty-pane">
+          {this.props.workflowRunEntries.length === 0
+            ? 'No workflow runs to view.'
+            : 'Select a workflow run to view its jobs and details.'}
+        </div>
+      )
+    }
+
+    return (
+      <WorkflowRunDetail
+        run={run}
+        repository={this.props.repository}
+        dispatcher={this.props.dispatcher}
+        accounts={this.props.accounts}
+      />
+    )
   }
 
   /** Resolve the currently selected stash entry, or null when none. */

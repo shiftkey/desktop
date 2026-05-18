@@ -22,10 +22,22 @@
       flex-shrink: 0;
     }
 
-    .panel {
-      height: 100%;
+    // The active tab's content fills the space below the tab-bar and
+    // shrinks when the integrated terminal reserves vertical space at the
+    // bottom of the window. Without an explicit `min-height: 0` a flex
+    // child refuses to shrink below its content, so tabs other than
+    // Changes overflowed behind the terminal panel.
+    .panel,
+    #compare-view,
+    .stash-list,
+    .worktree-list,
+    .workflow-run-list {
       flex: 1 1 auto;
       min-height: 0;
+      height: auto;
+    }
+
+    .panel {
       overflow-y: auto;
     }
   }

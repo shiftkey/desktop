@@ -244,7 +244,7 @@
   }
 
   &__cell-label {
-    font-size: 10px;
+    font-size: var(--font-size-xs);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-secondary-color);

@@ -32,14 +32,18 @@ export class WorktreeList extends React.Component<IWorktreeListProps> {
             Prune
           </Button>
         </div>
-        {this.renderBody()}
+        <div className="worktree-list__body">{this.renderBody()}</div>
       </div>
     )
   }
 
   private renderBody(): JSX.Element {
     if (this.props.loading) {
-      return <div className="worktree-list__loading">Loading worktrees…</div>
+      return (
+        <div className="worktree-list__loading" role="status">
+          Loading worktrees…
+        </div>
+      )
     }
 
     if (this.props.entries.length === 0) {

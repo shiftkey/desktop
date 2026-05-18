@@ -1,9 +1,7 @@
 .worktree-list {
   display: flex;
   flex-direction: column;
-  height: 100%;
   padding: var(--spacing);
-  overflow-y: auto;
 
   &__loading,
   &__empty {
@@ -21,6 +19,14 @@
     flex-shrink: 0;
   }
 
+  // Scroll the worktree rows independently so the Add / Prune toolbar
+  // stays pinned at the top of the panel.
+  &__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
   ul {
     list-style: none;
     margin: 0;
@@ -34,6 +40,11 @@
     gap: var(--spacing);
     padding: var(--spacing);
     border-bottom: 1px solid var(--box-border-color);
+    transition: background-color 0.1s ease-in-out;
+
+    &:hover {
+      background-color: var(--list-item-hover-background-color);
+    }
 
     &:last-child {
       border-bottom: none;

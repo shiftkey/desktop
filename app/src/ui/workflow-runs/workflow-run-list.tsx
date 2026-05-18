@@ -21,6 +21,15 @@ interface IWorkflowRunListProps {
   readonly dispatcher: Dispatcher
   readonly accounts: ReadonlyArray<Account>
   readonly branch: string
+
+  /**
+   * Invoked when a run row is activated. When provided, the run is
+   * selected for the detail pane; when omitted, the run opens on GitHub.
+   */
+  readonly onSelectRun?: (entry: IWorkflowRun) => void
+
+  /** The id of the currently selected run, highlighted in the list. */
+  readonly selectedRunId?: number | null
 }
 
 interface IWorkflowRunListState {
@@ -59,24 +68,31 @@ export class WorkflowRunList extends React.Component<
   private renderBody(): JSX.Element {
     if (this.props.loading) {
       return (
-        <div className="workflow-run-list-loading">Loading workflow runs…</div>
+        <div className="workflow-run-list-loading" role="status">
+          Loading workflow runs…
+        </div>
       )
     }
 
     const filtered = this.getFilteredEntries()
     if (filtered.length === 0) {
       return (
-        <div className="workflow-run-list-empty">No workflow runs found.</div>
+        <div className="workflow-run-list-empty">
+          {this.props.entries.length === 0
+            ? 'No workflow runs yet. Trigger one with “Run workflow”, or push a commit to a branch with a configured workflow.'
+            : 'No runs match this filter.'}
+        </div>
       )
     }
 
     return (
-      <div>
+      <div className="workflow-run-list-items" role="grid">
         {filtered.map(entry => (
           <WorkflowRunListItem
             key={entry.id}
             entry={entry}
             onRunClick={this.onRunClick}
+            selected={entry.id === this.props.selectedRunId}
           />
         ))}
       </div>
@@ -118,9 +134,11 @@ export class WorkflowRunList extends React.Component<
   }
 
   private onRunClick = (entry: IWorkflowRun) => {
-    // Open the run on GitHub — the in-app run detail view is a separate
-    // feature; until it exists the browser is the canonical destination.
-    this.props.dispatcher.openInBrowser(entry.htmlUrl)
+    if (this.props.onSelectRun) {
+      this.props.onSelectRun(entry)
+    } else {
+      this.props.dispatcher.openInBrowser(entry.htmlUrl)
+    }
   }
 
   private onRunWorkflow = async () => {

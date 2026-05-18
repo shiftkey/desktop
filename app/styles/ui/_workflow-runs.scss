@@ -1,23 +1,31 @@
 .workflow-run-list {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: 0;
 }
 
 .workflow-run-toolbar {
   display: flex;
-  gap: 8px;
-  padding: 8px;
+  gap: var(--spacing-half);
+  padding: var(--spacing-half);
   border-bottom: 1px solid var(--box-border-color);
+  flex-shrink: 0;
 
   select {
     flex: 1;
   }
 }
 
+// The run rows scroll independently so the filter toolbar stays pinned.
+.workflow-run-list-items {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .workflow-run-list-loading,
 .workflow-run-list-empty {
-  padding: 16px;
+  padding: var(--spacing-double);
   text-align: center;
   color: var(--text-secondary-color);
 }
@@ -25,14 +33,20 @@
 .workflow-run-list-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: var(--spacing-half);
+  padding: var(--spacing-half) var(--spacing);
   cursor: pointer;
   border-bottom: 1px solid var(--box-border-color);
+  transition: background-color 0.1s ease-in-out;
 
   &:hover,
   &.selected {
     background-color: var(--list-item-hover-background-color);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--focus-color);
   }
 
   .octicon {
@@ -45,19 +59,44 @@
   }
 
   .workflow-run-name {
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .workflow-run-meta {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .workflow-run-timing {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .workflow-run-triggered-at {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-third);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+    white-space: nowrap;
+
+    .octicon {
+      width: 12px;
+      height: 12px;
+    }
   }
 
   .workflow-run-duration {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--text-secondary-color);
     white-space: nowrap;
   }
@@ -90,15 +129,191 @@
 .workflow-run-dispatch-dialog {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--spacing-half);
 
   label {
-    font-weight: 600;
-    margin-top: 8px;
+    font-weight: var(--font-weight-semibold);
+    margin-top: var(--spacing-half);
   }
 
   select,
   input {
     width: 100%;
+  }
+}
+
+// Placeholder shown in the content pane until a run is selected.
+.workflow-run-empty-pane {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  padding: var(--spacing-double);
+  text-align: center;
+  color: var(--text-secondary-color);
+  font-size: var(--font-size-md);
+}
+
+// Detail pane for a selected workflow run.
+.workflow-run-detail {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--spacing-double);
+  gap: var(--spacing);
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing);
+  }
+
+  &__heading {
+    min-width: 0;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 16px;
+    word-break: break-word;
+  }
+
+  &__number {
+    color: var(--text-secondary-color);
+    font-weight: 400;
+  }
+
+  &__status-label {
+    margin-top: 2px;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+  }
+
+  // Shared status tinting for the run, job, and step icons.
+  &__status-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+
+    &.status-success .octicon {
+      color: var(--color-new);
+    }
+    &.status-failure .octicon {
+      color: var(--color-error);
+    }
+    &.status-cancelled .octicon {
+      color: var(--text-secondary-color);
+    }
+    &.status-pending .octicon {
+      color: var(--color-warning);
+    }
+  }
+
+  &__meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--spacing-half) var(--spacing);
+    margin: 0;
+  }
+
+  &__meta-item {
+    dt {
+      font-size: var(--font-size-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary-color);
+    }
+
+    dd {
+      margin: 0;
+      font-size: var(--font-size-sm);
+      word-break: break-word;
+    }
+  }
+
+  &__commit {
+    margin: 0;
+    padding: var(--spacing-half) var(--spacing);
+    background: var(--box-alt-background-color);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-sm);
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-half);
+  }
+
+  &__jobs {
+    h3 {
+      margin: 0 0 var(--spacing-half);
+      font-size: var(--font-size-md);
+    }
+  }
+
+  &__jobs-status {
+    padding: var(--spacing-half) 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+  }
+
+  &__jobs-error {
+    color: var(--color-error);
+  }
+
+  &__job-list,
+  &__steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  &__job {
+    margin-bottom: var(--spacing-half);
+    border: 1px solid var(--box-border-color);
+    border-radius: var(--border-radius);
+  }
+
+  &__job-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-half);
+    padding: var(--spacing-half) var(--spacing);
+  }
+
+  &__job-name {
+    flex: 1;
+    min-width: 0;
+    font-weight: var(--font-weight-semibold);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__job-duration {
+    flex-shrink: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+  }
+
+  &__steps {
+    padding: var(--spacing-half) 0;
+    border-top: 1px solid var(--box-border-color);
+  }
+
+  &__step {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-half);
+    padding: var(--spacing-third) var(--spacing);
+    font-size: var(--font-size-sm);
+  }
+
+  &__step-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
