@@ -7,7 +7,7 @@
   "main": "./main.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/desktop/desktop.git"
+    "url": "https://github.com/tommyqhoang/github-desktop-linux.git"
   },
   "description": "Simple collaboration from your desktop",
   "author": {

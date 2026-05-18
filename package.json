@@ -1,7 +1,7 @@
 {
   "repository": {
     "type": "git",
-    "url": "https://github.com/desktop/desktop.git"
+    "url": "https://github.com/tommyqhoang/github-desktop-linux.git"
   },
   "description": "GitHub Desktop build dependencies",
   "scripts": {

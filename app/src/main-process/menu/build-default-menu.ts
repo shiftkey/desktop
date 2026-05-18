@@ -502,7 +502,9 @@ export function buildDefaultMenu({
     label: __DARWIN__ ? 'Report Issue…' : 'Report issue…',
     click() {
       shell
-        .openExternal('https://github.com/shiftkey/desktop/issues/new/choose')
+        .openExternal(
+          'https://github.com/tommyqhoang/github-desktop-linux/issues/new/choose'
+        )
         .catch(err => log.error('Failed opening issue creation page', err))
     },
   }
