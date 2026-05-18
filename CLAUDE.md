@@ -171,10 +171,14 @@ for manually triggering workflows.
 
 The Changes tab shows aggregate diff stats alongside the file count.
 
-- `getWorkingDirectoryStats` runs `git diff --numstat -z HEAD` and sums
-  `{files, additions, deletions}`. Binary files count as 0/0; only tracked
-  changes are reported (`git diff HEAD` excludes untracked files). Returns
-  `null` for a repo with no commits or a clean working directory.
+- `getWorkingDirectoryStats` sums `{files, additions, deletions}` across
+  every pending change — tracked modifications/deletions *and* untracked
+  new files. Since `git diff HEAD` ignores untracked files, it stages all
+  changes with `--intent-to-add` into a throwaway index (`GIT_INDEX_FILE`,
+  so the real index is untouched and no blobs are written) and diffs that
+  against HEAD with `--numstat -z`. Binary files count as 0/0; `.gitignore`
+  exclusions are skipped. Returns `null` for a repo with no commits or a
+  clean working directory.
 - `ChangeSummaryBadge` renders the added/removed line counts; the stats are
   threaded through repository status updates as `IWorkingDirectoryStats`.
 

@@ -2,7 +2,12 @@ import * as React from 'react'
 import { Button } from '../lib/button'
 import { WorkflowRunStatus } from '../../models/workflow-run'
 
-type WorkflowRunFilter = WorkflowRunStatus | 'all' | 'success' | 'failure' | 'cancelled'
+type WorkflowRunFilter =
+  | WorkflowRunStatus
+  | 'all'
+  | 'success'
+  | 'failure'
+  | 'cancelled'
 
 interface IWorkflowRunToolbarProps {
   readonly selectedFilter: WorkflowRunFilter

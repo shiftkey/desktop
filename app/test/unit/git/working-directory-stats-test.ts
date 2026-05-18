@@ -47,15 +47,59 @@ describe('git/working-directory-stats', () => {
       expect(stats!.deletions).toBe(1)
     })
 
-    it('handles a new untracked file in repo with commits', async () => {
+    it('counts additions for a new untracked file', async () => {
       const repo = await setupEmptyRepository()
       await makeInitialCommit(repo)
       const filePath = path.join(repo.path, 'new-file.txt')
       await FSE.writeFile(filePath, 'Line 1\nLine 2\nLine 3\n')
 
       const stats = await getWorkingDirectoryStats(repo)
-      // git diff --numstat HEAD does not include untracked files
-      expect(stats).toBeNull()
+      expect(stats).not.toBeNull()
+      expect(stats!.files).toBe(1)
+      expect(stats!.additions).toBe(3)
+      expect(stats!.deletions).toBe(0)
+    })
+
+    it('counts tracked and untracked changes together', async () => {
+      const repo = await setupEmptyRepository()
+      await makeInitialCommit(repo)
+      await FSE.writeFile(
+        path.join(repo.path, 'README.md'),
+        '# Hello\nNew line 1\n'
+      )
+      await FSE.writeFile(path.join(repo.path, 'untracked.txt'), 'a\nb\nc\nd\n')
+
+      const stats = await getWorkingDirectoryStats(repo)
+      expect(stats).not.toBeNull()
+      expect(stats!.files).toBe(2)
+      expect(stats!.additions).toBe(5)
+      expect(stats!.deletions).toBe(0)
+    })
+
+    it('counts deletions for a removed tracked file', async () => {
+      const repo = await setupEmptyRepository()
+      await makeInitialCommit(repo)
+      await FSE.remove(path.join(repo.path, 'README.md'))
+
+      const stats = await getWorkingDirectoryStats(repo)
+      expect(stats).not.toBeNull()
+      expect(stats!.files).toBe(1)
+      expect(stats!.additions).toBe(0)
+      expect(stats!.deletions).toBe(1)
+    })
+
+    it('ignores files excluded by .gitignore', async () => {
+      const repo = await setupEmptyRepository()
+      await makeInitialCommit(repo)
+      await FSE.writeFile(path.join(repo.path, '.gitignore'), 'ignored.txt\n')
+      await FSE.writeFile(path.join(repo.path, 'ignored.txt'), 'x\ny\nz\n')
+
+      const stats = await getWorkingDirectoryStats(repo)
+      // Only the new .gitignore file is counted; ignored.txt is excluded.
+      expect(stats).not.toBeNull()
+      expect(stats!.files).toBe(1)
+      expect(stats!.additions).toBe(1)
+      expect(stats!.deletions).toBe(0)
     })
 
     it('handles multiple tracked files', async () => {

@@ -22,7 +22,12 @@ interface IWorkflowRunListProps {
   readonly branch: string
 }
 
-type WorkflowRunFilter = WorkflowRunStatus | 'all' | 'success' | 'failure' | 'cancelled'
+type WorkflowRunFilter =
+  | WorkflowRunStatus
+  | 'all'
+  | 'success'
+  | 'failure'
+  | 'cancelled'
 
 interface IWorkflowRunListState {
   readonly filter: WorkflowRunFilter
