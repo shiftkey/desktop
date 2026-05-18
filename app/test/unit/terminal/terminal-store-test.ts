@@ -289,33 +289,28 @@ describe('TerminalStore', () => {
       expect(s.getState().sessions.size).toBe(0)
     })
 
-    it('replaceSession rebinds the single-pane layout leaf', () => {
+    it('replaceSession swaps the id in the tab strip and active refs', () => {
       const s = new TerminalStore(memStore())
       s.registerSession(snap({ id: 's1', repositoryId: 7 }))
       s.markExited('s1', 1)
       s.replaceSession('s1', snap({ id: 'sNew', repositoryId: 7 }))
-      // The layout leaf must follow the id swap — otherwise the restarted
-      // terminal renders as a dead, port-less pane.
-      expect(s.getState().layoutByRepoId.get(7)).toEqual({
-        kind: 'leaf',
-        sessionId: 'sNew',
-      })
+      const state = s.getState()
+      // The restarted session takes over the old session's tab slot and
+      // any active references that pointed at the dead id.
+      expect(state.sessions.has('s1')).toBe(false)
+      expect(state.sessions.has('sNew')).toBe(true)
+      expect(state.tabsByRepoId.get(7)).toEqual(['sNew'])
+      expect(state.activeByRepoId.get(7)).toBe('sNew')
+      expect(state.activeSessionId).toBe('sNew')
     })
 
-    it('replaceSession rebinds a leaf nested in a split layout', () => {
+    it('replaceSession preserves the tab position of the old session', () => {
       const s = new TerminalStore(memStore())
       s.registerSession(snap({ id: 's1', repositoryId: 7 }))
       s.registerSession(snap({ id: 's2', repositoryId: 7 }))
-      s.applySplit(7, 's1', 'horizontal', 's2')
-      s.markExited('s2', 1)
-      s.replaceSession('s2', snap({ id: 's2b', repositoryId: 7 }))
-      expect(s.getState().layoutByRepoId.get(7)).toEqual({
-        kind: 'split',
-        orientation: 'horizontal',
-        ratio: 0.5,
-        a: { kind: 'leaf', sessionId: 's1' },
-        b: { kind: 'leaf', sessionId: 's2b' },
-      })
+      s.markExited('s1', 1)
+      s.replaceSession('s1', snap({ id: 's1b', repositoryId: 7 }))
+      expect(s.getState().tabsByRepoId.get(7)).toEqual(['s1b', 's2'])
     })
   })
 
@@ -429,84 +424,22 @@ describe('TerminalStore', () => {
     })
   })
 
-  describe('applySplit / layoutByRepoId', () => {
-    it('registerSession sets leaf layout for a new repo', () => {
-      const s = new TerminalStore()
-      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
-      const layout = s.getState().layoutByRepoId.get(7)
-      expect(layout).toEqual({ kind: 'leaf', sessionId: 's1' })
-    })
-
-    it('registerSession for existing repo does not overwrite layout', () => {
+  describe('multi-tab rendering invariants', () => {
+    it('every registered session stays in the tab strip', () => {
       const s = new TerminalStore()
       s.registerSession(snap({ id: 's1', repositoryId: 7 }))
       s.registerSession(snap({ id: 's2', repositoryId: 7 }))
-      // Second register should leave the layout as the leaf for s1
-      const layout = s.getState().layoutByRepoId.get(7)
-      expect(layout).toEqual({ kind: 'leaf', sessionId: 's1' })
+      s.registerSession(snap({ id: 's3', repositoryId: 7 }))
+      // All three tabs remain addressable — none get dropped.
+      expect(s.getState().tabsByRepoId.get(7)).toEqual(['s1', 's2', 's3'])
+      expect(s.getState().sessions.size).toBe(3)
     })
 
-    it('applySplit updates layout to a split node', () => {
+    it('a freshly registered session becomes the active one', () => {
       const s = new TerminalStore()
       s.registerSession(snap({ id: 's1', repositoryId: 7 }))
       s.registerSession(snap({ id: 's2', repositoryId: 7 }))
-      s.applySplit(7, 's1', 'horizontal', 's2')
-      const layout = s.getState().layoutByRepoId.get(7)
-      expect(layout).toEqual({
-        kind: 'split',
-        orientation: 'horizontal',
-        ratio: 0.5,
-        a: { kind: 'leaf', sessionId: 's1' },
-        b: { kind: 'leaf', sessionId: 's2' },
-      })
-    })
-
-    it('applySplit with vertical orientation', () => {
-      const s = new TerminalStore()
-      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
-      s.registerSession(snap({ id: 's2', repositoryId: 7 }))
-      s.applySplit(7, 's1', 'vertical', 's2')
-      const layout = s.getState().layoutByRepoId.get(7)
-      expect(layout).toMatchObject({ kind: 'split', orientation: 'vertical' })
-    })
-
-    it('removeSession collapses a split back to a leaf', () => {
-      const s = new TerminalStore()
-      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
-      s.registerSession(snap({ id: 's2', repositoryId: 7 }))
-      s.applySplit(7, 's1', 'horizontal', 's2')
-      s.removeSession('s2')
-      const layout = s.getState().layoutByRepoId.get(7)
-      expect(layout).toEqual({ kind: 'leaf', sessionId: 's1' })
-    })
-
-    it('removeSession of last session deletes the layout entry', () => {
-      const s = new TerminalStore()
-      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
-      s.removeSession('s1')
-      expect(s.getState().layoutByRepoId.has(7)).toBe(false)
-    })
-
-    it('setSplitRatio updates ratio at the root split', () => {
-      const s = new TerminalStore()
-      s.registerSession(snap({ id: 's1', repositoryId: 7 }))
-      s.registerSession(snap({ id: 's2', repositoryId: 7 }))
-      s.applySplit(7, 's1', 'horizontal', 's2')
-      s.setSplitRatio(7, [], 0.75)
-      const layout = s.getState().layoutByRepoId.get(7)
-      expect(layout).toMatchObject({ kind: 'split', ratio: 0.75 })
-    })
-
-    it('setSplitRatio is a no-op for unknown repo', () => {
-      const s = new TerminalStore()
-      // Should not throw
-      s.setSplitRatio(99, [], 0.5)
-      expect(s.getState().layoutByRepoId.has(99)).toBe(false)
-    })
-
-    it('initial layoutByRepoId is empty', () => {
-      const s = new TerminalStore()
-      expect(s.getState().layoutByRepoId.size).toBe(0)
+      expect(s.getState().activeSessionId).toBe('s2')
     })
   })
 })

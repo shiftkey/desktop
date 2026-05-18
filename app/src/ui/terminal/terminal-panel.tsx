@@ -5,7 +5,6 @@ import { XtermView, IXtermViewPort } from './xterm-view'
 import { TerminalFindBar } from './terminal-find-bar'
 import { TerminalEmptyState } from './terminal-empty-state'
 import { PasteConfirmDialog } from './paste-confirm-dialog'
-import { SplitContainer } from './split-container'
 import {
   formatTabLabel,
   shouldShowActivityDot,
@@ -64,20 +63,6 @@ interface ITerminalPanelProps {
    * when the active session has `status === 'exited'`.
    */
   readonly onRestartTerminal?: (sessionId: string) => void
-  /**
-   * Split the active pane horizontally or vertically.
-   * Wired to Ctrl+Shift+D (horizontal) and Ctrl+Shift+E (vertical).
-   */
-  readonly onSplitTerminal?: (orientation: 'horizontal' | 'vertical') => void
-  /**
-   * Update the ratio of a split node at `path` inside the current repo's
-   * layout tree. Called during drag-to-resize of the split spacer.
-   */
-  readonly onSetSplitRatio?: (
-    repoId: number,
-    path: ReadonlyArray<'a' | 'b'>,
-    ratio: number
-  ) => void
 }
 
 interface ITerminalPanelState {
@@ -291,10 +276,9 @@ export class TerminalPanel extends React.Component<
             <TerminalEmptyState onNewTab={this.props.onNewTab} />
           )}
           {/*
-            SplitContainer renders the layout tree for the current repo.
-            Each leaf maps to one XtermView. The active session is shown;
-            others are kept mounted (hidden) so their scrollback survives.
-            Falls back to the legacy flat render when no layout exists yet.
+            One XtermView per session. The active session's view is shown;
+            the others stay mounted but hidden (`display: none`) so their
+            scrollback and live PTY survive a tab switch.
           */}
           {this.renderExitOverlay()}
           {this.renderSessions(activeId)}
@@ -312,49 +296,10 @@ export class TerminalPanel extends React.Component<
 
   private renderSessions(activeId: string | null): React.ReactNode {
     const { state } = this.props
-    const repoId = this.props.repositoryId
-    const layout =
-      repoId !== null ? state.layoutByRepoId.get(repoId) : undefined
 
-    // Route through SplitContainer only for a real split tree. A bare
-    // `leaf` layout — the common single- and multi-tab case — must fall
-    // through to the flat per-tab render below: SplitContainer renders
-    // only the sessions present in the layout tree, so a second tab that
-    // was never added to the tree would render nothing and the panel
-    // would appear blank.
-    if (layout !== undefined && layout.kind === 'split') {
-      return (
-        <SplitContainer
-          layout={layout}
-          portFor={this.props.portFor}
-          theme={this.props.theme}
-          fontSize={this.props.fontSize}
-          scrollback={this.props.scrollback}
-          mountedSessionIds={this.state.mountedSessionIds}
-          xtermRefs={this.xtermRefs}
-          // eslint-disable-next-line react/jsx-no-bind
-          onRatioChange={
-            repoId !== null && this.props.onSetSplitRatio
-              ? (path, ratio) =>
-                  this.props.onSetSplitRatio!(repoId, path, ratio)
-              : undefined
-          }
-          // eslint-disable-next-line react/jsx-no-bind
-          onFilePathClick={
-            this.props.onFilePathClick
-              ? (sid, filePath, line, col) =>
-                  this.props.onFilePathClick!(repoId, sid, filePath, line, col)
-              : undefined
-          }
-          // eslint-disable-next-line react/jsx-no-bind
-          onPasteConfirmRequired={(sid, text) =>
-            this.handlePasteConfirmRequired(sid, text)
-          }
-        />
-      )
-    }
-
-    // Fallback: flat render when no layout exists (e.g. repo has no sessions).
+    // One XtermView per session. Only the active session's view is
+    // visible; the rest stay mounted-but-hidden so scrollback survives a
+    // tab switch.
     return Array.from(state.sessions.keys())
       .filter(sid => this.state.mountedSessionIds.has(sid))
       .map(sid => {
@@ -795,23 +740,6 @@ export class TerminalPanel extends React.Component<
       e.preventDefault()
       this.toggleFindBar()
       return
-    }
-    // Split panes: Ctrl+Shift+D = horizontal, Ctrl+Shift+E = vertical.
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey) {
-      if (e.key === 'D' || e.key === 'd') {
-        if (this.props.onSplitTerminal) {
-          e.preventDefault()
-          this.props.onSplitTerminal('horizontal')
-        }
-        return
-      }
-      if (e.key === 'E' || e.key === 'e') {
-        if (this.props.onSplitTerminal) {
-          e.preventDefault()
-          this.props.onSplitTerminal('vertical')
-        }
-        return
-      }
     }
     // Ctrl+1..9 (no Shift, no Alt) → quick-switch tab inside the
     // current repo. Ctrl+0 / Ctrl+= / Ctrl+- handle font zoom (Task 17).

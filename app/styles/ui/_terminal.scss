@@ -255,25 +255,6 @@
   }
 }
 
-// ─── Split spacer ───────────────────────────────────────────────────────
-.split-spacer {
-  background: var(--box-border-color, #333);
-  flex-shrink: 0;
-
-  &.horizontal {
-    width: 4px;
-    cursor: col-resize;
-  }
-  &.vertical {
-    height: 4px;
-    cursor: row-resize;
-  }
-
-  &:hover {
-    background: var(--secondary-button-hover-background, #555);
-  }
-}
-
 // ─── Command block gutter ───────────────────────────────────────────────
 // Class names mirror the DOM rendered by XtermView.renderGutter():
 // `.xterm-gutter` container, `.xterm-block-marker` dots with `success` /
