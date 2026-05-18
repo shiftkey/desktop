@@ -9,6 +9,7 @@ import { CommittedFileChange, WorkingDirectoryStatus } from '../models/status'
 import { CloningRepository } from '../models/cloning-repository'
 import { IRepoStashState } from './stores/stash-store'
 import { IRepoWorktreeState } from './stores/worktree-store'
+import { IRepoWorkflowRunsState } from './stores/workflow-runs-store'
 import { ITerminalState } from './stores/terminal-store'
 import { IPRReviewSession } from '../models/pull-request-review'
 import { IRepoHealthSnapshot } from './repo-health/types'
@@ -86,6 +87,8 @@ export interface IAppState {
   readonly stashesByRepoId: ReadonlyMap<number, IRepoStashState>
   /** Cached worktree entries for each repository (powers the Worktrees tab). */
   readonly worktreesByRepoId: ReadonlyMap<number, IRepoWorktreeState>
+  /** Cached workflow runs for each repository (powers the Actions tab). */
+  readonly workflowRunsByRepoId: ReadonlyMap<number, IRepoWorkflowRunsState>
   /** Integrated terminal panel state. */
   readonly terminal: ITerminalState
   /** Terminal cell font size in CSS px (Ctrl+= / Ctrl+- / Ctrl+0). */
@@ -431,6 +434,7 @@ export enum RepositorySectionTab {
   History,
   Stashes,
   Worktrees,
+  Actions,
 }
 
 /**

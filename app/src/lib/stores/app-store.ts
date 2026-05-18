@@ -62,6 +62,11 @@ import {
   AppFileStatusKind,
 } from '../../models/status'
 import { TipState, tipEquals, IValidBranch } from '../../models/tip'
+import {
+  IWorkflowRun,
+  WorkflowRunStatus,
+  WorkflowRunConclusion,
+} from '../../models/workflow-run'
 import { ICommitMessage } from '../../models/commit-message'
 import {
   Progress,
@@ -104,6 +109,7 @@ import {
   IAPIFullRepository,
   IAPIComment,
   IAPIRepoRuleset,
+  IAPIWorkflowRun,
   deleteToken,
 } from '../api'
 import { shell } from '../app-shell'
@@ -240,6 +246,7 @@ import { ExternalEditorError, suggestedExternalEditor } from '../editors/shared'
 import { ApiRepositoriesStore } from './api-repositories-store'
 import { StashStore } from './stash-store'
 import { WorktreeStore } from './worktree-store'
+import { WorkflowRunsStore } from './workflow-runs-store'
 import {
   addWorktree,
   removeWorktree,
@@ -484,6 +491,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private activeAccountByEndpoint: ReadonlyMap<string, number> = new Map()
   private readonly stashStore: StashStore = new StashStore()
   private readonly worktreeStore: WorktreeStore = new WorktreeStore()
+  private readonly workflowRunsStore = new WorkflowRunsStore()
   private readonly terminalStore: TerminalStore =
     typeof window !== 'undefined'
       ? new TerminalStore(window.localStorage)
@@ -1095,6 +1103,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       activeAccountByEndpoint: this.activeAccountByEndpoint,
       stashesByRepoId: this.stashStore.getAllState(),
       worktreesByRepoId: this.worktreeStore.getAllState(),
+      workflowRunsByRepoId: this.workflowRunsStore.getAllState(),
       terminal: this.terminalStore.getState(),
       terminalFontSize: this.terminalSettings.getFontSize(),
       terminalScrollback: this.terminalSettings.getScrollback(),
@@ -3653,6 +3662,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
       refreshSectionPromise = this.stashStore.loadStashes(repository)
     } else if (section === RepositorySectionTab.Worktrees) {
       refreshSectionPromise = this.worktreeStore.loadWorktrees(repository)
+    } else if (section === RepositorySectionTab.Actions) {
+      refreshSectionPromise = this._loadWorkflowRuns(repository)
     } else {
       return assertNever(section, `Unknown section: ${section}`)
     }
@@ -7084,6 +7095,79 @@ export class AppStore extends TypedBaseStore<IAppState> {
   /** Refresh the cached worktree list for the given repository. */
   public async _loadWorktrees(repository: Repository): Promise<void> {
     await this.worktreeStore.loadWorktrees(repository)
+  }
+
+  /** Refresh the cached workflow runs for the given repository. */
+  public async _loadWorkflowRuns(repository: Repository): Promise<void> {
+    if (repository.gitHubRepository === null) {
+      return
+    }
+
+    const account = getAccountForRepository(this.accounts, repository)
+    if (account === null) {
+      return
+    }
+
+    const branchState = this.repositoryStateCache.get(repository).branchesState
+    const tip = branchState.tip
+    if (tip.kind !== TipState.Valid) {
+      return
+    }
+    const branchName = tip.branch.name
+
+    const { owner, name } = repository.gitHubRepository
+
+    this.workflowRunsStore.setLoading(repository.id)
+
+    try {
+      const api = API.fromAccount(account)
+      const response = await api.fetchWorkflowRuns(
+        owner.login,
+        name,
+        branchName
+      )
+
+      if (response === null) {
+        this.workflowRunsStore.setRuns(repository.id, [])
+        return
+      }
+
+      const runs: ReadonlyArray<IWorkflowRun> = response.workflow_runs.map(
+        (run: IAPIWorkflowRun) => ({
+          id: run.id,
+          name: run.name,
+          headBranch: run.head_branch,
+          headSha: run.head_sha,
+          runNumber: run.run_number,
+          event: run.event,
+          status: run.status as WorkflowRunStatus,
+          conclusion: run.conclusion as WorkflowRunConclusion | null,
+          createdAt: run.created_at,
+          updatedAt: run.updated_at,
+          runStartedAt: run.run_started_at,
+          htmlUrl: run.html_url,
+          jobsUrl: run.jobs_url,
+          logsUrl: run.logs_url,
+          workflowId: run.workflow_id,
+          workflowName: run.name,
+          repositoryName: name,
+          repositoryOwner: owner.login,
+          headCommitMessage: null,
+          duration:
+            run.run_started_at !== null
+              ? new Date(run.updated_at).getTime() -
+                new Date(run.run_started_at).getTime()
+              : null,
+        })
+      )
+
+      this.workflowRunsStore.setRuns(repository.id, runs)
+    } catch (error) {
+      this.workflowRunsStore.setError(
+        repository.id,
+        error instanceof Error ? error : new Error(String(error))
+      )
+    }
   }
 
   /** Get the current cached worktree state for the given repository. */

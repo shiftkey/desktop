@@ -131,6 +131,7 @@ const enum Tab {
   History = 1,
   Stashes = 2,
   Worktrees = 3,
+  Actions = 4,
 }
 
 export class RepositoryView extends React.Component<
@@ -204,7 +205,9 @@ export class RepositoryView extends React.Component<
         ? Tab.History
         : section === RepositorySectionTab.Stashes
         ? Tab.Stashes
-        : Tab.Worktrees
+        : section === RepositorySectionTab.Worktrees
+        ? Tab.Worktrees
+        : Tab.Actions
 
     return (
       <TabBar selectedIndex={selectedTab} onTabClicked={this.onTabClicked}>
@@ -223,6 +226,10 @@ export class RepositoryView extends React.Component<
 
         <div className="with-indicator" id="worktrees-tab">
           <span>Worktrees</span>
+        </div>
+
+        <div className="with-indicator" id="actions-tab">
+          <span>Actions</span>
         </div>
       </TabBar>
     )
@@ -359,9 +366,15 @@ export class RepositoryView extends React.Component<
       return this.renderStashesSidebar()
     } else if (selectedSection === RepositorySectionTab.Worktrees) {
       return this.renderWorktreesSidebar()
+    } else if (selectedSection === RepositorySectionTab.Actions) {
+      return this.renderActionsSidebar()
     } else {
       return assertNever(selectedSection, 'Unknown repository section')
     }
+  }
+
+  private renderActionsSidebar(): JSX.Element {
+    return <div className="actions-sidebar">Actions</div>
   }
 
   private renderStashesSidebar(): JSX.Element {
@@ -672,9 +685,15 @@ export class RepositoryView extends React.Component<
       return this.renderContentForStashes()
     } else if (selectedSection === RepositorySectionTab.Worktrees) {
       return this.renderContentForWorktrees()
+    } else if (selectedSection === RepositorySectionTab.Actions) {
+      return this.renderContentForActions()
     } else {
       return assertNever(selectedSection, 'Unknown repository section')
     }
+  }
+
+  private renderContentForActions(): JSX.Element | null {
+    return null
   }
 
   /** Resolve the currently selected stash entry, or null when none. */
@@ -819,6 +838,7 @@ export class RepositoryView extends React.Component<
       RepositorySectionTab.History,
       RepositorySectionTab.Stashes,
       RepositorySectionTab.Worktrees,
+      RepositorySectionTab.Actions,
     ]
     const current = this.props.state.selectedSection
     const idx = order.indexOf(current)
@@ -840,6 +860,8 @@ export class RepositoryView extends React.Component<
         ? RepositorySectionTab.Stashes
         : tab === Tab.Worktrees
         ? RepositorySectionTab.Worktrees
+        : tab === Tab.Actions
+        ? RepositorySectionTab.Actions
         : RepositorySectionTab.Changes
 
     this.props.dispatcher.changeRepositorySection(
