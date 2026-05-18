@@ -6,6 +6,17 @@ import merge from 'webpack-merge'
 const config: webpack.Configuration = {
   mode: 'development',
   devtool: 'source-map',
+  watchOptions: {
+    poll: 1000,
+    aggregateTimeout: 300,
+    ignored: [
+      '**/node_modules/**',
+      '**/app/node_modules/**',
+      '**/app/test/fixtures/**',
+      '**/dist/**',
+      '**/out/**',
+    ],
+  },
 }
 
 const mainConfig = merge({}, common.main, config)

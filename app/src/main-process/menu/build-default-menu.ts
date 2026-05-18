@@ -190,7 +190,7 @@ export function buildDefaultMenu({
       {
         label: __DARWIN__
           ? 'Repository Health Dashboard'
-          : 'Repository &health dashboard',
+          : 'Repository health &dashboard',
         id: 'show-repo-health-dashboard',
         accelerator: 'CmdOrCtrl+Shift+Y',
         click: emit('show-repo-health-dashboard'),

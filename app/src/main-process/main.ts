@@ -289,14 +289,20 @@ function handlePossibleProtocolLauncherArgs(args: ReadonlyArray<string>) {
       log.error(`Malformed launch arguments received: ${args}`)
     }
   } else if (__LINUX__) {
-    // we expect this call to have several parameters before the URL we want,
-    // so we should filter out the program name as well as any parameters that
-    // look like arguments to Electron
-    const argsWithoutParameters = args.filter(
-      a => !a.endsWith('github-desktop') && !a.startsWith('--')
-    )
-    if (argsWithoutParameters.length > 0) {
-      handleAppURL(argsWithoutParameters[0])
+    const matchingUrls = args.filter(arg => {
+      try {
+        const url = URL.parse(arg)
+        return (
+          !!url.protocol && possibleProtocols.has(url.protocol.slice(0, -1))
+        )
+      } catch (e) {
+        log.error(`Unable to parse argument as URL: ${arg}`)
+        return false
+      }
+    })
+
+    if (matchingUrls.length > 0) {
+      handleAppURL(matchingUrls[0])
     }
   } else if (args.length > 1) {
     handleAppURL(args[1])
@@ -317,7 +323,10 @@ function setAsDefaultProtocolClient(protocol: string) {
   }
 }
 
-if (process.env.GITHUB_DESKTOP_DISABLE_HARDWARE_ACCELERATION) {
+if (__DEV__ && __LINUX__) {
+  log.info(`Disabling hardware acceleration for Linux development builds`)
+  app.disableHardwareAcceleration()
+} else if (process.env.GITHUB_DESKTOP_DISABLE_HARDWARE_ACCELERATION) {
   log.info(
     `GITHUB_DESKTOP_DISABLE_HARDWARE_ACCELERATION environment variable set, disabling hardware acceleration`
   )
@@ -784,7 +793,7 @@ app.on(
 function createWindow() {
   const window = new AppWindow()
 
-  if (__DEV__) {
+  if (__DEV__ && process.env.GITHUB_DESKTOP_INSTALL_DEVTOOLS_EXTENSIONS) {
     const {
       default: installExtension,
       REACT_DEVELOPER_TOOLS,
@@ -805,10 +814,16 @@ function createWindow() {
 
     for (const extension of extensions) {
       try {
-        installExtension(extension, {
-          loadExtensionOptions: { allowFileAccess: true },
+        Promise.resolve(
+          installExtension(extension, {
+            loadExtensionOptions: { allowFileAccess: true },
+          })
+        ).catch(e => {
+          log.warn(`Unable to install developer tools extension`, e)
         })
-      } catch (e) {}
+      } catch (e) {
+        log.warn(`Unable to install developer tools extension`, e)
+      }
     }
   }
 

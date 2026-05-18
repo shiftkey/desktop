@@ -13,6 +13,12 @@ const commonConfig: webpack.Configuration = {
   optimization: {
     emitOnErrors: false,
   },
+  ignoreWarnings: [
+    {
+      module: /node-pty[\\/]lib[\\/]unixTerminal\.js/,
+      message: /Can't resolve '\.\.[\\/]build[\\/]Debug[\\/]pty\.node'/,
+    },
+  ],
   externals: externals,
   output: {
     filename: '[name].js',
