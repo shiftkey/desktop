@@ -147,7 +147,7 @@ export class UnreachableCommitsDialog extends React.Component<
           ? 'not'
           : ''}{' '}
         in the ancestry path of the most recent commit in your selection.{' '}
-        <LinkButton uri="https://github.com/desktop/desktop/blob/development/docs/learn-more/unreachable-commits.md">
+        <LinkButton uri="https://github.com/tommyqhoang/github-desktop-linux/blob/linux/docs/learn-more/unreachable-commits.md">
           Learn more about unreachable commits.
         </LinkButton>
       </div>
