@@ -16,14 +16,17 @@ export enum WorkflowRunConclusion {
   TimedOut = 'timed_out',
   ActionRequired = 'action_required',
   Stale = 'stale',
+  StartupFailure = 'startup_failure',
 }
 
+/** A workflow run as returned by the GitHub Actions API, enriched for UI display. */
 export interface IWorkflowRun {
   readonly id: number
   readonly name: string
   readonly headBranch: string
   readonly headSha: string
   readonly runNumber: number
+  /** The event that triggered the workflow run (e.g., 'push', 'pull_request', 'workflow_dispatch'). */
   readonly event: string
   readonly status: WorkflowRunStatus
   readonly conclusion: WorkflowRunConclusion | null
@@ -37,10 +40,12 @@ export interface IWorkflowRun {
   readonly workflowName: string
   readonly repositoryName: string
   readonly repositoryOwner: string
-  readonly headCommitMessage: string
+  readonly headCommitMessage: string | null
+  /** Duration in milliseconds, or null if the run has not started. */
   readonly duration: number | null
 }
 
+/** A job belonging to a workflow run. */
 export interface IWorkflowJob {
   readonly id: number
   readonly runId: number
@@ -53,6 +58,7 @@ export interface IWorkflowJob {
   readonly steps: ReadonlyArray<IWorkflowJobStep>
 }
 
+/** A single step within a workflow job. */
 export interface IWorkflowJobStep {
   readonly name: string
   readonly status: WorkflowRunStatus
