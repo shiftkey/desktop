@@ -348,6 +348,38 @@ describe('TerminalStore', () => {
       store.selectRepo(null)
       expect(store.getState().activeSessionId).toBeNull()
     })
+
+    it('tracks the selected repo', () => {
+      const store = new TerminalStore()
+      store.selectRepo(5)
+      expect(store.getState().selectedRepoId).toBe(5)
+      store.selectRepo(null)
+      expect(store.getState().selectedRepoId).toBeNull()
+    })
+  })
+
+  describe('background-spawn focus race', () => {
+    it('a session spawned for a non-selected repo does not steal focus', () => {
+      const store = new TerminalStore()
+      // User is in repo 1 with an active terminal.
+      store.registerSession(snap({ id: 'a', repositoryId: 1 }))
+      store.selectRepo(1)
+      // User navigates to repo 2 (its auto-spawn has not landed yet).
+      store.selectRepo(2)
+      // Repo 1's earlier async spawn finally registers — must NOT yank
+      // the panel back to repo 1's session.
+      store.registerSession(snap({ id: 'late', repositoryId: 1 }))
+      expect(store.getState().activeSessionId).not.toBe('late')
+      // Repo 1 still owns the late session; returning resumes it.
+      expect(store.getState().tabsByRepoId.get(1)).toContain('late')
+    })
+
+    it('a session spawned for the selected repo becomes active', () => {
+      const store = new TerminalStore()
+      store.selectRepo(2)
+      store.registerSession(snap({ id: 'b', repositoryId: 2 }))
+      expect(store.getState().activeSessionId).toBe('b')
+    })
   })
 
   describe('mergeMeta / markActivity', () => {

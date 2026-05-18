@@ -26,6 +26,12 @@ export interface ITerminalState {
   readonly tabsByRepoId: ReadonlyMap<number, ReadonlyArray<string>>
   /** Per-repo last-active session id, used when switching repos. */
   readonly activeByRepoId: ReadonlyMap<number, string>
+  /**
+   * Repository the user is currently viewing, or null. Tracked so an
+   * async terminal spawn that completes after the user navigated away
+   * cannot yank the panel onto the freshly-spawned (background) session.
+   */
+  readonly selectedRepoId: number | null
 }
 
 const HEIGHT_KEY = 'terminal-panel-height'
@@ -44,6 +50,7 @@ const EMPTY_STATE: ITerminalState = Object.freeze({
   sessions: new Map(),
   tabsByRepoId: new Map(),
   activeByRepoId: new Map(),
+  selectedRepoId: null,
 })
 
 /** Storage adapter for the persisted height — `localStorage`-shaped. */
@@ -119,17 +126,20 @@ export class TerminalStore extends BaseStore {
    */
   public selectRepo(repositoryId: number | null): void {
     if (repositoryId === null) {
-      this.update({ activeSessionId: null })
+      this.update({ selectedRepoId: null, activeSessionId: null })
       return
     }
     const sid = this.state.activeByRepoId.get(repositoryId) ?? null
     if (sid !== null && this.state.sessions.has(sid)) {
-      this.update({ activeSessionId: sid })
+      this.update({ selectedRepoId: repositoryId, activeSessionId: sid })
       return
     }
     // Fallback: first tab for that repo, if any.
     const tabs = this.state.tabsByRepoId.get(repositoryId) ?? []
-    this.update({ activeSessionId: tabs[0] ?? null })
+    this.update({
+      selectedRepoId: repositoryId,
+      activeSessionId: tabs[0] ?? null,
+    })
   }
 
   /** Make the given session the active one (e.g., user clicked a tab). */
@@ -146,7 +156,12 @@ export class TerminalStore extends BaseStore {
     sessions.set(sessionId, { ...session, hasActivity: false })
     const activeByRepoId = new Map(this.state.activeByRepoId)
     activeByRepoId.set(session.repositoryId, sessionId)
-    this.update({ sessions, activeSessionId: sessionId, activeByRepoId })
+    this.update({
+      sessions,
+      activeSessionId: sessionId,
+      activeByRepoId,
+      selectedRepoId: session.repositoryId,
+    })
   }
 
   /**
@@ -211,11 +226,25 @@ export class TerminalStore extends BaseStore {
     const activeByRepoId = new Map(this.state.activeByRepoId)
     activeByRepoId.set(snapshot.repositoryId, snapshot.id)
 
+    // Focus the freshly spawned session only when it belongs to the repo
+    // the user is currently viewing. An auto-spawn is async: if the user
+    // switched repos while it was in flight, stealing `activeSessionId`
+    // here would swap the panel out from under them — the symptom of
+    // "my terminal disappeared and a new one took its place". When the
+    // store has no selected repo yet (e.g. unit tests), keep the old
+    // behaviour and focus the new session.
+    const focusNewSession =
+      this.state.selectedRepoId === null ||
+      this.state.selectedRepoId === snapshot.repositoryId
+    const activeSessionId = focusNewSession
+      ? snapshot.id
+      : this.state.activeSessionId
+
     this.update({
       sessions,
       tabsByRepoId,
       activeByRepoId,
-      activeSessionId: snapshot.id,
+      activeSessionId,
     })
   }
 

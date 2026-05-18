@@ -102,11 +102,20 @@ full design):
 - **Renderer** (`app/src/ui/terminal/`): `TerminalPanel` is the slide-up
   shell; `XtermView` mounts xterm.js into a div and binds it to the
   per-session `MessagePort`. xterm.js owns its own DOM; React state never
-  re-renders on terminal data.
+  re-renders on terminal data. Dropping OS files onto the panel inserts
+  their shell-quoted paths at the active prompt instead of adding them as
+  repositories — `TerminalPanel` binds native `dragover`/`drop` listeners
+  to its root (not React props) so the handler runs at the panel during
+  the bubble phase and `stopPropagation` beats the app-level drop handler
+  (React 16 delegates synthetic events at `document`, too late to win).
 - **Renderer state** (`app/src/lib/stores/terminal-store.ts`): visibility,
   height (persisted to localStorage), per-session snapshots, repo↔session
   bindings. `MessagePort`s themselves are NOT in the store (not
-  serializable) — the `AppStore` keeps them in a private `Map`.
+  serializable) — the `AppStore` keeps them in a private `Map`. Sessions
+  persist per-repo across repo switches: `tabsByRepoId` / `activeByRepoId`
+  keep each repo's tabs, and `selectedRepoId` gates `registerSession` so
+  an async auto-spawn that lands after the user navigated away cannot
+  steal `activeSessionId` onto the background session.
 - **Dispatcher**: `toggleTerminal`, `spawnTerminal`, `killTerminal`,
   `resizeTerminal`, `getTerminalPort`, `setTerminalHeight`.
 

@@ -10,6 +10,23 @@ import {
   shouldShowActivityDot,
   tabStatusIcon,
 } from '../../lib/terminal/tab-model'
+import { webUtils } from 'electron'
+
+/**
+ * Quote a filesystem path for safe insertion at a POSIX shell prompt.
+ * Plain paths (no shell-special characters) are returned untouched;
+ * anything else is wrapped in single quotes with embedded single quotes
+ * escaped the standard `'\''` way.
+ */
+function quotePathForShell(path: string): string {
+  if (path.length === 0) {
+    return ''
+  }
+  if (/^[A-Za-z0-9_./@%+,:=-]+$/.test(path)) {
+    return path
+  }
+  return `'${path.replace(/'/g, "'\\''")}'`
+}
 
 interface ITerminalPanelProps {
   readonly state: ITerminalState
@@ -119,6 +136,14 @@ export class TerminalPanel extends React.Component<
   /** Session id of the tab currently being drag-reordered, or null. */
   private dragSessionId: string | null = null
   /**
+   * The panel root element. File-drop listeners are bound to it natively
+   * (not via React props) so they run during the bubble phase *at the
+   * panel*, before the event reaches `document.body`'s drop handler —
+   * React 16 delegates synthetic events at `document`, which is too late
+   * to stop the app-level "add repository" handler.
+   */
+  private panelRef = React.createRef<HTMLDivElement>()
+  /**
    * Session id whose XtermView most recently received programmatic focus.
    * Tracked so we only auto-focus on a real transition (panel shown, tab
    * switched) rather than on every unrelated re-render — and so the focus
@@ -145,6 +170,11 @@ export class TerminalPanel extends React.Component<
 
   public componentDidMount(): void {
     window.addEventListener('keydown', this.handleGlobalKeyDown)
+    const panel = this.panelRef.current
+    if (panel !== null) {
+      panel.addEventListener('dragover', this.onPanelDragOver)
+      panel.addEventListener('drop', this.onPanelDrop)
+    }
     // The terminal is useless until its xterm helper textarea has focus;
     // grab it on first mount so the user can type without clicking in.
     this.focusActiveSession(true)
@@ -205,6 +235,11 @@ export class TerminalPanel extends React.Component<
   public componentWillUnmount(): void {
     this.detachDragListeners()
     window.removeEventListener('keydown', this.handleGlobalKeyDown)
+    const panel = this.panelRef.current
+    if (panel !== null) {
+      panel.removeEventListener('dragover', this.onPanelDragOver)
+      panel.removeEventListener('drop', this.onPanelDrop)
+    }
   }
 
   public render() {
@@ -228,6 +263,7 @@ export class TerminalPanel extends React.Component<
         role="region"
         aria-label="Terminal"
         aria-hidden={!state.visible}
+        ref={this.panelRef}
       >
         {/*
           The resize gutter has role="separator" + tabIndex=0 + key/mouse
@@ -410,6 +446,76 @@ export class TerminalPanel extends React.Component<
 
   private onPasteCancelled = () => {
     this.setState({ pendingPaste: null })
+  }
+
+  /** True when the drag carries OS files (as opposed to an internal drag). */
+  private dragHasFiles(e: DragEvent): boolean {
+    const types = e.dataTransfer?.types
+    return types !== undefined && Array.from(types).includes('Files')
+  }
+
+  /**
+   * Allow files to be dropped onto the terminal. `preventDefault` is what
+   * makes the subsequent `drop` event fire; the app-level handler also
+   * does this, but claiming it here keeps the terminal self-contained.
+   * An internal drag (tab reorder, commit drag) carries no files and is
+   * left alone so its own handlers still work.
+   */
+  private onPanelDragOver = (e: DragEvent) => {
+    if (!this.dragHasFiles(e)) {
+      return
+    }
+    e.preventDefault()
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy'
+    }
+  }
+
+  /**
+   * A file dropped onto the terminal panel inserts its (shell-quoted)
+   * path at the active shell's prompt — the standard terminal-emulator
+   * behaviour. `stopPropagation` keeps the drop from bubbling to the
+   * app-level handler, which would otherwise try to add the file as a
+   * repository. Dropping outside the panel still adds a repository.
+   */
+  private onPanelDrop = (e: DragEvent) => {
+    if (!this.dragHasFiles(e)) {
+      return
+    }
+    e.preventDefault()
+    e.stopPropagation()
+
+    const files = e.dataTransfer ? Array.from(e.dataTransfer.files) : []
+    if (files.length === 0) {
+      return
+    }
+
+    const text = files
+      .map(file => quotePathForShell(webUtils.getPathForFile(file)))
+      .filter(path => path.length > 0)
+      .join(' ')
+    if (text.length === 0) {
+      return
+    }
+
+    // Trailing space so the user can keep typing after the path(s).
+    this.writeToActiveSession(`${text} `)
+  }
+
+  /** Send raw text to the active session's PTY (mirrors paste handling). */
+  private writeToActiveSession(text: string): void {
+    const sid = this.props.state.activeSessionId
+    if (sid === null) {
+      return
+    }
+    const port = this.props.portFor(sid)
+    if (port !== null) {
+      const bytes = new Uint8Array(Buffer.from(text, 'utf8'))
+      port.postMessage({ type: 'input', bytes })
+    } else {
+      // Fallback for local-echo mode / tests where no port is wired.
+      this.xtermRefs.get(sid)?.current?.pasteText(text)
+    }
   }
 
   private renderTab(sessionId: string, active: boolean) {
