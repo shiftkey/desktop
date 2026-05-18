@@ -363,7 +363,11 @@ export class Advanced extends React.Component<
         {this.renderSSHSettings()}
         <div className="advanced-section">
           <Checkbox
-            label={'Use Git Credential Manager'}
+            label={
+              __LINUX__
+                ? 'Use system credential helper'
+                : 'Use Git Credential Manager'
+            }
             value={
               this.state.useExternalCredentialHelper
                 ? CheckboxValue.On
@@ -377,12 +381,18 @@ export class Advanced extends React.Component<
             className="git-settings-description"
           >
             <p>
-              Use{' '}
-              <LinkButton uri="https://gh.io/gcm">
-                Git Credential Manager{' '}
-              </LinkButton>{' '}
-              for private repositories outside of GitHub.com. This feature is
-              experimental and subject to change.
+              {__LINUX__ ? (
+                "Allow GitHub Desktop to fall back to your system's configured Git credential helper (e.g. store, cache, or Git Credential Manager) when the app's built-in authentication doesn't have credentials for a repository. This helps with organization repositories and repositories you cloned via the command line."
+              ) : (
+                <>
+                  Use{' '}
+                  <LinkButton uri="https://gh.io/gcm">
+                    Git Credential Manager{' '}
+                  </LinkButton>{' '}
+                  for private repositories outside of GitHub.com. This feature
+                  is experimental and subject to change.
+                </>
+              )}
             </p>
           </div>
         </div>

@@ -44,6 +44,10 @@ export class WorktreeStore extends BaseStore {
    * same repository coalesce.
    */
   public async loadWorktrees(repository: Repository): Promise<void> {
+    if (!repository?.path) {
+      return
+    }
+
     const current = this.state.get(repository.id)
     if (current?.loading) {
       return
@@ -57,7 +61,7 @@ export class WorktreeStore extends BaseStore {
       const repositoryPath = Path.resolve(repository.path)
       const entries: Array<IWorktreeEntry> = []
       for (const wt of worktrees.filter(
-        wt => Path.resolve(wt.path) !== repositoryPath
+        wt => wt?.path != null && Path.resolve(wt.path) !== repositoryPath
       )) {
         const changesCount = await getWorktreeStatusCount(wt.path)
         entries.push({ ...wt, changesCount })

@@ -1,6 +1,6 @@
 import { getBoolean, setBoolean } from '../local-storage'
 
-export const useExternalCredentialHelperDefault = false
+export const useExternalCredentialHelperDefault = __LINUX__ ? true : false
 export const useExternalCredentialHelperKey: string =
   'useExternalCredentialHelper'
 

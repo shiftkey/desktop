@@ -32,36 +32,62 @@ export const formatCredential = (credential: Map<string, string>) =>
     .map(([k, v]) => `${k.replace(/\[\d+\]$/, '[]')}=${v}\n`)
     .join('')
 
+async function getConfiguredCredentialHelpers(path: string): Promise<string[]> {
+  const helpers = new Set<string>()
+
+  for (const scope of ['system', 'global', 'local']) {
+    const { stdout, exitCode } = await git(
+      ['config', `--${scope}`, '--get-all', 'credential.helper'],
+      path,
+      { successExitCodes: new Set([0, 1]) } as any
+    )
+
+    if (exitCode === 0 && stdout) {
+      for (const h of stdout.split('\n')) {
+        const trimmed = h.trim()
+        if (trimmed && trimmed !== 'desktop') {
+          helpers.add(trimmed)
+        }
+      }
+    }
+  }
+
+  return [...helpers]
+}
+
 // Can't use git() as that will call withTrampolineEnv which calls this method
-const exec = (
+const exec = async (
   cmd: string,
   cred: Map<string, string>,
   path: string,
   env: Record<string, string | undefined> = {}
-) =>
-  git(
-    [
-      ...['-c', 'credential.helper='],
-      ...['-c', `credential.helper=manager`],
-      'credential',
-      cmd,
-    ],
-    path,
-    {
-      stdin: formatCredential(cred),
-      env: {
-        GIT_TERMINAL_PROMPT: '0',
-        GIT_ASKPASS: '',
-        TERM: 'dumb',
-        ...env,
-      },
-    }
-  ).then(({ exitCode, stderr, stdout }) => {
-    if (exitCode !== 0) {
-      throw new Error(stderr)
-    }
-    return parseCredential(stdout)
+) => {
+  const helpers = await getConfiguredCredentialHelpers(path)
+  const flags = ['credential', cmd]
+
+  if (helpers.length > 0) {
+    flags.unshift(...helpers.flatMap(h => ['-c', `credential.helper=${h}`]))
+  }
+
+  // Always blank the desktop helper first to avoid recursion
+  flags.unshift('-c', 'credential.helper=')
+
+  const { exitCode, stderr, stdout } = await git(flags, path, {
+    stdin: formatCredential(cred),
+    env: {
+      GIT_TERMINAL_PROMPT: '0',
+      GIT_ASKPASS: '',
+      TERM: 'dumb',
+      ...env,
+    },
   })
+
+  if (exitCode !== 0) {
+    throw new Error(stderr)
+  }
+
+  return parseCredential(stdout)
+}
 
 export const fillCredential = exec.bind(null, 'fill')
 export const approveCredential = exec.bind(null, 'approve')

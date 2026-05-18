@@ -50,13 +50,15 @@ export class WorktreeList extends React.Component<IWorktreeListProps> {
 
     return (
       <ul>
-        {this.props.entries.map(entry => (
-          <WorktreeListItem
-            key={entry.path}
-            entry={entry}
-            onRemove={this.props.onRemoveWorktree}
-          />
-        ))}
+        {this.props.entries
+          .filter((entry): entry is IWorktreeEntry => entry != null)
+          .map(entry => (
+            <WorktreeListItem
+              key={entry.path}
+              entry={entry}
+              onRemove={this.props.onRemoveWorktree}
+            />
+          ))}
       </ul>
     )
   }

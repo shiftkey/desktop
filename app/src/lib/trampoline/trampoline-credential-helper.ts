@@ -126,8 +126,8 @@ async function getCredential(cred: Credential, store: Store, token: string) {
     return credWithAccount(cred, account)
   }
 
-  // GitHub.com/GHE creds are only stored internally
-  if (endpointKind !== 'generic') {
+  // GitHub.com/GHE creds are only stored internally unless user prefers external helper
+  if (endpointKind !== 'generic' && !useExternalCredentialHelper()) {
     return undefined
   }
 
