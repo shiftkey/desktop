@@ -100,6 +100,17 @@ function buildMockCheckRun(
             logs_url: '',
             rerun_url: '',
             check_suite_id: 1,
+            head_branch: 'main',
+            head_sha: 'abc123',
+            run_number: 1,
+            status: 'completed',
+            conclusion: 'success',
+            updated_at: '',
+            run_started_at: null,
+            html_url: '',
+            jobs_url: '',
+            path: '.github/workflows/ci.yml',
+            pull_requests: [],
           }
         : undefined,
   }
