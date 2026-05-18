@@ -75,10 +75,18 @@ export class WorkflowRunDispatchDialog extends React.Component<
           </div>
         </DialogContent>
         <DialogFooter>
-          <OkCancelButtonGroup okButtonText="Run workflow" />
+          <OkCancelButtonGroup
+            okButtonText="Run workflow"
+            okButtonDisabled={this.isSubmitDisabled()}
+          />
         </DialogFooter>
       </Dialog>
     )
+  }
+
+  /** Both a workflow and a non-empty branch are required to dispatch. */
+  private isSubmitDisabled(): boolean {
+    return this.state.workflowId === '' || this.state.branch.trim().length === 0
   }
 
   private onWorkflowChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -90,15 +98,23 @@ export class WorkflowRunDispatchDialog extends React.Component<
   }
 
   private onSubmit = async () => {
-    if (this.state.workflowId === '') {
+    if (this.isSubmitDisabled() || this.state.workflowId === '') {
       return
     }
     this.setState({ running: true, error: null })
-    await this.props.dispatcher.dispatchWorkflowRun(
-      this.props.repository,
-      this.state.workflowId,
-      this.state.branch
-    )
-    this.props.onDismissed()
+    try {
+      await this.props.dispatcher.dispatchWorkflowRun(
+        this.props.repository,
+        this.state.workflowId,
+        this.state.branch.trim()
+      )
+      this.props.onDismissed()
+    } catch (error) {
+      // Keep the dialog open so the user can correct the input and retry.
+      this.setState({
+        running: false,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
   }
 }

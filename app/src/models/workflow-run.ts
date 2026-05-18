@@ -45,6 +45,17 @@ export interface IWorkflowRun {
   readonly duration: number | null
 }
 
+/**
+ * Status filter applied to the workflow run list UI. Either a raw run
+ * status, `'all'`, or one of the conclusion-derived buckets.
+ */
+export type WorkflowRunFilter =
+  | WorkflowRunStatus
+  | 'all'
+  | 'success'
+  | 'failure'
+  | 'cancelled'
+
 /** A job belonging to a workflow run. */
 export interface IWorkflowJob {
   readonly id: number

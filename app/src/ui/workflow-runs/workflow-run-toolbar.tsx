@@ -1,13 +1,6 @@
 import * as React from 'react'
 import { Button } from '../lib/button'
-import { WorkflowRunStatus } from '../../models/workflow-run'
-
-type WorkflowRunFilter =
-  | WorkflowRunStatus
-  | 'all'
-  | 'success'
-  | 'failure'
-  | 'cancelled'
+import { WorkflowRunStatus, WorkflowRunFilter } from '../../models/workflow-run'
 
 interface IWorkflowRunToolbarProps {
   readonly selectedFilter: WorkflowRunFilter
@@ -24,6 +17,7 @@ export class WorkflowRunToolbar extends React.Component<IWorkflowRunToolbarProps
     return (
       <div className="workflow-run-toolbar">
         <select
+          aria-label="Filter workflow runs by status"
           value={this.props.selectedFilter}
           onChange={this.onFilterChange}
         >

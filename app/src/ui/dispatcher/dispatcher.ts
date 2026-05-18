@@ -2684,7 +2684,40 @@ export class Dispatcher {
   }
 
   /**
-   * Dispatch a workflow run for the given repository.
+   * Resolve the GitHub repository and signed-in account needed for a
+   * workflow API call, throwing a descriptive error when either is
+   * missing. Callers surface the error to the user — workflow actions
+   * must never fail silently.
+   */
+  private getWorkflowApiContext(
+    repository: Repository,
+    action: string
+  ): { api: API; owner: string; name: string } {
+    const { gitHubRepository } = repository
+    if (gitHubRepository === null) {
+      throw new Error(`Cannot ${action}: this is not a GitHub repository.`)
+    }
+
+    const account = getAccountForRepository(
+      this.appStore.getState().accounts,
+      repository
+    )
+    if (account === null) {
+      throw new Error(
+        `Cannot ${action}: sign in to a GitHub account for this repository first.`
+      )
+    }
+
+    return {
+      api: API.fromAccount(account),
+      owner: gitHubRepository.owner.login,
+      name: gitHubRepository.name,
+    }
+  }
+
+  /**
+   * Dispatch a workflow run for the given repository. Rejects on failure
+   * so the caller can show the error to the user.
    */
   public async dispatchWorkflowRun(
     repository: Repository,
@@ -2692,93 +2725,44 @@ export class Dispatcher {
     branch: string,
     inputs?: Record<string, string>
   ): Promise<void> {
-    if (repository.gitHubRepository === null) {
-      return
-    }
-
-    const account = getAccountForRepository(
-      this.appStore.getState().accounts,
-      repository
+    const { api, owner, name } = this.getWorkflowApiContext(
+      repository,
+      'dispatch a workflow run'
     )
-    if (account === null) {
-      return
-    }
-
-    const { owner, name } = repository.gitHubRepository
-
-    try {
-      const api = API.fromAccount(account)
-      await api.dispatchWorkflowRun(
-        owner.login,
-        name,
-        workflowId,
-        branch,
-        inputs
-      )
-      await this.loadWorkflowRuns(repository)
-    } catch (error) {
-      log.error('Error dispatching workflow run:', error)
-    }
+    await api.dispatchWorkflowRun(owner, name, workflowId, branch, inputs)
+    await this.loadWorkflowRuns(repository)
   }
 
   /**
    * Re-run failed jobs for a workflow run in the given repository.
+   * Rejects on failure so the caller can show the error to the user.
    */
   public async reRunWorkflowRun(
     repository: Repository,
     runId: number
   ): Promise<void> {
-    if (repository.gitHubRepository === null) {
-      return
-    }
-
-    const account = getAccountForRepository(
-      this.appStore.getState().accounts,
-      repository
+    const { api, owner, name } = this.getWorkflowApiContext(
+      repository,
+      're-run a workflow run'
     )
-    if (account === null) {
-      return
-    }
-
-    const { owner, name } = repository.gitHubRepository
-
-    try {
-      const api = API.fromAccount(account)
-      await api.rerunFailedJobs(owner.login, name, runId)
-      await this.loadWorkflowRuns(repository)
-    } catch (error) {
-      log.error('Error re-running workflow run:', error)
-    }
+    await api.rerunFailedJobs(owner, name, runId)
+    await this.loadWorkflowRuns(repository)
   }
 
   /**
-   * Cancel a workflow run in the given repository.
+   * Cancel a workflow run in the given repository. Rejects on failure so
+   * the caller can show the error to the user.
    */
   public async cancelWorkflowRun(
     repository: Repository,
     runId: number
   ): Promise<void> {
-    if (repository.gitHubRepository === null) {
-      return
-    }
-
-    const account = getAccountForRepository(
-      this.appStore.getState().accounts,
-      repository
+    const { api, owner, name } = this.getWorkflowApiContext(
+      repository,
+      'cancel a workflow run'
     )
-    if (account === null) {
-      return
-    }
-
-    const { owner, name } = repository.gitHubRepository
-
-    try {
-      const api = API.fromAccount(account)
-      await api.cancelWorkflowRun(owner.login, name, runId)
-      await this.loadWorkflowRuns(repository)
-    } catch (error) {
-      log.error('Error cancelling workflow run:', error)
-    }
+    await api.cancelWorkflowRun(owner, name, runId)
+    await this.loadWorkflowRuns(repository)
   }
 
   /**

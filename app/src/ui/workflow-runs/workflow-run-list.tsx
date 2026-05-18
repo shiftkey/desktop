@@ -3,6 +3,7 @@ import {
   IWorkflowRun,
   WorkflowRunStatus,
   WorkflowRunConclusion,
+  WorkflowRunFilter,
 } from '../../models/workflow-run'
 import { Repository } from '../../models/repository'
 import { Account } from '../../models/account'
@@ -21,13 +22,6 @@ interface IWorkflowRunListProps {
   readonly accounts: ReadonlyArray<Account>
   readonly branch: string
 }
-
-type WorkflowRunFilter =
-  | WorkflowRunStatus
-  | 'all'
-  | 'success'
-  | 'failure'
-  | 'cancelled'
 
 interface IWorkflowRunListState {
   readonly filter: WorkflowRunFilter
@@ -124,32 +118,47 @@ export class WorkflowRunList extends React.Component<
   }
 
   private onRunClick = (entry: IWorkflowRun) => {
-    // TODO: open run detail / browser
-    // For now this is a no-op placeholder.
-    console.log('Clicked workflow run', entry.id)
+    // Open the run on GitHub — the in-app run detail view is a separate
+    // feature; until it exists the browser is the canonical destination.
+    this.props.dispatcher.openInBrowser(entry.htmlUrl)
   }
 
   private onRunWorkflow = async () => {
     const { repository, dispatcher, accounts, branch } = this.props
     const account = getAccountForRepository(accounts, repository)
     if (account === null || repository.gitHubRepository === null) {
+      dispatcher.postError(
+        new Error(
+          'Sign in to a GitHub account for this repository to run workflows.'
+        )
+      )
       return
     }
 
     const { owner, name } = repository.gitHubRepository
-    const api = API.fromAccount(account)
-    const response = await api.fetchWorkflows(owner.login, name)
-    const workflows = response?.workflows ?? []
 
-    if (workflows.length === 0) {
-      return
+    try {
+      const api = API.fromAccount(account)
+      const response = await api.fetchWorkflows(owner.login, name)
+      const workflows = response?.workflows ?? []
+
+      if (workflows.length === 0) {
+        dispatcher.postError(
+          new Error('This repository has no workflows that can be run.')
+        )
+        return
+      }
+
+      await dispatcher.showPopup({
+        type: PopupType.WorkflowRunDispatch,
+        repository,
+        branch,
+        workflows: workflows.map(w => ({ id: w.id, name: w.name })),
+      })
+    } catch (error) {
+      dispatcher.postError(
+        error instanceof Error ? error : new Error(String(error))
+      )
     }
-
-    await dispatcher.showPopup({
-      type: PopupType.WorkflowRunDispatch,
-      repository,
-      branch,
-      workflows: workflows.map(w => ({ id: w.id, name: w.name })),
-    })
   }
 }
