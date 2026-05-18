@@ -101,6 +101,7 @@ export enum PopupType {
   RepoHealthDashboard = 'RepoHealthDashboard',
   WorktreeCreate = 'WorktreeCreate',
   WorktreeRemove = 'WorktreeRemove',
+  WorkflowRunDispatch = 'WorkflowRunDispatch',
 }
 
 interface IBasePopup {
@@ -449,6 +450,12 @@ export type PopupDetail =
       repository: Repository
       worktreePath: string
       branch: string | null
+    }
+  | {
+      type: PopupType.WorkflowRunDispatch
+      repository: Repository
+      branch: string
+      workflows: ReadonlyArray<{ id: number; name: string }>
     }
 
 export type Popup = IBasePopup & PopupDetail
