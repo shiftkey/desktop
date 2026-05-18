@@ -55,6 +55,10 @@ Desktop codebase:
   worktrees with each one's checked-out branch, uncommitted-change count, and
   locked/prunable state — and actions to add a worktree (on a new or existing
   branch), remove one, and prune stale entries.
+- **GitHub Actions workflow runs**: an Actions tab listing recent workflow
+  runs with status icons, filterable by state (queued, in-progress, completed,
+  success, failure, cancelled), and a "Run workflow" button that opens a
+  dispatch dialog with a workflow dropdown and branch input.
 - **Working-directory change summary**: the Changes tab shows aggregate
   added/removed line counts next to the changed-file count.
 - **Changed-file filtering**: filter the Changes view by path using one or more

@@ -2708,7 +2708,13 @@ export class Dispatcher {
 
     try {
       const api = API.fromAccount(account)
-      await api.dispatchWorkflowRun(owner.login, name, workflowId, branch, inputs)
+      await api.dispatchWorkflowRun(
+        owner.login,
+        name,
+        workflowId,
+        branch,
+        inputs
+      )
       await this.loadWorkflowRuns(repository)
     } catch (error) {
       log.error('Error dispatching workflow run:', error)

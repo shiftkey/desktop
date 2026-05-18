@@ -187,6 +187,7 @@ import { UnsupportedOSBannerDismissedAtKey } from './banners/os-version-no-longe
 import { offsetFromNow } from '../lib/offset-from'
 import { getBoolean, getNumber } from '../lib/local-storage'
 import { IconPreviewDialog } from './octicons/icon-preview-dialog'
+import { WorkflowRunDispatchDialog } from './workflow-runs/workflow-run-dispatch-dialog'
 import { accessibilityBannerDismissed } from './banners/accessibilty-settings-banner'
 import { isCertificateErrorSuppressedFor } from '../lib/suppress-certificate-error'
 import { webUtils } from 'electron'
@@ -2765,6 +2766,18 @@ export class App extends React.Component<IAppProps, IAppState> {
           />
         )
       }
+      case PopupType.WorkflowRunDispatch: {
+        return (
+          <WorkflowRunDispatchDialog
+            key="workflow-run-dispatch"
+            dispatcher={this.props.dispatcher}
+            repository={popup.repository}
+            branch={popup.branch}
+            workflows={popup.workflows}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
       default:
         return assertNever(popup, `Unknown popup type: ${popup}`)
     }
@@ -3535,6 +3548,14 @@ export class App extends React.Component<IAppProps, IAppState> {
           worktreesLoading={
             state.worktreesByRepoId.get(selectedState.repository.id)?.loading ??
             false
+          }
+          workflowRunEntries={
+            state.workflowRunsByRepoId.get(selectedState.repository.id)?.runs ??
+            []
+          }
+          workflowRunsLoading={
+            state.workflowRunsByRepoId.get(selectedState.repository.id)
+              ?.loading ?? false
           }
         />
       )

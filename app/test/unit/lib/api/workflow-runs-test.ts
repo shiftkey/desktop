@@ -64,7 +64,13 @@ describe('API workflow run methods', () => {
         headers: new Headers(),
       })
 
-      await api.fetchWorkflowRuns('owner', 'name', 'main', 'ci.yml', 'completed')
+      await api.fetchWorkflowRuns(
+        'owner',
+        'name',
+        'main',
+        'ci.yml',
+        'completed'
+      )
       expect(requestSpy).toHaveBeenCalledWith(
         'GET',
         'repos/owner/name/actions/runs?branch=main&workflow_id=ci.yml&status=completed'
@@ -145,7 +151,14 @@ describe('API workflow run methods', () => {
         ok: true,
         json: async () => ({
           total_count: 1,
-          workflows: [{ id: 1, name: 'CI', path: '.github/workflows/ci.yml', state: 'active' }],
+          workflows: [
+            {
+              id: 1,
+              name: 'CI',
+              path: '.github/workflows/ci.yml',
+              state: 'active',
+            },
+          ],
         }),
         headers: new Headers(),
       })

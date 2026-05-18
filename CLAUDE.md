@@ -151,6 +151,22 @@ their lifecycle (add / remove / prune).
 - **Dispatcher**: `loadWorktrees`, `createWorktree`, `removeWorktree`,
   `pruneWorktrees`.
 
+### GitHub Actions Workflow Runs (`app/src/lib/stores/workflow-runs-store.ts`, `app/src/ui/workflow-runs/`)
+
+An Actions tab listing recent workflow runs with status icons, run numbers,
+branches, and durations. Supports filtering by status and a dispatch dialog
+for manually triggering workflows.
+
+- **`WorkflowRunsStore`**: per-`repositoryId` cache of `IRepoWorkflowRunsState`
+  (`{runs, loading, error, loadedAt, selectedWorkflowName}`). Concurrent loads
+  coalesce. Surfaced via `IAppState.workflowRunsByRepoId`.
+- **UI**: `WorkflowRunList` + `WorkflowRunListItem` render the sidebar with a
+  status-filter toolbar (`WorkflowRunToolbar`) and a "Run workflow" button.
+  `WorkflowRunDispatchDialog` is a popup (`PopupType.WorkflowRunDispatch`)
+  with a workflow dropdown and branch input. The Actions tab lives inside
+  `RepositoryView` (`RepositorySectionTab.Actions`).
+- **Dispatcher**: `loadWorkflowRuns`, `dispatchWorkflowRun`.
+
 ### Working-directory change summary (`app/src/lib/git/working-directory-stats.ts`, `app/src/models/working-directory-stats.ts`, `app/src/ui/changes/change-summary-badge.tsx`)
 
 The Changes tab shows aggregate diff stats alongside the file count.

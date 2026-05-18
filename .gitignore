@@ -18,3 +18,4 @@ junit*.xml
 *.swp
 tslint-rules/
 script/release_notes.txt
+.claude/worktrees/

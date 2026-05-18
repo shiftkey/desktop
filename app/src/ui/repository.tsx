@@ -28,6 +28,8 @@ import { StashedChangesLoadStates, IStashEntry } from '../models/stash-entry'
 import { StashList } from './stashes/stash-list'
 import { IWorktreeEntry } from '../models/worktree'
 import { WorktreeList } from './worktrees/worktree-list'
+import { IWorkflowRun } from '../models/workflow-run'
+import { WorkflowRunList } from './workflow-runs/workflow-run-list'
 import { PopupType } from '../models/popup'
 import { TutorialPanel, TutorialWelcome, TutorialDone } from './tutorial'
 import { TutorialStep, isValidTutorialStep } from '../models/tutorial-step'
@@ -64,6 +66,10 @@ interface IRepositoryViewProps {
   readonly accounts: ReadonlyArray<Account>
   readonly worktreeEntries: ReadonlyArray<IWorktreeEntry>
   readonly worktreesLoading: boolean
+
+  /** Cached workflow run entries for this repository (Actions tab). */
+  readonly workflowRunEntries: ReadonlyArray<IWorkflowRun>
+  readonly workflowRunsLoading: boolean
 
   /**
    * A value indicating whether or not the application is currently presenting
@@ -374,7 +380,20 @@ export class RepositoryView extends React.Component<
   }
 
   private renderActionsSidebar(): JSX.Element {
-    return <div className="actions-sidebar">Actions</div>
+    const { state } = this.props
+    const { tip } = state.branchesState
+    const currentBranch = tip.kind === TipState.Valid ? tip.branch.name : ''
+
+    return (
+      <WorkflowRunList
+        entries={this.props.workflowRunEntries}
+        loading={this.props.workflowRunsLoading}
+        repository={this.props.repository}
+        dispatcher={this.props.dispatcher}
+        accounts={this.props.accounts}
+        branch={currentBranch}
+      />
+    )
   }
 
   private renderStashesSidebar(): JSX.Element {
