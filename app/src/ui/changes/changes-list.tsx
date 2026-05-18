@@ -1083,7 +1083,10 @@ export class ChangesList extends React.Component<
             <div className="sr-only" id="changesDescription">
               {selectedChangesDescription}
             </div>
-            <ChangeSummaryBadge stats={this.props.diffStats} />
+            <ChangeSummaryBadge
+              stats={this.props.diffStats}
+              changedFilesCount={files.length}
+            />
           </div>
           <div className="filter">
             <TextBox

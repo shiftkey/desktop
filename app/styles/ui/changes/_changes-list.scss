@@ -25,6 +25,8 @@
       align-items: center;
       height: 100%;
       position: relative;
+      flex: 1 1 auto;
+      min-width: 0;
 
       // We want the label to be positioned center with regards to the entire
       // header so we position it absolute in relation to the checkbox component
@@ -137,20 +139,33 @@
   transition: max-height var(--undo-animation-duration) ease-out;
 }
 
+.change-summary-badge-wrapper {
+  flex: 0 0 auto;
+}
+
 .change-summary-badge {
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-half);
   margin-left: auto;
   padding: 2px 8px;
-  font-size: var(--font-size-xs);
+  min-width: max-content;
+  min-height: 20px;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   color: var(--text-color);
   background-color: var(--list-item-badge-background-color);
-  border-radius: 12px;
+  border-radius: var(--border-radius);
   line-height: 1;
+  white-space: nowrap;
   cursor: default;
+
+  .files-changed,
+  .additions,
+  .deletions {
+    display: inline-block;
+  }
 
   .additions {
     color: var(--color-new);

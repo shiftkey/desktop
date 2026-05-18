@@ -1,0 +1,718 @@
+/**
+ * Modern product design layer.
+ *
+ * This file is imported last so it can gradually move the app toward a
+ * consistent design system without forcing a risky React/component rewrite.
+ */
+
+:root {
+  --app-bg: #f6f8fa;
+  --app-surface: #ffffff;
+  --app-surface-subtle: #f1f4f8;
+  --app-surface-muted: #eaeef2;
+  --app-surface-hover: #eef2f6;
+  --app-border: #d8dee4;
+  --app-border-muted: #e7ebef;
+  --app-shadow-sm: 0 1px 2px rgba(31, 35, 40, 0.08);
+  --app-shadow-md: 0 12px 32px rgba(31, 35, 40, 0.14);
+  --app-shadow-lg: 0 24px 64px rgba(31, 35, 40, 0.18);
+  --app-radius-sm: 4px;
+  --app-radius-md: 6px;
+  --app-radius-lg: 8px;
+  --app-radius-xl: 12px;
+  --app-accent: #0969da;
+  --app-accent-hover: #0757b8;
+  --app-accent-soft: #ddf4ff;
+  --app-success: #1a7f37;
+  --app-success-soft: #dafbe1;
+  --app-danger: #cf222e;
+  --app-danger-soft: #ffebe9;
+  --app-warning: #9a6700;
+  --app-warning-soft: #fff8c5;
+
+  --text-color: #1f2328;
+  --text-secondary-color: #636c76;
+  --text-secondary-color-muted: #8c959f;
+  --background-color: var(--app-bg);
+
+  --font-family-sans-serif: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-family-monospace: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Consolas, 'Liberation Mono', monospace;
+  --font-size: 13px;
+  --font-size-sm: 12px;
+  --font-size-md: 14px;
+  --font-size-lg: 22px;
+  --font-size-xl: 28px;
+  --font-size-xxl: 34px;
+  --font-size-xs: 11px;
+
+  --spacing: 12px;
+  --button-height: 30px;
+  --button-border-radius: var(--app-radius-md);
+  --text-field-height: 32px;
+  --toolbar-height: 52px;
+  --tab-bar-height: 34px;
+  --border-radius: var(--app-radius-md);
+  --outlined-border-radius: var(--app-radius-sm);
+
+  --box-background-color: var(--app-surface);
+  --box-alt-background-color: var(--app-surface-subtle);
+  --box-border-color: var(--app-border-muted);
+  --box-border-contrast-color: var(--app-border);
+  --box-border-accent-color: var(--app-accent);
+  --box-hover-background-color: var(--app-surface-hover);
+  --box-hover-text-color: var(--text-color);
+  --box-selected-background-color: #eaf2ff;
+  --box-selected-text-color: var(--text-color);
+  --box-selected-border-color: #b6d3ff;
+  --box-selected-active-background-color: var(--app-accent);
+  --box-selected-active-text-color: #ffffff;
+
+  --button-background: var(--app-accent);
+  --button-hover-background: var(--app-accent-hover);
+  --button-text-color: #ffffff;
+  --secondary-button-background: var(--app-surface);
+  --secondary-button-hover-background: var(--app-surface-hover);
+  --secondary-button-border-color: var(--app-border);
+  --secondary-button-hover-border-color: #afb8c1;
+  --secondary-button-text-color: var(--text-color);
+  --link-button-color: var(--app-accent);
+  --link-button-hover-color: var(--app-accent-hover);
+  --focus-color: #0969da;
+  --text-field-focus-shadow-color: rgba(9, 105, 218, 0.22);
+
+  --toolbar-background-color: var(--app-surface);
+  --toolbar-border-color: var(--app-border-muted);
+  --toolbar-text-color: var(--text-color);
+  --toolbar-text-secondary-color: var(--text-secondary-color);
+  --toolbar-button-color: var(--toolbar-text-color);
+  --toolbar-button-background-color: transparent;
+  --toolbar-button-border-color: transparent;
+  --toolbar-button-hover-background-color: var(--app-surface-hover);
+  --toolbar-button-hover-border-color: var(--app-border-muted);
+  --toolbar-button-active-background-color: #eaf2ff;
+  --toolbar-button-active-border-color: #b6d3ff;
+  --toolbar-badge-background-color: var(--app-surface-muted);
+  --toolbar-badge-active-background-color: #ffffff;
+
+  --tab-bar-background-color: var(--app-surface);
+  --tab-bar-hover-background-color: var(--app-surface-hover);
+  --tab-bar-active-color: var(--app-accent);
+
+  --list-item-badge-color: var(--text-color);
+  --list-item-badge-background-color: var(--app-surface-muted);
+  --list-item-hover-background-color: var(--app-surface-hover);
+
+  --color-new: var(--app-success);
+  --color-deleted: var(--app-danger);
+  --color-modified: var(--app-warning);
+  --color-renamed: var(--app-accent);
+  --color-conflicted: #bc4c00;
+
+  --diff-line-padding-y: 3px;
+  --diff-text-color: var(--text-color);
+  --diff-border-color: var(--app-border-muted);
+  --diff-gutter-color: var(--app-border-muted);
+  --diff-gutter-background-color: #f6f8fa;
+  --diff-line-number-color: #6e7781;
+  --diff-add-background-color: #dafbe1;
+  --diff-add-border-color: #aceebb;
+  --diff-add-gutter-color: #aceebb;
+  --diff-add-gutter-background-color: #d1f5dc;
+  --diff-add-inner-background-color: #aceebb;
+  --diff-delete-background-color: #ffebe9;
+  --diff-delete-border-color: #ffcecb;
+  --diff-delete-gutter-color: #ffcecb;
+  --diff-delete-gutter-background-color: #ffd7d5;
+  --diff-delete-inner-background-color: #ffcecb;
+  --diff-hunk-background-color: #ddf4ff;
+  --diff-hunk-border-color: #b6e3ff;
+  --diff-hunk-gutter-color: #80ccff;
+  --diff-hunk-gutter-background-color: #c7edff;
+  --diff-hunk-text-color: #0550ae;
+
+  --toast-notification-background-color: rgba(31, 35, 40, 0.92);
+  --toast-notification-color: #ffffff;
+  --overlay-background-color: rgba(31, 35, 40, 0.45);
+  --tooltip-background-color: #24292f;
+  --tooltip-color: #f6f8fa;
+  --tooltip-shadow-color: rgba(31, 35, 40, 0.24);
+}
+
+body.theme-dark {
+  --app-bg: #0d1117;
+  --app-surface: #161b22;
+  --app-surface-subtle: #1c2128;
+  --app-surface-muted: #21262d;
+  --app-surface-hover: #262c36;
+  --app-border: #30363d;
+  --app-border-muted: #24292f;
+  --app-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --app-shadow-md: 0 16px 40px rgba(0, 0, 0, 0.38);
+  --app-shadow-lg: 0 28px 72px rgba(0, 0, 0, 0.46);
+  --app-accent: #58a6ff;
+  --app-accent-hover: #79c0ff;
+  --app-accent-soft: #102a43;
+  --app-success: #3fb950;
+  --app-success-soft: #12361f;
+  --app-danger: #f85149;
+  --app-danger-soft: #3d1518;
+  --app-warning: #d29922;
+  --app-warning-soft: #332600;
+
+  --text-color: #e6edf3;
+  --text-secondary-color: #8b949e;
+  --text-secondary-color-muted: #6e7681;
+  --background-color: var(--app-bg);
+
+  --box-background-color: var(--app-surface);
+  --box-alt-background-color: var(--app-surface-subtle);
+  --box-border-color: var(--app-border-muted);
+  --box-border-contrast-color: var(--app-border);
+  --box-hover-background-color: var(--app-surface-hover);
+  --box-selected-background-color: #1f2d3d;
+  --box-selected-border-color: #2f81f7;
+  --box-selected-active-background-color: #1f6feb;
+  --box-selected-active-text-color: #ffffff;
+
+  --button-background: #238636;
+  --button-hover-background: #2ea043;
+  --secondary-button-background: var(--app-surface-muted);
+  --secondary-button-hover-background: var(--app-surface-hover);
+  --secondary-button-border-color: var(--app-border);
+  --secondary-button-hover-border-color: #8b949e;
+  --link-button-color: var(--app-accent);
+  --link-button-hover-color: var(--app-accent-hover);
+  --focus-color: #58a6ff;
+  --text-field-focus-shadow-color: rgba(88, 166, 255, 0.24);
+
+  --toolbar-background-color: var(--app-surface);
+  --toolbar-border-color: var(--app-border-muted);
+  --toolbar-text-color: var(--text-color);
+  --toolbar-button-hover-background-color: var(--app-surface-hover);
+  --toolbar-button-active-background-color: #1f2d3d;
+  --toolbar-button-active-border-color: #2f81f7;
+  --toolbar-badge-background-color: var(--app-surface-muted);
+  --toolbar-badge-active-background-color: #30363d;
+
+  --tab-bar-background-color: var(--app-surface);
+  --tab-bar-hover-background-color: var(--app-surface-hover);
+  --list-item-badge-background-color: #30363d;
+  --list-item-hover-background-color: var(--app-surface-hover);
+
+  --diff-gutter-background-color: #0d1117;
+  --diff-add-background-color: #12361f;
+  --diff-add-border-color: #1f6f3a;
+  --diff-add-gutter-color: #1f6f3a;
+  --diff-add-gutter-background-color: #0f2a18;
+  --diff-add-inner-background-color: #1f6f3a;
+  --diff-delete-background-color: #3d1518;
+  --diff-delete-border-color: #7d1f25;
+  --diff-delete-gutter-color: #7d1f25;
+  --diff-delete-gutter-background-color: #2d1013;
+  --diff-delete-inner-background-color: #7d1f25;
+  --diff-hunk-background-color: #102a43;
+  --diff-hunk-border-color: #1f3f5f;
+  --diff-hunk-gutter-color: #1f6feb;
+  --diff-hunk-gutter-background-color: #0f2238;
+  --diff-hunk-text-color: #79c0ff;
+  --diff-line-number-color: #8b949e;
+  --tooltip-background-color: #30363d;
+  --tooltip-color: #f0f6fc;
+}
+
+html,
+body {
+  background: var(--app-bg);
+}
+
+body {
+  letter-spacing: 0;
+}
+
+#desktop-app-chrome,
+#desktop-app-contents {
+  background: var(--app-bg);
+}
+
+#repository {
+  border-top: 0;
+  background: var(--app-bg);
+
+  &-sidebar {
+    background: var(--app-surface);
+    border-right: 1px solid var(--app-border-muted);
+  }
+}
+
+.panel,
+.ui-view,
+.diff-container {
+  background: var(--app-surface);
+}
+
+#desktop-app-toolbar {
+  box-shadow: var(--app-shadow-sm);
+  position: relative;
+  z-index: 1;
+
+  .toolbar-button {
+    min-height: 100%;
+  }
+}
+
+.toolbar-button,
+.button-component,
+.button-component-primary,
+button,
+select,
+input,
+textarea {
+  letter-spacing: 0;
+}
+
+.toolbar-button,
+.button-component {
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.button-component {
+  min-height: var(--button-height);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: var(--app-shadow-sm);
+
+  &:not([aria-disabled='true']):hover {
+    box-shadow: 0 2px 8px rgba(31, 35, 40, 0.12);
+  }
+}
+
+.button-component[type='submit'],
+.button-component-primary {
+  box-shadow: 0 1px 2px rgba(9, 105, 218, 0.24);
+}
+
+.link-button-component {
+  font-weight: var(--font-weight-semibold);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.text-box-component input,
+.text-area-component textarea,
+.select-component select,
+textarea,
+input[type='text'],
+input[type='search'] {
+  min-height: var(--text-field-height);
+  background: var(--app-surface);
+  border-color: var(--app-border);
+  color: var(--text-color);
+  transition: border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.text-box-component input::placeholder,
+textarea::placeholder {
+  color: var(--text-secondary-color-muted);
+}
+
+.tab-bar {
+  background: var(--tab-bar-background-color);
+  border-bottom: 1px solid var(--app-border-muted);
+}
+
+.tab-bar-item,
+.tab-bar button {
+  min-height: var(--tab-bar-height);
+}
+
+.list-item {
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.file-list .list-item {
+  border-bottom-color: var(--app-border-muted);
+}
+
+.file-list .file {
+  min-height: 32px;
+}
+
+.file-list .list-focus-container:not(.focus-within) .list-item:not(.selected):hover,
+.list-item:not(.selected):hover {
+  background: var(--app-surface-hover);
+}
+
+.repository-list {
+  padding: 6px;
+
+  .repository-list-item {
+    border-radius: var(--app-radius-md);
+    padding-inline: 10px;
+
+    .icon-for-repository {
+      color: var(--text-secondary-color);
+    }
+
+    .name {
+      font-weight: 500;
+    }
+  }
+
+  .filter-list-group-header {
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0;
+    padding: 12px 10px 6px;
+  }
+}
+
+.change-summary-badge,
+.ahead-behind,
+.ref,
+.pull-request-badge,
+.ci-status {
+  border-radius: 999px;
+}
+
+.changes-list-container {
+  background: var(--app-surface);
+
+  .header {
+    height: 36px;
+    background: var(--app-surface-subtle);
+    border-bottom-color: var(--app-border-muted);
+  }
+
+  .filter {
+    background: var(--app-surface);
+    border-bottom-color: var(--app-border-muted);
+    padding: 8px 12px;
+  }
+}
+
+.commit-message-component {
+  background: var(--app-surface-subtle);
+  border-top-color: var(--app-border-muted);
+  padding: 12px;
+
+  .description-focus-container {
+    background: var(--app-surface);
+    border-color: var(--app-border);
+    box-shadow: var(--app-shadow-sm);
+  }
+
+  .description-focus-container textarea {
+    line-height: 1.45;
+  }
+
+  .action-bar {
+    border-top: 1px solid var(--app-border-muted);
+  }
+
+  .commit-button {
+    width: 100%;
+    height: 34px;
+    justify-content: center;
+  }
+}
+
+.diff-code-mirror .CodeMirror {
+  background: var(--app-surface);
+  font-size: 12.5px;
+  line-height: 1.5;
+
+  pre.CodeMirror-line,
+  pre.CodeMirror-line-like {
+    padding-top: var(--diff-line-padding-y);
+    padding-bottom: var(--diff-line-padding-y);
+  }
+
+  .CodeMirror-code {
+    border-bottom-color: var(--app-border-muted);
+  }
+}
+
+.diff-header,
+.diff-options-component {
+  background: var(--app-surface-subtle);
+  border-color: var(--app-border-muted);
+}
+
+#commit-list,
+.compare-commit-list,
+.commit-details,
+.history-view,
+.repository-list,
+.branches-list,
+.filter-list {
+  background: var(--app-surface);
+}
+
+.commit,
+.branches-list-item,
+.repository-list-item,
+.filter-list-item {
+  min-height: 36px;
+}
+
+#history,
+#compare-view {
+  background: var(--app-surface);
+
+  .compare-form {
+    background: var(--app-surface-subtle);
+    border-bottom-color: var(--app-border-muted);
+    padding: 10px 12px;
+  }
+
+  .merge-cta {
+    background: var(--app-surface-subtle);
+    border-top-color: var(--app-border-muted);
+  }
+}
+
+#commit-list {
+  .commit {
+    background: var(--app-surface);
+    border-bottom-color: var(--app-border-muted);
+    padding-left: 12px;
+    padding-right: 14px;
+
+    .summary {
+      font-weight: 500;
+    }
+
+    .byline,
+    .description {
+      color: var(--text-secondary-color);
+    }
+  }
+
+  .list-item.selected:not(.in-keyboard-insertion-mode) .commit {
+    background: var(--box-selected-background-color);
+  }
+}
+
+.commit-details,
+.commit-summary,
+#commit-summary-container {
+  background: var(--app-surface);
+  border-color: var(--app-border-muted);
+}
+
+.branches-container {
+  background: var(--app-surface);
+
+  > .tab-bar {
+    border-top-color: var(--app-border-muted);
+  }
+
+  .branches-list {
+    padding: 6px;
+  }
+
+  .branches-list-item,
+  .pull-request-item {
+    border-radius: var(--app-radius-md);
+    padding-inline: 10px;
+
+    .name,
+    .title {
+      font-weight: 500;
+    }
+
+    .description,
+    .subtitle {
+      color: var(--text-secondary-color);
+    }
+  }
+
+  .branches-list-item.new-branch-drop {
+    border: 1px dashed var(--app-border);
+    background: var(--app-surface-subtle);
+  }
+}
+
+.pull-request-tab .count,
+.branch-commit-counter-item,
+.tag-name,
+.unpushed-indicator {
+  border-radius: 999px;
+}
+
+#repository-settings {
+  width: min(760px, calc(100vw - 64px));
+
+  .dialog-content {
+    background: var(--app-surface);
+  }
+
+  .tab-container {
+    gap: 0;
+
+    .tab-bar {
+      background: var(--app-surface-subtle);
+      border-right: 1px solid var(--app-border-muted);
+    }
+
+    .active-tab {
+      border-left: 0;
+      padding: 2px 0;
+    }
+  }
+
+  .row-component,
+  .form-component {
+    border-color: var(--app-border-muted);
+  }
+
+  textarea.gitignore {
+    min-height: 160px;
+  }
+}
+
+dialog#conflicts-dialog {
+  width: min(640px, calc(100vw - 64px));
+
+  .dialog-header h1 {
+    font-weight: var(--font-weight-semibold);
+  }
+
+  ul {
+    padding: 0;
+    margin: 0;
+
+    li.unmerged-file-status-resolved,
+    li.unmerged-file-status-conflicts {
+      background: var(--app-surface-subtle);
+      border: 1px solid var(--app-border-muted);
+      border-radius: var(--app-radius-lg);
+      margin-bottom: 10px;
+      padding: 12px;
+    }
+  }
+
+  .all-conflicts-resolved {
+    background: var(--app-success-soft);
+    border: 1px solid color-mix(in srgb, var(--app-success) 35%, transparent);
+    border-radius: var(--app-radius-lg);
+    padding: 12px;
+  }
+}
+
+.terminal-panel {
+  background: var(--app-surface);
+  border-top-color: var(--app-border);
+  box-shadow: 0 -16px 44px rgba(31, 35, 40, 0.18);
+
+  &__toolbar {
+    background: var(--app-surface-subtle);
+    border-bottom-color: var(--app-border-muted);
+    min-height: 36px;
+  }
+
+  &__tab {
+    border-radius: var(--app-radius-md);
+    margin: 4px 2px;
+  }
+
+  &__tab:hover {
+    background: var(--app-surface-hover);
+  }
+
+  &__tab--active {
+    background: var(--app-surface);
+    color: var(--text-color);
+    box-shadow: var(--app-shadow-sm);
+  }
+}
+
+dialog {
+  background: var(--app-surface);
+  border-color: var(--app-border);
+  border-radius: var(--app-radius-xl);
+  box-shadow: var(--app-shadow-lg);
+
+  .dialog-header {
+    height: auto;
+    min-height: 56px;
+    background: var(--app-surface);
+    border-bottom-color: var(--app-border-muted);
+    padding: 16px 20px;
+
+    h1 {
+      font-size: 15px;
+    }
+  }
+
+  .dialog-content {
+    padding: 20px;
+    line-height: 1.45;
+  }
+
+  .dialog-footer {
+    background: var(--app-surface-subtle);
+    border-top: 1px solid var(--app-border-muted);
+    padding: 12px 20px;
+  }
+}
+
+.popup,
+.popover-component,
+.foldout,
+.toolbar-dropdown {
+  background: var(--app-surface);
+  border-color: var(--app-border);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow-md);
+}
+
+.blankslate,
+#no-changes,
+.missing-repository-view,
+.changes-interstitial {
+  color: var(--text-secondary-color);
+  background: var(--app-surface);
+
+  h1,
+  h2,
+  h3 {
+    color: var(--text-color);
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+.form-error,
+.error-component {
+  background: var(--app-danger-soft);
+  border-color: color-mix(in srgb, var(--app-danger) 35%, transparent);
+  color: var(--text-color);
+  border-radius: var(--app-radius-md);
+}
+
+.warning,
+.warning-helper-text,
+.file-warning {
+  border-radius: var(--app-radius-md);
+}
+
+.toast-notification {
+  border-radius: 999px;
+  box-shadow: var(--app-shadow-md);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

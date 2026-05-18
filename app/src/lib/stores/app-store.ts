@@ -499,6 +499,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
     typeof window !== 'undefined'
       ? new TerminalSettings(window.localStorage)
       : new TerminalSettings()
+  private readonly terminalRepositoryRefreshTimers: Map<
+    number,
+    ReturnType<typeof setTimeout>
+  > = new Map()
   /** Lazily created when a review opens — needs an Account for auth. */
   private prReviewStore: PullRequestReviewStore | null = null
   private readonly repoHealthStore: RepoHealthStore = new RepoHealthStore({
@@ -7362,7 +7366,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
     // Side-channel listener: route OSC meta into the store and ping
     // markActivity (throttled) on data frames so inactive tabs can show
     // an unread-output indicator.
-    attachTerminalStoreToPort(this.terminalStore, sessionId, port)
+    attachTerminalStoreToPort(this.terminalStore, sessionId, port, {
+      onCommandFinished: () =>
+        this.scheduleTerminalRepositoryRefresh(repositoryId),
+    })
 
     return {
       id: sessionId,
@@ -7385,6 +7392,39 @@ export class AppStore extends TypedBaseStore<IAppState> {
     await killTerminalIpc(sessionId)
     this.terminalPorts.delete(sessionId)
     this.terminalStore.removeSession(sessionId)
+  }
+
+  private scheduleTerminalRepositoryRefresh(repositoryId: number): void {
+    const existing = this.terminalRepositoryRefreshTimers.get(repositoryId)
+    if (existing !== undefined) {
+      clearTimeout(existing)
+    }
+
+    const timer = setTimeout(() => {
+      this.terminalRepositoryRefreshTimers.delete(repositoryId)
+      void this.refreshRepositoryAfterTerminalCommand(repositoryId)
+    }, 300)
+
+    this.terminalRepositoryRefreshTimers.set(repositoryId, timer)
+  }
+
+  private async refreshRepositoryAfterTerminalCommand(
+    repositoryId: number
+  ): Promise<void> {
+    const repository = this.repositories.find(r => r.id === repositoryId)
+    if (repository === undefined) {
+      return
+    }
+
+    try {
+      await this._refreshRepository(repository)
+      this.emitUpdate()
+    } catch (err) {
+      log.warn(
+        '[AppStore] failed to refresh repository after terminal command',
+        err as Error
+      )
+    }
   }
 
   /**

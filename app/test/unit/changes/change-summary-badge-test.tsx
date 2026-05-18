@@ -1,9 +1,10 @@
 import { ChangeSummaryBadge } from '../../../src/ui/changes/change-summary-badge'
 
 function createBadge(
-  stats: { files: number; additions: number; deletions: number } | null
+  stats: { files: number; additions: number; deletions: number } | null,
+  changedFilesCount: number = stats?.files ?? 0
 ) {
-  return new ChangeSummaryBadge({ stats })
+  return new ChangeSummaryBadge({ stats, changedFilesCount })
 }
 
 describe('ChangeSummaryBadge', () => {
@@ -17,14 +18,40 @@ describe('ChangeSummaryBadge', () => {
     expect(text).toContain('-67')
   })
 
-  it('renders nothing when stats is null', () => {
+  it('renders zero stats when stats is null and there are no changed files', () => {
     const badge = createBadge(null)
-    expect(badge.render()).toBeNull()
+    const element = badge.render() as any
+    const text = renderToText(element)
+    expect(text).toContain('0 files')
+    expect(text).toContain('+0')
+    expect(text).toContain('-0')
   })
 
-  it('renders nothing when files is 0', () => {
+  it('renders zero stats when files is 0', () => {
     const badge = createBadge({ files: 0, additions: 0, deletions: 0 })
-    expect(badge.render()).toBeNull()
+    const element = badge.render() as any
+    const text = renderToText(element)
+    expect(text).toContain('0 files')
+    expect(text).toContain('+0')
+    expect(text).toContain('-0')
+  })
+
+  it('falls back to the changed files count when stats are unavailable', () => {
+    const badge = createBadge(null, 3)
+    const element = badge.render() as any
+    const text = renderToText(element)
+    expect(text).toContain('3 files')
+    expect(text).toContain('+0')
+    expect(text).toContain('-0')
+  })
+
+  it('uses the working directory file count when diff stats do not include every file', () => {
+    const badge = createBadge({ files: 1, additions: 5, deletions: 2 }, 3)
+    const element = badge.render() as any
+    const text = renderToText(element)
+    expect(text).toContain('3 files')
+    expect(text).toContain('+5')
+    expect(text).toContain('-2')
   })
 
   it('uses singular file label for one file', () => {

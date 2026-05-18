@@ -225,6 +225,17 @@ describe('terminal-client', () => {
       })
     })
 
+    it('notifies when a command completes', () => {
+      const port = new FakePort()
+      const store = new FakeStore()
+      const commandFinished = jest.fn()
+      attachStoreToPort(store, 's1', port, {
+        onCommandFinished: commandFinished,
+      })
+      port.emit({ type: 'meta', lastExitCode: 0 })
+      expect(commandFinished).toHaveBeenCalledWith('s1', 0)
+    })
+
     it('does not start the port (XtermView owns the single start())', () => {
       const port = new FakePort()
       const store = new FakeStore()

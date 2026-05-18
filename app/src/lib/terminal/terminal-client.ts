@@ -63,6 +63,10 @@ export interface ITerminalStoreSink {
   markActivity(sessionId: string): void
 }
 
+interface IAttachStoreToPortOptions {
+  readonly onCommandFinished?: (sessionId: string, exitCode: number) => void
+}
+
 /** Subset of `MessagePort` we listen on. */
 export interface IPortLike {
   onmessage?: ((event: { data: any }) => void) | null
@@ -102,7 +106,8 @@ function markActivityThrottled(
 export function attachStoreToPort(
   store: ITerminalStoreSink,
   sessionId: string,
-  port: IPortLike
+  port: IPortLike,
+  options: IAttachStoreToPortOptions = {}
 ): void {
   const handler = (event: { data: any }) => {
     const data = event?.data
@@ -116,6 +121,9 @@ export function attachStoreToPort(
         lastExitCode: data.lastExitCode,
         hasActivity: data.hasActivity,
       })
+      if (typeof data.lastExitCode === 'number') {
+        options.onCommandFinished?.(sessionId, data.lastExitCode)
+      }
       return
     }
     if (data.type === 'data') {
