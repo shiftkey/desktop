@@ -8,7 +8,11 @@ interface IChangeSummaryBadgeProps {
   readonly changedFilesCount: number
 }
 
-/** Displays a compact summary of working-directory changes. */
+/**
+ * Displays a compact summary of the lines added/removed across all
+ * working-directory changes. The file count is intentionally omitted here
+ * because the changes-list header checkbox already labels it.
+ */
 export class ChangeSummaryBadge extends React.Component<
   IChangeSummaryBadgeProps,
   {}
@@ -29,10 +33,7 @@ export class ChangeSummaryBadge extends React.Component<
         className="change-summary-badge-wrapper"
       >
         <span className="change-summary-badge">
-          <span className="files-changed">
-            {files} {filesLabel}
-          </span>
-          <span className="additions">+{additions}</span>{' '}
+          <span className="additions">+{additions}</span>
           <span className="deletions">-{deletions}</span>
         </span>
       </TooltippedContent>
