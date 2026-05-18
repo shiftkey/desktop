@@ -390,7 +390,7 @@ export interface IAPIRefCheckRuns {
   readonly check_runs: IAPIRefCheckRun[]
 }
 
-interface IAPIWorkflowRuns {
+export interface IAPIWorkflowRuns {
   readonly total_count: number
   readonly workflow_runs: ReadonlyArray<IAPIWorkflowRun>
 }
@@ -433,7 +433,7 @@ export interface IAPIWorkflow {
     | 'disabled_manually'
 }
 
-interface IAPIWorkflows {
+export interface IAPIWorkflows {
   readonly total_count: number
   readonly workflows: ReadonlyArray<IAPIWorkflow>
 }
@@ -1512,6 +1512,9 @@ export class API {
     status?: string
   ): Promise<IAPIWorkflowRuns | null> {
     const params: Record<string, string> = { branch }
+    if (workflowName !== undefined) {
+      params.workflow_id = workflowName
+    }
     if (status !== undefined) {
       params.status = status
     }
@@ -1548,8 +1551,15 @@ export class API {
     if (inputs !== undefined) {
       body.inputs = inputs
     }
-    const response = await this.request('POST', path, body)
-    return response.status === 204
+    return this.request('POST', path, { body })
+      .then(x => x.status === 204)
+      .catch(err => {
+        log.debug(
+          `Failed to dispatch workflow ${workflowId} for ${owner}/${name}`,
+          err
+        )
+        return false
+      })
   }
 
   /**
@@ -1561,8 +1571,15 @@ export class API {
     workflowRunId: number
   ): Promise<boolean> {
     const path = `repos/${owner}/${name}/actions/runs/${workflowRunId}/cancel`
-    const response = await this.request('POST', path)
-    return response.status === 202
+    return this.request('POST', path)
+      .then(x => x.status === 202)
+      .catch(err => {
+        log.debug(
+          `Failed to cancel workflow run ${workflowRunId} for ${owner}/${name}`,
+          err
+        )
+        return false
+      })
   }
 
   /**
