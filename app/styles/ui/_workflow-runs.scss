@@ -1,0 +1,104 @@
+.workflow-run-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.workflow-run-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--box-border-color);
+
+  select {
+    flex: 1;
+  }
+}
+
+.workflow-run-list-loading,
+.workflow-run-list-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-secondary-color);
+}
+
+.workflow-run-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--box-border-color);
+
+  &:hover,
+  &.selected {
+    background-color: var(--list-item-hover-background-color);
+  }
+
+  .octicon {
+    flex-shrink: 0;
+  }
+
+  .workflow-run-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .workflow-run-name {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .workflow-run-meta {
+    font-size: 11px;
+    color: var(--text-secondary-color);
+  }
+
+  .workflow-run-duration {
+    font-size: 11px;
+    color: var(--text-secondary-color);
+    white-space: nowrap;
+  }
+
+  &.status-success {
+    .octicon {
+      color: var(--color-new);
+    }
+  }
+
+  &.status-failure {
+    .octicon {
+      color: var(--color-error);
+    }
+  }
+
+  &.status-cancelled {
+    .octicon {
+      color: var(--text-secondary-color);
+    }
+  }
+
+  &.status-pending {
+    .octicon {
+      color: var(--color-warning);
+    }
+  }
+}
+
+.workflow-run-dispatch-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  label {
+    font-weight: 600;
+    margin-top: 8px;
+  }
+
+  select,
+  input {
+    width: 100%;
+  }
+}
