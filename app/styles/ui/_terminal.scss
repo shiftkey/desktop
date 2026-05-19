@@ -298,6 +298,41 @@
   }
 }
 
+// ─── Scroll-to-bottom button ────────────────────────────────────────────
+// Shown only when the viewport is scrolled above the buffer's baseY. Lets
+// the user jump back to the live prompt without dragging the scrollbar —
+// useful for long-running tools (e.g. Claude Code) whose summary tail is
+// many screens below where the user paused.
+.xterm-scroll-to-bottom {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--box-border-color, #333);
+  background: var(--box-background-color, #1e1e1e);
+  color: var(--text-color, #ccc);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  opacity: 0.85;
+  transition: opacity 120ms ease, transform 120ms ease;
+
+  &:hover {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
+
+  &:focus {
+    outline: 2px solid var(--focus-color, #58a6ff);
+    outline-offset: 1px;
+  }
+}
+
 // ─── Paste confirm dialog ───────────────────────────────────────────────
 .paste-confirm-dialog {
   position: absolute;

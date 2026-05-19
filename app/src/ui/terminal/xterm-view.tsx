@@ -108,6 +108,7 @@ export interface IRuntimeTerminal {
   options?: Record<string, any>
   cols: number
   rows: number
+  buffer?: any
   open(container: HTMLElement): void
   write(data: string | Uint8Array): void
   paste(data: string): void
@@ -115,10 +116,13 @@ export interface IRuntimeTerminal {
   hasSelection(): boolean
   getSelection(): string
   clearSelection(): void
+  scrollToBottom?(): void
   onData(cb: (data: string) => void): { dispose(): void }
   onResize(cb: (size: { cols: number; rows: number }) => void): {
     dispose(): void
   }
+  onScroll?(cb: (newYDisp: number) => void): { dispose(): void }
+  onWriteParsed?(cb: () => void): { dispose(): void }
   attachCustomKeyEventHandler(handler: (e: KeyboardEvent) => boolean): void
   loadAddon(addon: any): void
   setOption?(key: string, value: any): void
@@ -156,7 +160,15 @@ const defaultClipboard: IClipboard = {
   },
 }
 
-export class XtermView extends React.Component<IXtermViewProps> {
+interface IXtermViewState {
+  /** False when the viewport is scrolled above the bottom of the buffer. */
+  readonly isAtBottom: boolean
+}
+
+export class XtermView extends React.Component<
+  IXtermViewProps,
+  IXtermViewState
+> {
   private static readonly RESIZE_THROTTLE_MS = 32
 
   private container = React.createRef<HTMLDivElement>()
@@ -181,6 +193,10 @@ export class XtermView extends React.Component<IXtermViewProps> {
   private pasteHandler: ((e: ClipboardEvent) => void) | null = null
   /** Cached element to which `pasteHandler` was attached. Avoids a null-ref at detach time. */
   private pasteTarget: HTMLDivElement | null = null
+  private scrollDispose: { dispose(): void } | null = null
+  private writeParsedDispose: { dispose(): void } | null = null
+
+  public state: IXtermViewState = { isAtBottom: true }
 
   /** OSC sequence parser — feeds command-block boundary events. */
   private oscParser = new OscParser()
@@ -220,6 +236,13 @@ export class XtermView extends React.Component<IXtermViewProps> {
     this.applyTheme(this.props.theme)
     this.dataDispose = this.term.onData(input => this.sendInput(input))
     this.resizeDispose = this.term.onResize(size => this.sendResize(size))
+    this.scrollDispose =
+      this.term.onScroll?.(() => this.updateScrollPosition()) ?? null
+    // When new output arrives while the user is scrolled up, xterm doesn't
+    // fire onScroll (the viewport stays put); recompute against the new
+    // baseY so the button appears.
+    this.writeParsedDispose =
+      this.term.onWriteParsed?.(() => this.updateScrollPosition()) ?? null
     // Initial fit + resize forwarding.
     this.fitNow()
     // Observe container size changes so xterm tracks the panel as the
@@ -275,6 +298,10 @@ export class XtermView extends React.Component<IXtermViewProps> {
     this.dataDispose = null
     this.resizeDispose?.dispose()
     this.resizeDispose = null
+    this.scrollDispose?.dispose()
+    this.scrollDispose = null
+    this.writeParsedDispose?.dispose()
+    this.writeParsedDispose = null
     this.resizeObserver?.disconnect()
     this.resizeObserver = null
     this.unbindPort()
@@ -367,8 +394,70 @@ export class XtermView extends React.Component<IXtermViewProps> {
           aria-label="Integrated terminal"
           onContextMenu={this.onContextMenu}
         />
+        {this.renderScrollToBottom()}
       </div>
     )
+  }
+
+  private renderScrollToBottom(): JSX.Element | null {
+    if (this.state.isAtBottom) {
+      return null
+    }
+    return (
+      <button
+        type="button"
+        className="xterm-scroll-to-bottom"
+        aria-label="Scroll to bottom"
+        title="Scroll to bottom"
+        onClick={this.scrollToBottom}
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path
+            fill="currentColor"
+            d="M8 11.5 2.5 6l1.06-1.06L8 9.38l4.44-4.44L13.5 6z"
+          />
+        </svg>
+      </button>
+    )
+  }
+
+  private scrollToBottom = (): void => {
+    const term = this.term as any
+    if (term === null) {
+      return
+    }
+    try {
+      term.scrollToBottom?.()
+    } catch {
+      // best-effort
+    }
+    this.updateScrollPosition()
+    this.term?.focus()
+  }
+
+  private updateScrollPosition = (): void => {
+    const term = this.term as any
+    if (term === null) {
+      return
+    }
+    const active = term.buffer?.active
+    if (!active) {
+      return
+    }
+    const viewportY: number = active.viewportY ?? 0
+    const baseY: number = active.baseY ?? 0
+    // A 1-line slop avoids flicker when the cursor sits exactly at baseY-1
+    // (e.g. after an alt-screen swap from `less`/`vim`).
+    const isAtBottom = viewportY >= baseY - 1
+    if (isAtBottom !== this.state.isAtBottom) {
+      this.setState({ isAtBottom })
+    }
   }
 
   private renderGutter(): JSX.Element | null {
