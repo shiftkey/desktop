@@ -815,10 +815,12 @@ export class XtermView extends React.Component<IXtermViewProps> {
   /**
    * Custom key handler.
    *
-   * Returning `false` prevents xterm from consuming the event so the
-   * browser default fires — useful for letting a paste land via xterm's
-   * internal paste pipeline (which we do here explicitly via `paste()`
-   * instead, returning false to swallow the original key).
+   * Returning `false` tells xterm not to process the key, but does NOT
+   * stop the underlying browser event — Chromium would still open DevTools
+   * on Ctrl+Shift+C and would still fire a native paste on Ctrl+Shift+V
+   * into xterm's hidden textarea (doubling the paste). For our clipboard
+   * shortcuts we therefore also call `preventDefault` + `stopPropagation`
+   * so the OS shortcut is fully handled here and nowhere else.
    */
   private handleKeyEvent = (e: KeyboardEvent): boolean => {
     if (e.type !== 'keydown') {
@@ -829,18 +831,21 @@ export class XtermView extends React.Component<IXtermViewProps> {
       return true
     }
     if (e.key === 'C' || e.key === 'c') {
+      e.preventDefault()
+      e.stopPropagation()
       if (this.term && this.term.hasSelection()) {
         const sel = this.term.getSelection()
         if (sel.length > 0) {
           this.clipboard.writeText(sel)
           // Don't clear the selection — let the user re-select if they
           // want to copy more lines.
-          return false
         }
       }
-      return true
+      return false
     }
     if (e.key === 'V' || e.key === 'v') {
+      e.preventDefault()
+      e.stopPropagation()
       const text = this.clipboard.readText()
       if (text.length > 0 && this.term) {
         if (
