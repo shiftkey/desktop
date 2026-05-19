@@ -23,6 +23,7 @@ export class RepoHealthStore extends BaseStore {
   private refreshing: Set<number> = new Set()
   private lastRefreshAt: number | null = null
   private inFlight: IInFlightRefresh | null = null
+  private singleControllers: Set<AbortController> = new Set()
 
   public constructor(options: IRepoHealthStoreOptions) {
     super()
@@ -117,6 +118,7 @@ export class RepoHealthStore extends BaseStore {
     this.refreshing.add(repo.id)
     this.emitUpdate()
     const controller = new AbortController()
+    this.singleControllers.add(controller)
     try {
       const [health] = await collectMany(
         [repo],
@@ -130,9 +132,10 @@ export class RepoHealthStore extends BaseStore {
       if (health) {
         this.statuses.set(repo.id, health)
       }
-    } finally {
-      this.refreshing.delete(repo.id)
       this.lastRefreshAt = (this.options.now ?? Date.now)()
+    } finally {
+      this.singleControllers.delete(controller)
+      this.refreshing.delete(repo.id)
       this.emitUpdate()
     }
   }
@@ -158,6 +161,13 @@ export class RepoHealthStore extends BaseStore {
         this.inFlight.controller.abort()
       } catch {
         // Some Node/Electron versions throw on double-abort; ignore.
+      }
+    }
+    for (const ctrl of this.singleControllers) {
+      try {
+        ctrl.abort()
+      } catch {
+        // ignore
       }
     }
     if (this.statuses.size === 0 && this.refreshing.size === 0) {

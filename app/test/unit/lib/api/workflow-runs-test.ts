@@ -99,25 +99,33 @@ describe('API workflow run methods', () => {
         headers: new Headers(),
       })
 
-      const result = await api.dispatchWorkflowRun(
-        'owner',
-        'name',
-        123,
-        'main',
-        { foo: 'bar' }
-      )
-      expect(result).toBe(true)
+      await api.dispatchWorkflowRun('owner', 'name', 123, 'main', {
+        foo: 'bar',
+      })
       expect(requestSpy).toHaveBeenCalledWith('POST', expect.any(String), {
         body: { ref: 'main', inputs: { foo: 'bar' } },
       })
     })
 
-    it('returns false on failure', async () => {
+    it('throws on non-204 response', async () => {
+      const api = new API('https://api.github.com', 'fake-token')
+      jest.spyOn(api as any, 'request').mockResolvedValue({
+        status: 403,
+        ok: false,
+        headers: new Headers(),
+      })
+      await expect(
+        api.dispatchWorkflowRun('owner', 'name', 123, 'main')
+      ).rejects.toThrow(/HTTP 403/)
+    })
+
+    it('propagates network errors', async () => {
       const api = new API('https://api.github.com', 'fake-token')
       jest.spyOn(api as any, 'request').mockRejectedValue(new Error('network'))
 
-      const result = await api.dispatchWorkflowRun('owner', 'name', 123, 'main')
-      expect(result).toBe(false)
+      await expect(
+        api.dispatchWorkflowRun('owner', 'name', 123, 'main')
+      ).rejects.toThrow('network')
     })
   })
 
@@ -130,16 +138,30 @@ describe('API workflow run methods', () => {
         headers: new Headers(),
       })
 
-      const result = await api.cancelWorkflowRun('owner', 'name', 123)
-      expect(result).toBe(true)
+      await expect(
+        api.cancelWorkflowRun('owner', 'name', 123)
+      ).resolves.toBeUndefined()
     })
 
-    it('returns false on failure', async () => {
+    it('throws on non-202 response', async () => {
+      const api = new API('https://api.github.com', 'fake-token')
+      jest.spyOn(api as any, 'request').mockResolvedValue({
+        status: 409,
+        ok: false,
+        headers: new Headers(),
+      })
+      await expect(api.cancelWorkflowRun('owner', 'name', 123)).rejects.toThrow(
+        /HTTP 409/
+      )
+    })
+
+    it('propagates network errors', async () => {
       const api = new API('https://api.github.com', 'fake-token')
       jest.spyOn(api as any, 'request').mockRejectedValue(new Error('network'))
 
-      const result = await api.cancelWorkflowRun('owner', 'name', 123)
-      expect(result).toBe(false)
+      await expect(api.cancelWorkflowRun('owner', 'name', 123)).rejects.toThrow(
+        'network'
+      )
     })
   })
 

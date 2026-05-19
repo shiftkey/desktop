@@ -59,12 +59,20 @@ export class WorktreeStore extends BaseStore {
       const worktrees = await listWorkTrees(repository)
       // Exclude the main worktree and get change counts for linked worktrees.
       const repositoryPath = Path.resolve(repository.path)
-      const entries: Array<IWorktreeEntry> = []
-      for (const wt of worktrees.filter(
+      const linked = worktrees.filter(
         wt => wt?.path != null && Path.resolve(wt.path) !== repositoryPath
-      )) {
-        const changesCount = await getWorktreeStatusCount(wt.path)
-        entries.push({ ...wt, changesCount })
+      )
+      const entries: ReadonlyArray<IWorktreeEntry> = await Promise.all(
+        linked.map(async wt => ({
+          ...wt,
+          changesCount: await getWorktreeStatusCount(wt.path),
+        }))
+      )
+
+      // The store may have been cleared (e.g., user removed the repo)
+      // while we were awaiting git. Don't resurrect dropped state.
+      if (!this.state.has(repository.id) && current === undefined) {
+        return
       }
 
       this.update(repository.id, this.state.get(repository.id) ?? EMPTY_STATE, {

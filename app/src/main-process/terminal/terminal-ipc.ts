@@ -155,12 +155,19 @@ export function registerTerminalIpc(
         args === null ||
         typeof args !== 'object' ||
         typeof args.sessionId !== 'string' ||
+        args.sessionId.length === 0 ||
         !Number.isFinite(args.cols) ||
-        !Number.isFinite(args.rows)
+        !Number.isFinite(args.rows) ||
+        args.cols <= 0 ||
+        args.rows <= 0
       ) {
         return
       }
-      manager.resize(args.sessionId, args.cols, args.rows)
+      manager.resize(
+        args.sessionId,
+        Math.floor(args.cols),
+        Math.floor(args.rows)
+      )
     }
   )
 

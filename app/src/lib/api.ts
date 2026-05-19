@@ -1545,21 +1545,18 @@ export class API {
     workflowId: number | string,
     ref: string,
     inputs?: Record<string, string>
-  ): Promise<boolean> {
+  ): Promise<void> {
     const path = `repos/${owner}/${name}/actions/workflows/${workflowId}/dispatches`
     const body: Record<string, unknown> = { ref }
     if (inputs !== undefined) {
       body.inputs = inputs
     }
-    return this.request('POST', path, { body })
-      .then(x => x.status === 204)
-      .catch(err => {
-        log.debug(
-          `Failed to dispatch workflow ${workflowId} for ${owner}/${name}`,
-          err
-        )
-        return false
-      })
+    const response = await this.request('POST', path, { body })
+    if (response.status !== 204) {
+      throw new Error(
+        `Failed to dispatch workflow ${workflowId} for ${owner}/${name}: HTTP ${response.status}`
+      )
+    }
   }
 
   /**
@@ -1569,17 +1566,14 @@ export class API {
     owner: string,
     name: string,
     workflowRunId: number
-  ): Promise<boolean> {
+  ): Promise<void> {
     const path = `repos/${owner}/${name}/actions/runs/${workflowRunId}/cancel`
-    return this.request('POST', path)
-      .then(x => x.status === 202)
-      .catch(err => {
-        log.debug(
-          `Failed to cancel workflow run ${workflowRunId} for ${owner}/${name}`,
-          err
-        )
-        return false
-      })
+    const response = await this.request('POST', path)
+    if (response.status !== 202) {
+      throw new Error(
+        `Failed to cancel workflow run ${workflowRunId} for ${owner}/${name}: HTTP ${response.status}`
+      )
+    }
   }
 
   /**
@@ -1634,18 +1628,14 @@ export class API {
     owner: string,
     name: string,
     workflowRunId: number
-  ): Promise<boolean> {
+  ): Promise<void> {
     const path = `/repos/${owner}/${name}/actions/runs/${workflowRunId}/rerun-failed-jobs`
-
-    return this.request('POST', path)
-      .then(x => x.ok)
-      .catch(err => {
-        log.debug(
-          `Failed to rerun failed workflow jobs for (${owner}/${name}): ${workflowRunId}`,
-          err
-        )
-        return false
-      })
+    const response = await this.request('POST', path)
+    if (!response.ok) {
+      throw new Error(
+        `Failed to rerun failed workflow jobs for ${owner}/${name} (run ${workflowRunId}): HTTP ${response.status}`
+      )
+    }
   }
 
   /**
@@ -1655,18 +1645,14 @@ export class API {
     owner: string,
     name: string,
     jobId: number
-  ): Promise<boolean> {
+  ): Promise<void> {
     const path = `/repos/${owner}/${name}/actions/jobs/${jobId}/rerun`
-
-    return this.request('POST', path)
-      .then(x => x.ok)
-      .catch(err => {
-        log.debug(
-          `Failed to rerun workflow job (${owner}/${name}): ${jobId}`,
-          err
-        )
-        return false
-      })
+    const response = await this.request('POST', path)
+    if (!response.ok) {
+      throw new Error(
+        `Failed to rerun workflow job ${jobId} for ${owner}/${name}: HTTP ${response.status}`
+      )
+    }
   }
 
   public async getAvatarToken() {

@@ -567,7 +567,13 @@ export class CommitStatusStore {
     }
 
     const api = API.fromAccount(account)
-    return api.rerunJob(owner.login, name, jobId)
+    try {
+      await api.rerunJob(owner.login, name, jobId)
+      return true
+    } catch (err) {
+      log.debug(`[commitStatusStore] rerunJob failed`, err)
+      return false
+    }
   }
 
   public async rerunFailedJobs(
@@ -581,7 +587,13 @@ export class CommitStatusStore {
     }
 
     const api = API.fromAccount(account)
-    return api.rerunFailedJobs(owner.login, name, workflowRunId)
+    try {
+      await api.rerunFailedJobs(owner.login, name, workflowRunId)
+      return true
+    } catch (err) {
+      log.debug(`[commitStatusStore] rerunFailedJobs failed`, err)
+      return false
+    }
   }
 
   public async fetchCheckSuite(
