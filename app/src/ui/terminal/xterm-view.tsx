@@ -74,6 +74,14 @@ export interface IXtermViewProps {
   readonly webLinksAddonFactory?: () => any
   /** Test injection: produce a Search addon. */
   readonly searchAddonFactory?: () => any
+  /** Test injection: produce a Serialize addon. */
+  readonly serializeAddonFactory?: () => any
+  /**
+   * Session identifier used to persist and restore scrollback across restarts.
+   * When set, the buffer is serialized to localStorage on unmount and restored
+   * on mount. Keyed as `terminal-scrollback-v1:<sessionId>`.
+   */
+  readonly sessionId?: string
   /**
    * Cell font size in CSS px. Applied to xterm options on mount and
    * re-applied (with a re-fit) when the prop changes. Defaults to 13.
@@ -180,6 +188,7 @@ export class XtermView extends React.Component<
   private ligaturesAddon: any | null = null
   private webLinksAddon: any | null = null
   private searchAddon: any | null = null
+  private serializeAddon: any | null = null
   private fileLinkMatcherId: number | null = null
   private dataDispose: { dispose(): void } | null = null
   private resizeDispose: { dispose(): void } | null = null
@@ -244,6 +253,7 @@ export class XtermView extends React.Component<
     this.writeParsedDispose =
       this.term.onWriteParsed?.(() => this.updateScrollPosition()) ?? null
     // Initial fit + resize forwarding.
+    this.restoreScrollback()
     this.fitNow()
     // Observe container size changes so xterm tracks the panel as the
     // user drags the resize gutter, the window resizes, or the parent
@@ -326,6 +336,9 @@ export class XtermView extends React.Component<
     }
     this.pendingResize = null
     this.detachPasteInterceptor()
+    this.saveScrollback()
+    this.serializeAddon?.dispose?.()
+    this.serializeAddon = null
     this.term?.dispose()
     this.term = null
   }
@@ -655,6 +668,15 @@ export class XtermView extends React.Component<
         return new SearchAddon()
       }
     )
+    this.serializeAddon = this.makePassiveAddon(
+      'serialize',
+      this.props.serializeAddonFactory,
+      () => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { SerializeAddon } = require('@xterm/addon-serialize')
+        return new SerializeAddon()
+      }
+    )
   }
 
   private makePassiveAddon(
@@ -729,6 +751,43 @@ export class XtermView extends React.Component<
       // best-effort
     }
     this.fileLinkMatcherId = null
+  }
+
+  private static scrollbackKey(sessionId: string): string {
+    return `terminal-scrollback-v1:${sessionId}`
+  }
+
+  private restoreScrollback(): void {
+    const { sessionId } = this.props
+    if (!sessionId || !this.term) {
+      return
+    }
+    try {
+      const saved = localStorage.getItem(XtermView.scrollbackKey(sessionId))
+      if (saved && saved.length > 0) {
+        this.term.write(saved)
+      }
+    } catch {
+      // localStorage may be unavailable in some contexts — non-fatal
+    }
+  }
+
+  private saveScrollback(): void {
+    const { sessionId } = this.props
+    if (!sessionId || !this.term || this.serializeAddon === null) {
+      return
+    }
+    try {
+      // Serialize at most the last 1000 rows so localStorage stays small.
+      const content: string = this.serializeAddon.serialize({ rows: 1000 })
+      if (content.length > 0) {
+        localStorage.setItem(XtermView.scrollbackKey(sessionId), content)
+      } else {
+        localStorage.removeItem(XtermView.scrollbackKey(sessionId))
+      }
+    } catch {
+      // best-effort
+    }
   }
 
   private applyTheme(theme: ITerminalThemeColors) {

@@ -16,6 +16,16 @@ export const enum MultiCommitOperationKind {
   Squash = 'Squash',
   Merge = 'Merge',
   Reorder = 'Reorder',
+  InteractiveRebase = 'Interactive Rebase',
+}
+
+/** Actions the user can assign to a commit in the interactive rebase planner. */
+export type RebaseTodoAction = 'pick' | 'squash' | 'fixup' | 'drop'
+
+/** A single entry in the interactive rebase todo list. */
+export interface IInteractiveRebaseEntry {
+  readonly commit: Commit
+  readonly action: RebaseTodoAction
 }
 
 /** Type guard which narrows a string to a MultiCommitOperationKind */
@@ -26,13 +36,15 @@ export function isIdMultiCommitOperation(
   | MultiCommitOperationKind.CherryPick
   | MultiCommitOperationKind.Squash
   | MultiCommitOperationKind.Merge
-  | MultiCommitOperationKind.Reorder {
+  | MultiCommitOperationKind.Reorder
+  | MultiCommitOperationKind.InteractiveRebase {
   return (
     id === MultiCommitOperationKind.Rebase ||
     id === MultiCommitOperationKind.CherryPick ||
     id === MultiCommitOperationKind.Squash ||
     id === MultiCommitOperationKind.Merge ||
-    id === MultiCommitOperationKind.Reorder
+    id === MultiCommitOperationKind.Reorder ||
+    id === MultiCommitOperationKind.InteractiveRebase
   )
 }
 
@@ -236,12 +248,17 @@ interface IMergeDetails extends ISourceBranchDetails {
   readonly isSquash: boolean
 }
 
+interface IInteractiveRebaseOperationDetails extends IInteractiveRebaseDetails {
+  readonly kind: MultiCommitOperationKind.InteractiveRebase
+}
+
 export type MultiCommitOperationDetail =
   | ISquashDetails
   | IReorderDetails
   | ICherryPickDetails
   | IRebaseDetails
   | IMergeDetails
+  | IInteractiveRebaseOperationDetails
 
 export function instanceOfIBaseRebaseDetails(
   object: any

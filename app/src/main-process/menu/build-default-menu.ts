@@ -450,6 +450,11 @@ export function buildDefaultMenu({
       accelerator: 'CmdOrCtrl+Shift+E',
       click: emit('rebase-branch'),
     },
+    {
+      label: __DARWIN__ ? 'Interactive Rebase…' : 'Interactive &rebase…',
+      id: 'interactive-rebase',
+      click: emit('interactive-rebase'),
+    },
     separator,
     {
       label: __DARWIN__ ? 'Compare on GitHub' : 'Compare on &GitHub',

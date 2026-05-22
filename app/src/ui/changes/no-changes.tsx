@@ -240,7 +240,8 @@ export class NoChanges extends React.Component<
     itemId: MenuIDs,
     title: string,
     description?: string | JSX.Element,
-    onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void
+    onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void,
+    enabled?: boolean
   ) {
     const menuItem = this.getMenuItemInfo(itemId)
 
@@ -249,6 +250,10 @@ export class NoChanges extends React.Component<
       return null
     }
 
+    // Use caller-supplied enabled state when provided to avoid stale appMenu
+    // values during the IPC roundtrip that follows a repository switch.
+    const disabled = enabled !== undefined ? !enabled : !menuItem.enabled
+
     return (
       <MenuBackedSuggestedAction
         title={title}
@@ -256,7 +261,7 @@ export class NoChanges extends React.Component<
         discoverabilityContent={this.renderDiscoverabilityElements(menuItem)}
         menuItemId={itemId}
         buttonText={formatMenuItemLabel(menuItem.label)}
-        disabled={!menuItem.enabled}
+        disabled={disabled}
         onClick={onClick}
       />
     )
@@ -277,17 +282,19 @@ export class NoChanges extends React.Component<
     this.props.dispatcher.incrementMetric('suggestedStepOpenWorkingDirectory')
 
   private renderViewOnGitHub() {
-    const isGitHub = this.props.repository.gitHubRepository !== null
-
-    if (!isGitHub) {
+    const { gitHubRepository } = this.props.repository
+    if (gitHubRepository === null) {
       return null
     }
+
+    const hasUrl = gitHubRepository.htmlURL !== null
 
     return this.renderMenuBackedAction(
       'view-repository-on-github',
       `Open the repository page on GitHub in your browser`,
       undefined,
-      this.onViewOnGitHubClicked
+      this.onViewOnGitHubClicked,
+      hasUrl
     )
   }
 

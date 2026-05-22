@@ -347,12 +347,14 @@ import { ILastThankYou } from '../../models/last-thank-you'
 import { squash } from '../git/squash'
 import { getTipSha } from '../tip'
 import {
+  IInteractiveRebaseEntry,
   MultiCommitOperationDetail,
   MultiCommitOperationKind,
   MultiCommitOperationStep,
   MultiCommitOperationStepKind,
 } from '../../models/multi-commit-operation'
 import { reorder } from '../git/reorder'
+import { interactiveRebase } from '../git/interactive-rebase'
 import { UseWindowsOpenSSHKey } from '../ssh/ssh'
 import { isConflictsFlow } from '../multi-commit-operation'
 import { clamp } from '../clamp'
@@ -8243,6 +8245,32 @@ export class AppStore extends TypedBaseStore<IAppState> {
   }
 
   /** This shouldn't be called directly. See `Dispatcher`. */
+  public async _startInteractiveRebase(
+    repository: Repository,
+    entries: ReadonlyArray<IInteractiveRebaseEntry>,
+    lastRetainedCommitRef: string | null
+  ): Promise<RebaseResult> {
+    if (entries.length === 0) {
+      log.error('[_startInteractiveRebase] - No entries provided.')
+      return RebaseResult.Error
+    }
+    const progressCallback =
+      this.getMultiCommitOperationProgressCallBack(repository)
+    const allCommits = entries.map(e => e.commit)
+    const gitStore = this.gitStoreCache.get(repository)
+    const result = await gitStore.performFailableOperation(() =>
+      interactiveRebase(
+        repository,
+        entries,
+        lastRetainedCommitRef,
+        progressCallback,
+        allCommits
+      )
+    )
+    return result || RebaseResult.Error
+  }
+
+  /** This shouldn't be called directly. See `Dispatcher`. */
   public async _squash(
     repository: Repository,
     toSquash: ReadonlyArray<Commit>,
@@ -8349,6 +8377,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
           commitsCount,
         }
         break
+      case MultiCommitOperationKind.InteractiveRebase:
       case MultiCommitOperationKind.Reorder:
         banner = {
           type: BannerType.ReorderUndone,

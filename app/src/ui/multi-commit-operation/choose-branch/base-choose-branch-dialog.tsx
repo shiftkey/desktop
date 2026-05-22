@@ -180,6 +180,7 @@ export class ChooseBranchDialog extends React.Component<
         break
       case MultiCommitOperationKind.CherryPick:
       case MultiCommitOperationKind.Reorder:
+      case MultiCommitOperationKind.InteractiveRebase:
         break
       default:
         assertNever(option.id, `Unknown operation value: ${option.id}`)

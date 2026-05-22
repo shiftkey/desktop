@@ -996,6 +996,7 @@ export class StatsStore implements IStatsStore {
       case MultiCommitOperationKind.Squash:
         return this.increment('squashConflictsEncounteredCount')
       case MultiCommitOperationKind.Reorder:
+      case MultiCommitOperationKind.InteractiveRebase:
         return this.increment('reorderConflictsEncounteredCount')
       case MultiCommitOperationKind.Rebase:
         // ignored because rebase records different stats
@@ -1018,6 +1019,7 @@ export class StatsStore implements IStatsStore {
       case MultiCommitOperationKind.Squash:
         return this.increment('squashSuccessfulCount')
       case MultiCommitOperationKind.Reorder:
+      case MultiCommitOperationKind.InteractiveRebase:
         return this.increment('reorderSuccessfulCount')
       case MultiCommitOperationKind.CherryPick:
         return this.increment('cherryPickSuccessfulCount')
@@ -1041,6 +1043,7 @@ export class StatsStore implements IStatsStore {
       case MultiCommitOperationKind.Squash:
         return this.increment('squashSuccessfulWithConflictsCount')
       case MultiCommitOperationKind.Reorder:
+      case MultiCommitOperationKind.InteractiveRebase:
         return this.increment('reorderSuccessfulWithConflictsCount')
       case MultiCommitOperationKind.Rebase:
         return this.increment('rebaseSuccessAfterConflictsCount')
@@ -1062,6 +1065,7 @@ export class StatsStore implements IStatsStore {
       case MultiCommitOperationKind.Squash:
         return this.recordSquashUndone()
       case MultiCommitOperationKind.Reorder:
+      case MultiCommitOperationKind.InteractiveRebase:
         return this.increment('reorderUndoneCount')
       case MultiCommitOperationKind.CherryPick:
         return this.increment('cherryPickUndoneCount')

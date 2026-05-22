@@ -135,7 +135,7 @@ import { LocalChangesOverwrittenDialog } from './local-changes-overwritten/local
 import memoizeOne from 'memoize-one'
 import { AheadBehindStore } from '../lib/stores/ahead-behind-store'
 import { getAccountForRepository } from '../lib/get-account-for-repository'
-import { CommitOneLine } from '../models/commit'
+import { Commit, CommitOneLine } from '../models/commit'
 import { CommitDragElement } from './drag-elements/commit-drag-element'
 import classNames from 'classnames'
 import { MoveToApplicationsFolder } from './move-to-applications-folder'
@@ -188,6 +188,7 @@ import { offsetFromNow } from '../lib/offset-from'
 import { getBoolean, getNumber } from '../lib/local-storage'
 import { IconPreviewDialog } from './octicons/icon-preview-dialog'
 import { WorkflowRunDispatchDialog } from './workflow-runs/workflow-run-dispatch-dialog'
+import { InteractiveRebaseDialog } from './interactive-rebase/interactive-rebase-dialog'
 import { accessibilityBannerDismissed } from './banners/accessibilty-settings-banner'
 import { isCertificateErrorSuppressedFor } from '../lib/suppress-certificate-error'
 import { webUtils } from 'electron'
@@ -485,6 +486,8 @@ export class App extends React.Component<IAppProps, IAppState> {
       case 'rebase-branch':
         this.props.dispatcher.incrementMetric('rebaseCurrentBranchMenuCount')
         return this.showRebaseDialog()
+      case 'interactive-rebase':
+        return this.showInteractiveRebaseDialog()
       case 'show-repository-settings':
         return this.showRepositorySettings()
       case 'view-repository-on-github':
@@ -1449,6 +1452,37 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
 
     this.props.dispatcher.showRebaseDialog(repository)
+  }
+
+  private showInteractiveRebaseDialog() {
+    const selectedState = this.state.selectedState
+    if (
+      selectedState == null ||
+      selectedState.type !== SelectionType.Repository
+    ) {
+      return
+    }
+
+    const { repository, state } = selectedState
+    const { branchesState, commitLookup, localCommitSHAs } = state
+
+    if (branchesState.tip.kind !== TipState.Valid) {
+      return
+    }
+
+    const shaSlice = localCommitSHAs.slice(0, 20)
+    const commits = shaSlice
+      .map(sha => commitLookup.get(sha))
+      .filter((c): c is Commit => c !== undefined)
+
+    const lastRetainedCommitRef =
+      shaSlice.length >= 20 ? shaSlice[shaSlice.length - 1] : null
+
+    this.props.dispatcher.showInteractiveRebaseDialog(
+      repository,
+      commits,
+      lastRetainedCommitRef
+    )
   }
 
   private showRepositorySettings() {
@@ -2774,6 +2808,18 @@ export class App extends React.Component<IAppProps, IAppState> {
             repository={popup.repository}
             branch={popup.branch}
             workflows={popup.workflows}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
+      case PopupType.InteractiveRebase: {
+        return (
+          <InteractiveRebaseDialog
+            key="interactive-rebase"
+            repository={popup.repository}
+            commits={popup.commits}
+            lastRetainedCommitRef={popup.lastRetainedCommitRef}
+            dispatcher={this.props.dispatcher}
             onDismissed={onPopupDismissedFn}
           />
         )

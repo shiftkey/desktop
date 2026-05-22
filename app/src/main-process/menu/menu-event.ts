@@ -22,6 +22,7 @@ export type MenuEvent =
   | 'merge-branch'
   | 'squash-and-merge-branch'
   | 'rebase-branch'
+  | 'interactive-rebase'
   | 'show-repository-settings'
   | 'open-in-shell'
   | 'toggle-terminal'

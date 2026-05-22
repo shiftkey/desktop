@@ -351,6 +351,7 @@ export class TerminalPanel extends React.Component<
           >
             <XtermView
               ref={ref}
+              sessionId={sid}
               port={this.props.portFor(sid)}
               theme={this.props.theme}
               fontSize={this.props.fontSize}

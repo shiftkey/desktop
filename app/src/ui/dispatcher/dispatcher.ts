@@ -115,6 +115,7 @@ import { ILastThankYou } from '../../models/last-thank-you'
 import { dragAndDropManager } from '../../lib/drag-and-drop-manager'
 import {
   CreateBranchStep,
+  IInteractiveRebaseEntry,
   MultiCommitOperationDetail,
   MultiCommitOperationKind,
   MultiCommitOperationStep,
@@ -3657,6 +3658,78 @@ export class Dispatcher {
     )
   }
 
+  /** Shows the interactive rebase planning dialog for the given commits. */
+  public showInteractiveRebaseDialog(
+    repository: Repository,
+    commits: ReadonlyArray<Commit>,
+    lastRetainedCommitRef: string | null
+  ): void {
+    this.showPopup({
+      type: PopupType.InteractiveRebase,
+      repository,
+      commits,
+      lastRetainedCommitRef,
+    })
+  }
+
+  /** Starts an interactive rebase with the user-defined todo entries. */
+  public async startInteractiveRebase(
+    repository: Repository,
+    entries: ReadonlyArray<IInteractiveRebaseEntry>,
+    lastRetainedCommitRef: string | null
+  ): Promise<void> {
+    const stateBefore = this.repositoryStateManager.get(repository)
+    const { tip } = stateBefore.branchesState
+
+    if (tip.kind !== TipState.Valid) {
+      log.info(
+        '[startInteractiveRebase] - invalid tip state, cannot start rebase.'
+      )
+      return
+    }
+
+    const nonDropped = entries.filter(e => e.action !== 'drop')
+    const commits = nonDropped.map(e => e.commit)
+
+    this.initializeMultiCommitOperation(
+      repository,
+      {
+        kind: MultiCommitOperationKind.InteractiveRebase,
+        lastRetainedCommitRef,
+        commits,
+        currentTip: tip.branch.tip.sha,
+      },
+      tip.branch,
+      commits,
+      tip.branch.tip.sha
+    )
+
+    this.showPopup({
+      type: PopupType.MultiCommitOperation,
+      repository,
+    })
+
+    const result = await this.appStore._startInteractiveRebase(
+      repository,
+      entries,
+      lastRetainedCommitRef
+    )
+
+    this.logHowToRevertMultiCommitOperation(
+      MultiCommitOperationKind.InteractiveRebase,
+      tip
+    )
+
+    return this.processMultiCommitOperationRebaseResult(
+      MultiCommitOperationKind.InteractiveRebase,
+      repository,
+      result,
+      commits.length,
+      tip.branch.name,
+      'interactive rebase'
+    )
+  }
+
   /**
    * Starts a squash
    *
@@ -3973,6 +4046,7 @@ export class Dispatcher {
         banner = { ...bannerBase, type: BannerType.SuccessfulSquash }
         break
       case MultiCommitOperationKind.Reorder:
+      case MultiCommitOperationKind.InteractiveRebase:
         banner = { ...bannerBase, type: BannerType.SuccessfulReorder }
         break
       case MultiCommitOperationKind.CherryPick:

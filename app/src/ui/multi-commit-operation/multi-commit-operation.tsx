@@ -55,6 +55,7 @@ export class MultiCommitOperation extends React.Component<IMultiCommitOperationP
             openRepositoryInShell={this.props.openRepositoryInShell}
           />
         )
+      case MultiCommitOperationKind.InteractiveRebase:
       case MultiCommitOperationKind.Reorder:
         return (
           <Reorder

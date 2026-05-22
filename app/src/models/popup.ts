@@ -102,6 +102,7 @@ export enum PopupType {
   WorktreeCreate = 'WorktreeCreate',
   WorktreeRemove = 'WorktreeRemove',
   WorkflowRunDispatch = 'WorkflowRunDispatch',
+  InteractiveRebase = 'InteractiveRebase',
 }
 
 interface IBasePopup {
@@ -456,6 +457,12 @@ export type PopupDetail =
       repository: Repository
       branch: string
       workflows: ReadonlyArray<{ id: number; name: string }>
+    }
+  | {
+      type: PopupType.InteractiveRebase
+      repository: Repository
+      commits: ReadonlyArray<Commit>
+      lastRetainedCommitRef: string | null
     }
 
 export type Popup = IBasePopup & PopupDetail
