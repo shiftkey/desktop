@@ -272,7 +272,9 @@ import {
   killTerminal as killTerminalIpc,
   resizeTerminal as resizeTerminalIpc,
   attachStoreToPort as attachTerminalStoreToPort,
+  forgetTerminalActivity,
 } from '../terminal/terminal-client'
+import { clearTerminalScrollback } from '../terminal/scrollback'
 import { IPtyOptions, ITerminalSessionSnapshot } from '../terminal/pty-types'
 import { detectShell, IDetectedShell } from '../terminal/shell-detection'
 import {
@@ -7444,7 +7446,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
       if (event.data?.type === 'exit') {
         const exitCode =
           typeof event.data.exitCode === 'number' ? event.data.exitCode : 0
-        this.terminalPorts.delete(sessionId)
+        // The PTY is gone; release the port. Keep the persisted scrollback
+        // so a restart (or the user reading the final output) still has it —
+        // it's reaped when the session is killed or restarted.
+        this.disposeTerminalPort(sessionId)
         this.terminalStore.markExited(sessionId, exitCode)
       }
     })
@@ -7476,8 +7481,28 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   public async _killTerminal(sessionId: string): Promise<void> {
     await killTerminalIpc(sessionId)
-    this.terminalPorts.delete(sessionId)
+    this.disposeTerminalPort(sessionId)
+    clearTerminalScrollback(sessionId)
     this.terminalStore.removeSession(sessionId)
+  }
+
+  /**
+   * Tear down the renderer side of a terminal session's resources: close and
+   * drop the MessagePort (so the channel and its listeners are released
+   * rather than relying on GC) and reap its activity-throttle bookkeeping.
+   * Used by every path that permanently drops a session.
+   */
+  private disposeTerminalPort(sessionId: string): void {
+    const port = this.terminalPorts.get(sessionId)
+    if (port !== undefined) {
+      try {
+        port.close()
+      } catch {
+        // A port may already be closed by the main process on exit.
+      }
+      this.terminalPorts.delete(sessionId)
+    }
+    forgetTerminalActivity(sessionId)
   }
 
   private scheduleTerminalRepositoryRefresh(repositoryId: number): void {
@@ -7535,7 +7560,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
     } catch {
       // ignore
     }
-    this.terminalPorts.delete(oldSessionId)
+    // The restart spawns a fresh session id; the old id is gone for good,
+    // so release its port and reap its persisted scrollback.
+    this.disposeTerminalPort(oldSessionId)
+    clearTerminalScrollback(oldSessionId)
 
     try {
       const detected = this.detectTerminalShell()
@@ -8256,7 +8284,15 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
     const progressCallback =
       this.getMultiCommitOperationProgressCallBack(repository)
-    const allCommits = entries.map(e => e.commit)
+    // The progress parser indexes this list by git's 1-based "Rebasing
+    // (x/y)" counter, which counts only the commits git actually applies,
+    // oldest-first. Entries arrive newest-first and may include `drop`s,
+    // so reverse to oldest-first and exclude drops to keep the progress
+    // summary aligned with the commit git is currently replaying.
+    const allCommits = [...entries]
+      .reverse()
+      .filter(e => e.action !== 'drop')
+      .map(e => e.commit)
     const gitStore = this.gitStoreCache.get(repository)
     const result = await gitStore.performFailableOperation(() =>
       interactiveRebase(

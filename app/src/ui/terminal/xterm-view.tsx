@@ -6,6 +6,10 @@ import {
 } from '../../lib/terminal/link-matchers'
 import { OscParser } from '../../lib/terminal/osc-parser'
 import {
+  loadTerminalScrollback,
+  saveTerminalScrollback,
+} from '../../lib/terminal/scrollback'
+import {
   CommandBlockTracker,
   ICommandBlock,
   extractBlockText,
@@ -421,7 +425,6 @@ export class XtermView extends React.Component<
         type="button"
         className="xterm-scroll-to-bottom"
         aria-label="Scroll to bottom"
-        title="Scroll to bottom"
         onClick={this.scrollToBottom}
       >
         <svg
@@ -757,22 +760,14 @@ export class XtermView extends React.Component<
     this.fileLinkMatcherId = null
   }
 
-  private static scrollbackKey(sessionId: string): string {
-    return `terminal-scrollback-v1:${sessionId}`
-  }
-
   private restoreScrollback(): void {
     const { sessionId } = this.props
     if (!sessionId || !this.term) {
       return
     }
-    try {
-      const saved = localStorage.getItem(XtermView.scrollbackKey(sessionId))
-      if (saved && saved.length > 0) {
-        this.term.write(saved)
-      }
-    } catch {
-      // localStorage may be unavailable in some contexts — non-fatal
+    const saved = loadTerminalScrollback(sessionId)
+    if (saved && saved.length > 0) {
+      this.term.write(saved)
     }
   }
 
@@ -781,17 +776,15 @@ export class XtermView extends React.Component<
     if (!sessionId || !this.term || this.serializeAddon === null) {
       return
     }
+    let content: string
     try {
       // Serialize at most the last 1000 rows so localStorage stays small.
-      const content: string = this.serializeAddon.serialize({ rows: 1000 })
-      if (content.length > 0) {
-        localStorage.setItem(XtermView.scrollbackKey(sessionId), content)
-      } else {
-        localStorage.removeItem(XtermView.scrollbackKey(sessionId))
-      }
+      content = this.serializeAddon.serialize({ rows: 1000 })
     } catch {
-      // best-effort
+      // Serialization can throw if the addon was disposed mid-teardown.
+      return
     }
+    saveTerminalScrollback(sessionId, content)
   }
 
   private applyTheme(theme: ITerminalThemeColors) {

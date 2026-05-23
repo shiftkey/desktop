@@ -5,6 +5,8 @@ import { StashStore } from '../../../src/lib/stores/stash-store'
 import { setupEmptyRepository } from '../../helpers/repositories'
 import { Repository } from '../../../src/models/repository'
 import { generateString } from '../../helpers/random-data'
+import * as StashGit from '../../../src/lib/git/stash'
+import { IStashEntry } from '../../../src/models/stash-entry'
 
 describe('StashStore', () => {
   let store: StashStore
@@ -120,6 +122,33 @@ describe('StashStore', () => {
       const state = store.getState(broken)
       expect(state.entries).toHaveLength(1)
       expect(state.error).not.toBeNull()
+    })
+
+    it('does not resurrect state cleared while a load is in flight', async () => {
+      // Seed cached state with a real load first.
+      await store.loadStashes(repository)
+      expect(store.getAllState().has(42)).toBe(true)
+
+      // Hold the next load open so we can clear the repo mid-flight.
+      let release: (entries: ReadonlyArray<IStashEntry>) => void = () => {}
+      const spy = jest.spyOn(StashGit, 'getAllStashes').mockReturnValueOnce(
+        new Promise<ReadonlyArray<IStashEntry>>(resolve => {
+          release = resolve
+        })
+      )
+
+      const inFlight = store.loadStashes(repository)
+      store.clear(repository)
+      expect(store.getAllState().has(42)).toBe(false)
+
+      release([])
+      await inFlight
+
+      // The completed load must not recreate state for the removed repo.
+      expect(store.getAllState().has(42)).toBe(false)
+      expect(store.getState(repository).loadedAt).toBeNull()
+
+      spy.mockRestore()
     })
   })
 

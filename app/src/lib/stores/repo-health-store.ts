@@ -97,7 +97,7 @@ export class RepoHealthStore extends BaseStore {
           return
         }
         for (const r of results) {
-          this.statuses.set(r.repositoryId, r)
+          this.storeResult(r)
         }
         this.lastRefreshAt = (this.options.now ?? Date.now)()
       } finally {
@@ -130,14 +130,32 @@ export class RepoHealthStore extends BaseStore {
         return
       }
       if (health) {
-        this.statuses.set(repo.id, health)
+        this.storeResult(health)
       }
-      this.lastRefreshAt = (this.options.now ?? Date.now)()
+      // Note: deliberately does NOT touch `lastRefreshAt`. That field
+      // tracks the last *full sweep* and gates the `refreshAll` dedup
+      // window; updating it here would suppress a subsequent full
+      // refresh and leave every other repo showing stale data.
     } finally {
       this.singleControllers.delete(controller)
       this.refreshing.delete(repo.id)
       this.emitUpdate()
     }
+  }
+
+  /**
+   * Store a collected snapshot unless a strictly newer one is already
+   * present. A long `refreshAll` batch and a fast `refreshOne` can resolve
+   * in either order; without this guard the later-resolving-but-older run
+   * would clobber the fresher data (e.g. overwriting a post-push snapshot
+   * with the pre-push state captured when the batch started).
+   */
+  private storeResult(health: IRepoHealth): void {
+    const existing = this.statuses.get(health.repositoryId)
+    if (existing !== undefined && existing.collectedAt > health.collectedAt) {
+      return
+    }
+    this.statuses.set(health.repositoryId, health)
   }
 
   /** Drop the snapshot for one repository (e.g., user removed the repo). */

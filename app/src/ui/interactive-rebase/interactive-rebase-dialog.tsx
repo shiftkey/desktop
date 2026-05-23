@@ -20,7 +20,7 @@ interface IInteractiveRebaseDialogProps {
 }
 
 interface IInteractiveRebaseDialogState {
-  readonly entries: Array<IInteractiveRebaseEntry>
+  readonly entries: ReadonlyArray<IInteractiveRebaseEntry>
   readonly dragIndex: number | null
   readonly dragOverIndex: number | null
 }
@@ -121,7 +121,7 @@ export class InteractiveRebaseDialog extends React.Component<
                 }${
                   dragOverIndex === i ? ' interactive-rebase-row--dragover' : ''
                 }`}
-                draggable
+                draggable={true}
                 // eslint-disable-next-line react/jsx-no-bind
                 onDragStart={() => this.onDragStart(i)}
                 // eslint-disable-next-line react/jsx-no-bind

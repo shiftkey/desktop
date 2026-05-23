@@ -113,6 +113,65 @@ describe('RepoHealthStore', () => {
     expect(updates).toBeGreaterThanOrEqual(2)
   })
 
+  it('refreshOne does not start the refreshAll dedup window', async () => {
+    let calls = 0
+    const p: IRepoHealthProbes = {
+      ...probes(),
+      uncommittedCount: async () => {
+        calls++
+        return 0
+      },
+    }
+    const store = new RepoHealthStore({
+      collectorOptions: { probes: p },
+      now: () => 1000,
+    })
+    await store.refreshOne(repo(1))
+    // A single-repo refresh must not stamp the full-sweep timestamp...
+    expect(store.getSnapshot().lastRefreshAt).toBeNull()
+    // ...otherwise this full refresh would be wrongly deduped away, leaving
+    // every other repo with stale or absent data.
+    await store.refreshAll([repo(1), repo(2)])
+    expect(calls).toBe(3)
+  })
+
+  it('a newer single-repo refresh is not clobbered by a slow full refresh', async () => {
+    let call = 0
+    let releaseAll: () => void = () => {}
+    const allGate = new Promise<void>(resolve => {
+      releaseAll = resolve
+    })
+    const p: IRepoHealthProbes = {
+      ...probes(),
+      uncommittedCount: async () => {
+        const n = ++call
+        if (n === 1) {
+          // The full-refresh collection — held open so the single-repo
+          // refresh finishes first with a newer timestamp.
+          await allGate
+          return 11
+        }
+        return 22
+      },
+    }
+    let nowCall = 0
+    const store = new RepoHealthStore({
+      collectorOptions: { probes: p, now: () => (nowCall++ === 0 ? 1000 : 2000) },
+    })
+    const all = store.refreshAll([repo(1)])
+    // Wait until the full-refresh collection has captured its timestamp.
+    while (call < 1) {
+      await new Promise(r => setTimeout(r, 1))
+    }
+    await store.refreshOne(repo(1))
+    expect(store.getSnapshot().statuses.get(1)?.uncommittedCount).toBe(22)
+    releaseAll()
+    await all
+    // The slow full refresh carries an older snapshot (collectedAt 1000) and
+    // must not overwrite the fresher single-repo result (collectedAt 2000).
+    expect(store.getSnapshot().statuses.get(1)?.uncommittedCount).toBe(22)
+  })
+
   it('forget removes a single repo', async () => {
     const store = new RepoHealthStore({
       collectorOptions: { probes: probes() },

@@ -57,6 +57,12 @@ export class StashStore extends BaseStore {
 
     try {
       const entries = await getAllStashes(repository)
+      // `loadStashes` seeds a loading entry above, so a missing entry now
+      // means clear() ran while git was in flight (e.g. the repo was
+      // removed). Don't resurrect the dropped cache.
+      if (!this.state.has(repository.id)) {
+        return
+      }
       this.update(repository.id, this.state.get(repository.id) ?? EMPTY_STATE, {
         entries,
         loading: false,
@@ -65,6 +71,10 @@ export class StashStore extends BaseStore {
       })
     } catch (e) {
       const error = e instanceof Error ? e : new Error(String(e))
+      if (!this.state.has(repository.id)) {
+        this.emitError(error)
+        return
+      }
       this.update(repository.id, this.state.get(repository.id) ?? EMPTY_STATE, {
         loading: false,
         error,

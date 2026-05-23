@@ -70,8 +70,10 @@ export class WorktreeStore extends BaseStore {
       )
 
       // The store may have been cleared (e.g., user removed the repo)
-      // while we were awaiting git. Don't resurrect dropped state.
-      if (!this.state.has(repository.id) && current === undefined) {
+      // while we were awaiting git. `loadWorktrees` always seeds a
+      // loading entry above, so a missing entry now means an intervening
+      // clear() — don't resurrect the dropped state.
+      if (!this.state.has(repository.id)) {
         return
       }
 
@@ -83,6 +85,12 @@ export class WorktreeStore extends BaseStore {
       })
     } catch (e) {
       const error = e instanceof Error ? e : new Error(String(e))
+      // Same clear-during-load guard as the success path: don't recreate
+      // state for a repository that was dropped while git was running.
+      if (!this.state.has(repository.id)) {
+        this.emitError(error)
+        return
+      }
       this.update(repository.id, this.state.get(repository.id) ?? EMPTY_STATE, {
         loading: false,
         error,

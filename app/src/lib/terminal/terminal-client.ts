@@ -91,6 +91,15 @@ function markActivityThrottled(
 }
 
 /**
+ * Drop the per-session activity-throttle bookkeeping for a session that has
+ * been permanently removed. Without this the module-level `lastActivityMark`
+ * map grows by one entry for every terminal ever opened and is never reaped.
+ */
+export function forgetTerminalActivity(sessionId: string): void {
+  lastActivityMark.delete(sessionId)
+}
+
+/**
  * Attach a store-update listener to a per-session terminal port.
  *
  * Routes `{type:'meta'}` frames from the main-process OSC parser into

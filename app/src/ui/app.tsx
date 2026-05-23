@@ -1475,8 +1475,19 @@ export class App extends React.Component<IAppProps, IAppState> {
       .map(sha => commitLookup.get(sha))
       .filter((c): c is Commit => c !== undefined)
 
+    // The rebase base is the commit *before* the earliest commit being
+    // edited — i.e. the parent (`^`) of the oldest commit in the slice
+    // (slices are newest-first, so that's the last element). If the
+    // oldest commit is the repository root it has no parent, so pass
+    // null and let the git layer use `--root`. Passing the oldest
+    // commit's own sha (without `^`) would make it the immovable base
+    // and silently discard the user's action on it; unconditionally
+    // passing null would rebase already-pushed history.
+    const oldestCommit = commits.at(-1)
     const lastRetainedCommitRef =
-      shaSlice.length >= 20 ? shaSlice[shaSlice.length - 1] : null
+      oldestCommit === undefined || oldestCommit.parentSHAs.length === 0
+        ? null
+        : `${oldestCommit.sha}^`
 
     this.props.dispatcher.showInteractiveRebaseDialog(
       repository,
