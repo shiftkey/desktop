@@ -35,6 +35,13 @@
       background-color: var(--scroll-bar-thumb-background-color);
       border-radius: var(--win32-scroll-bar-size);
 
+      // Customizing the thumb makes Chromium drop its built-in minimum
+      // thumb length, so for tall/long content (terminal scrollback,
+      // large diffs) the thumb shrinks below the 6px border below and
+      // becomes invisible. Pin a floor so it stays visible and grabbable.
+      min-height: 32px;
+      min-width: 32px;
+
       // This little hack allows us to have a slim scroll bar
       // with a bigger hit area. The scroll bar width/height
       // is 10px but we're cutting off 6px using clipping so
@@ -71,6 +78,13 @@
     &-thumb {
       background-color: var(--scroll-bar-thumb-background-color);
       border-radius: var(--linux-scroll-bar-size);
+
+      // Customizing the thumb makes Chromium drop its built-in minimum
+      // thumb length, so for tall/long content (terminal scrollback,
+      // large diffs) the thumb shrinks below the 6px border below and
+      // becomes invisible. Pin a floor so it stays visible and grabbable.
+      min-height: 32px;
+      min-width: 32px;
 
       // This little hack allows us to have a slim scroll bar
       // with a bigger hit area. The scroll bar width/height
