@@ -443,6 +443,8 @@ export class TerminalPanel extends React.Component<
       const ref = this.xtermRefs.get(sid)
       ref?.current?.pasteText(text)
     }
+    // Refocus the terminal — the confirm dialog stole focus from xterm.
+    this.focusActiveSession(true)
   }
 
   private onPasteCancelled = () => {

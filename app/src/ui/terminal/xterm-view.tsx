@@ -656,7 +656,11 @@ export class XtermView extends React.Component<
       () => {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { WebLinksAddon } = require('@xterm/addon-web-links')
-        return new WebLinksAddon()
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { shell } = require('electron')
+        return new WebLinksAddon((_event: MouseEvent, url: string) => {
+          shell.openExternal(url).catch(() => {})
+        })
       }
     )
     this.searchAddon = this.makePassiveAddon(
@@ -1037,6 +1041,7 @@ export class XtermView extends React.Component<
         this.props.onPasteConfirmRequired(text)
       } else {
         this.term.paste(text)
+        this.term.focus()
       }
     }
   }

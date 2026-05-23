@@ -117,10 +117,10 @@ export class InteractiveRebaseDialog extends React.Component<
                 key={entry.commit.sha}
                 role="listitem"
                 className={`interactive-rebase-row${
-                  entry.action === 'drop'
-                    ? ' interactive-rebase-row--drop'
-                    : ''
-                }${dragOverIndex === i ? ' interactive-rebase-row--dragover' : ''}`}
+                  entry.action === 'drop' ? ' interactive-rebase-row--drop' : ''
+                }${
+                  dragOverIndex === i ? ' interactive-rebase-row--dragover' : ''
+                }`}
                 draggable
                 // eslint-disable-next-line react/jsx-no-bind
                 onDragStart={() => this.onDragStart(i)}
@@ -151,13 +151,13 @@ export class InteractiveRebaseDialog extends React.Component<
                     this.onActionChange(i, e.target.value as RebaseTodoAction)
                   }
                 >
-                  {(
-                    Object.keys(ACTION_LABELS) as Array<RebaseTodoAction>
-                  ).map(a => (
-                    <option key={a} value={a}>
-                      {ACTION_LABELS[a]}
-                    </option>
-                  ))}
+                  {(Object.keys(ACTION_LABELS) as Array<RebaseTodoAction>).map(
+                    a => (
+                      <option key={a} value={a}>
+                        {ACTION_LABELS[a]}
+                      </option>
+                    )
+                  )}
                 </select>
               </div>
             ))}
