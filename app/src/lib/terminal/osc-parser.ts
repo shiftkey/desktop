@@ -91,6 +91,15 @@ export class OscParser {
           if (b === BACKSLASH) {
             this.flush()
             this.state = 'text'
+          } else if (b === ESC) {
+            // A second ESC in a row: the first ESC was a literal payload byte,
+            // but this new ESC may itself begin the real `ESC \` (ST)
+            // terminator. Emit the prior ESC and stay in 'osc-esc' to evaluate
+            // this one. Without this, a stray ESC before the terminator
+            // consumes the terminator's ESC and the sequence never closes —
+            // swallowing all following output (including the next sequence)
+            // until a BEL or the 4096-byte poison cap forces recovery.
+            this.appendByte(ESC)
           } else {
             this.state = 'osc'
             this.appendByte(ESC)

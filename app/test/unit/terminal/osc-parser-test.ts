@@ -119,4 +119,19 @@ describe('OscParser', () => {
       { type: 'cwd', path: '/b' },
     ])
   })
+
+  it('terminates on ST even when a stray ESC precedes the terminator', () => {
+    const p = new OscParser()
+    // The first sequence's payload contains a stray ESC (0x1b) immediately
+    // before the real ESC\\ (ST) terminator. The parser must still terminate
+    // on that ST and, critically, must NOT swallow the *following* clean
+    // sequence into the first one.
+    const events = feedString(
+      p,
+      '\x1b]7;file:///a\x1b\x1b\\\x1b]7;file:///b\x1b\\'
+    )
+    // The second, well-formed sequence must be recognized regardless of how
+    // the malformed first one is interpreted.
+    expect(events.some(e => e.type === 'cwd' && e.path === '/b')).toBe(true)
+  })
 })
