@@ -118,10 +118,73 @@ export type GitHubAccountType = 'User' | 'Organization'
  */
 const oauthScopes = ['repo', 'read:org', 'user', 'workflow']
 
+/**
+ * The scope `/user/orgs` requires before it will return the organizations a
+ * user belongs to. Without it the endpoint succeeds but returns an empty list,
+ * which is indistinguishable from genuinely having no organizations.
+ */
+const RequiredOrganizationScope = 'read:org'
+
 enum HttpStatusCode {
   NotModified = 304,
   NotFound = 404,
+  Forbidden = 403,
 }
+
+/**
+ * Parse a comma-separated `X-OAuth-Scopes` response header into the list of
+ * scopes the current token actually carries. Returns an empty list when the
+ * header is absent.
+ */
+export function parseOAuthScopes(header: string | null): ReadonlyArray<string> {
+  if (!header) {
+    return []
+  }
+
+  return header
+    .split(',')
+    .map(scope => scope.trim())
+    .filter(scope => scope.length > 0)
+}
+
+/**
+ * Extract the single sign-on authorization URL from an `X-GitHub-SSO` response
+ * header. For SAML-protected organizations GitHub returns this header (e.g.
+ * `required; url=https://github.com/orgs/foo/sso?authorization_request=...`)
+ * on a 403 until the token has been authorized for the org's SSO, *even when
+ * the OAuth app itself is already approved*. Returns null when the header is
+ * absent or carries no url (e.g. the `partial-results` variant).
+ */
+export function parseSSOAuthorizationURL(header: string | null): string | null {
+  if (!header) {
+    return null
+  }
+
+  const match = /url=([^;]+)/.exec(header)
+  return match ? match[1].trim() : null
+}
+
+/**
+ * The outcome of attempting to list the authenticated user's organizations.
+ *
+ * `fetchOrgs` collapses every failure to an empty array, which leaves the UI
+ * unable to tell "you have no orgs" apart from "the request was rejected".
+ * This discriminated result preserves the actual signal so callers can guide
+ * the user to the correct remediation (re-auth for a missing scope, the SSO
+ * authorization URL for SAML orgs, or OAuth app approval for a restriction).
+ */
+export type OrganizationAccessResult =
+  | {
+      readonly kind: 'ok'
+      readonly organizations: ReadonlyArray<IAPIOrganization>
+    }
+  | {
+      readonly kind: 'missing-scope'
+      readonly missingScopes: ReadonlyArray<string>
+    }
+  | { readonly kind: 'sso-required'; readonly authorizationURL: string }
+  | { readonly kind: 'forbidden' }
+  | { readonly kind: 'error' }
 
 /**
  * Information about a repository as returned by the GitHub API.
@@ -1088,6 +1151,58 @@ export class API {
     } catch (e) {
       log.warn(`fetchOrgs: failed with endpoint ${this.endpoint}`, e)
       return []
+    }
+  }
+
+  /**
+   * List the user's organizations, preserving *why* the list is empty when it
+   * is. Unlike `fetchOrgs` (which swallows every failure to `[]`) this inspects
+   * the response headers so the caller can distinguish a missing `read:org`
+   * scope, a SAML SSO authorization requirement, and an OAuth app restriction
+   * from genuinely belonging to no organizations.
+   */
+  public async fetchOrganizationAccess(): Promise<OrganizationAccessResult> {
+    try {
+      const path = urlWithQueryString('user/orgs', { per_page: '100' })
+      const response = await this.request('GET', path)
+
+      if (!response.ok) {
+        if (response.status === HttpStatusCode.Forbidden) {
+          const ssoURL = parseSSOAuthorizationURL(
+            response.headers.get('X-GitHub-SSO')
+          )
+          return ssoURL
+            ? { kind: 'sso-required', authorizationURL: ssoURL }
+            : { kind: 'forbidden' }
+        }
+
+        log.warn(
+          `fetchOrganizationAccess: '${this.endpoint}' returned a ${response.status}`
+        )
+        return { kind: 'error' }
+      }
+
+      const scopes = parseOAuthScopes(response.headers.get('X-OAuth-Scopes'))
+      const organizations =
+        (await parsedResponse<ReadonlyArray<IAPIOrganization>>(response)) ?? []
+
+      if (
+        organizations.length === 0 &&
+        !scopes.includes(RequiredOrganizationScope)
+      ) {
+        return {
+          kind: 'missing-scope',
+          missingScopes: [RequiredOrganizationScope],
+        }
+      }
+
+      return { kind: 'ok', organizations }
+    } catch (e) {
+      log.warn(
+        `fetchOrganizationAccess: failed with endpoint ${this.endpoint}`,
+        e
+      )
+      return { kind: 'error' }
     }
   }
 

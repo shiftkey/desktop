@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { Account } from '../../models/account'
 import { IAvatarUser } from '../../models/avatar'
-import { API, IAPIOrganization } from '../../lib/api'
+import { API, OrganizationAccessResult } from '../../lib/api'
 import { lookupPreferredEmail } from '../../lib/email'
 import { assertNever } from '../../lib/fatal-error'
 import { Button } from '../lib/button'
@@ -28,8 +28,7 @@ interface IAccountsProps {
 
 type OrganizationLookupState =
   | { readonly kind: 'loading' }
-  | { readonly kind: 'loaded'; readonly orgs: ReadonlyArray<IAPIOrganization> }
-  | { readonly kind: 'error' }
+  | { readonly kind: 'loaded'; readonly result: OrganizationAccessResult }
 
 interface IAccountsState {
   readonly organizationLookup: Map<string, OrganizationLookupState>
@@ -171,16 +170,10 @@ export class Accounts extends React.Component<IAccountsProps, IAccountsState> {
     loadingLookup.set(key, { kind: 'loading' })
     this.setState({ organizationLookup: loadingLookup })
 
-    try {
-      const orgs = await API.fromAccount(account).fetchOrgs()
-      const loadedLookup = new Map(this.state.organizationLookup)
-      loadedLookup.set(key, { kind: 'loaded', orgs })
-      this.setState({ organizationLookup: loadedLookup })
-    } catch (e) {
-      const errorLookup = new Map(this.state.organizationLookup)
-      errorLookup.set(key, { kind: 'error' })
-      this.setState({ organizationLookup: errorLookup })
-    }
+    const result = await API.fromAccount(account).fetchOrganizationAccess()
+    const loadedLookup = new Map(this.state.organizationLookup)
+    loadedLookup.set(key, { kind: 'loaded', result })
+    this.setState({ organizationLookup: loadedLookup })
   }
 
   private renderOrganizationStatus(account: Account) {
@@ -197,45 +190,80 @@ export class Accounts extends React.Component<IAccountsProps, IAccountsState> {
       )
     }
 
-    if (lookup.kind === 'error') {
-      return (
-        <div className="organization-status">
-          <strong>Organizations</strong>
-          <p>Unable to load organizations for this account.</p>
-        </div>
-      )
-    }
+    const diagnostics = getOrganizationDiagnostics(lookup.result)
 
-    const diagnostics = getOrganizationDiagnostics(lookup.orgs)
-
-    if (diagnostics.kind === OrganizationDiagnosticsKind.Visible) {
-      return (
-        <div className="organization-status">
-          <strong>{diagnostics.summary}</strong>
-          <div className="organization-list">
-            {diagnostics.organizations.map(org => (
-              <span className="organization-pill" key={org.id}>
-                {org.login}
-              </span>
-            ))}
+    switch (diagnostics.kind) {
+      case OrganizationDiagnosticsKind.Visible:
+        return (
+          <div className="organization-status">
+            <strong>{diagnostics.summary}</strong>
+            <div className="organization-list">
+              {diagnostics.organizations.map(org => (
+                <span className="organization-pill" key={org.id}>
+                  {org.login}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
-      )
-    }
+        )
 
-    return (
-      <div className="organization-status">
-        <strong>{diagnostics.summary}</strong>
-        <p>
-          If an organization is missing, sign out and back in to grant
-          organization access, then check OAuth app restrictions, SAML SSO,
-          private membership, and repository permissions.
-        </p>
-        <LinkButton uri={OrganizationApprovalDocsURL}>
-          Request organization approval
-        </LinkButton>
-      </div>
-    )
+      case OrganizationDiagnosticsKind.MissingScope:
+        return (
+          <div className="organization-status">
+            <strong>{diagnostics.summary}</strong>
+            <p>
+              Sign out and sign back in to grant the permission needed to
+              discover your organizations.
+            </p>
+          </div>
+        )
+
+      case OrganizationDiagnosticsKind.SSORequired:
+        return (
+          <div className="organization-status">
+            <strong>{diagnostics.summary}</strong>
+            <p>
+              This organization uses SAML single sign-on. Authorize this sign-in
+              for the organization, then sign out and back in.
+            </p>
+            {diagnostics.authorizationURL !== undefined && (
+              <LinkButton uri={diagnostics.authorizationURL}>
+                Authorize single sign-on
+              </LinkButton>
+            )}
+          </div>
+        )
+
+      case OrganizationDiagnosticsKind.Error:
+        return (
+          <div className="organization-status">
+            <strong>{diagnostics.summary}</strong>
+            <p>Unable to load organizations for this account.</p>
+          </div>
+        )
+
+      case OrganizationDiagnosticsKind.None:
+      case OrganizationDiagnosticsKind.Forbidden:
+        return (
+          <div className="organization-status">
+            <strong>{diagnostics.summary}</strong>
+            <p>
+              If an organization is missing, sign out and back in to grant
+              organization access, then check OAuth app restrictions, SAML SSO,
+              private membership, and repository permissions.
+            </p>
+            <LinkButton uri={OrganizationApprovalDocsURL}>
+              Request organization approval
+            </LinkButton>
+          </div>
+        )
+
+      default:
+        return assertNever(
+          diagnostics.kind,
+          `Unknown organization diagnostics kind: ${diagnostics.kind}`
+        )
+    }
   }
 
   private renderSignIn(type: 'dotcom' | 'enterprise') {

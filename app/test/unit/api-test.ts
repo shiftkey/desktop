@@ -2,6 +2,8 @@ import {
   getNextPagePathWithIncreasingPageSize,
   getOAuthAuthorizationURL,
   getDotComAPIEndpoint,
+  parseOAuthScopes,
+  parseSSOAuthorizationURL,
 } from '../../src/lib/api'
 import * as URL from 'url'
 
@@ -160,6 +162,49 @@ describe('API', () => {
       const url = getOAuthAuthorizationURL(getDotComAPIEndpoint(), 'my-state')
       expect(url).toContain('/login/oauth/authorize')
       expect(url).toContain('state=my-state')
+    })
+  })
+
+  describe('parseOAuthScopes', () => {
+    it('parses a comma-separated X-OAuth-Scopes header', () => {
+      expect(parseOAuthScopes('repo, read:org, user, workflow')).toEqual([
+        'repo',
+        'read:org',
+        'user',
+        'workflow',
+      ])
+    })
+
+    it('trims whitespace and drops empty entries', () => {
+      expect(parseOAuthScopes(' repo ,, read:org ')).toEqual([
+        'repo',
+        'read:org',
+      ])
+    })
+
+    it('returns an empty list when the header is absent', () => {
+      expect(parseOAuthScopes(null)).toEqual([])
+      expect(parseOAuthScopes('')).toEqual([])
+    })
+  })
+
+  describe('parseSSOAuthorizationURL', () => {
+    it('extracts the authorization url from a required X-GitHub-SSO header', () => {
+      const header =
+        'required; url=https://github.com/orgs/octo-org/sso?authorization_request=AZSCKtL4U8yX1H3sCQIVvKgs2sHFI'
+      expect(parseSSOAuthorizationURL(header)).toEqual(
+        'https://github.com/orgs/octo-org/sso?authorization_request=AZSCKtL4U8yX1H3sCQIVvKgs2sHFI'
+      )
+    })
+
+    it('returns null when the header is absent', () => {
+      expect(parseSSOAuthorizationURL(null)).toBeNull()
+    })
+
+    it('returns null when the header carries no url', () => {
+      expect(
+        parseSSOAuthorizationURL('partial-results; organizations=octo')
+      ).toBeNull()
     })
   })
 })

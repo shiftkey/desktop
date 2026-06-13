@@ -1,24 +1,29 @@
-import { IAPIOrganization } from '../api'
+import { IAPIOrganization, OrganizationAccessResult } from '../api'
 import { caseInsensitiveCompare } from '../compare'
 
 export enum OrganizationDiagnosticsKind {
+  /** Organizations were returned and can be shown. */
   Visible = 'Visible',
+  /** The request succeeded but returned no organizations. */
   None = 'None',
+  /** The token is missing a scope (e.g. read:org) needed to list orgs. */
+  MissingScope = 'MissingScope',
+  /** A SAML organization requires the token to be authorized for SSO. */
+  SSORequired = 'SSORequired',
+  /** The request was forbidden, typically an OAuth app access restriction. */
+  Forbidden = 'Forbidden',
+  /** The request failed for an unknown reason. */
+  Error = 'Error',
 }
 
-export type OrganizationDiagnostics =
-  | {
-      readonly kind: OrganizationDiagnosticsKind.Visible
-      readonly summary: string
-      readonly organizations: ReadonlyArray<IAPIOrganization>
-      readonly causes: ReadonlyArray<string>
-    }
-  | {
-      readonly kind: OrganizationDiagnosticsKind.None
-      readonly summary: string
-      readonly organizations: ReadonlyArray<IAPIOrganization>
-      readonly causes: ReadonlyArray<string>
-    }
+export type OrganizationDiagnostics = {
+  readonly kind: OrganizationDiagnosticsKind
+  readonly summary: string
+  readonly organizations: ReadonlyArray<IAPIOrganization>
+  readonly causes: ReadonlyArray<string>
+  /** Present only for `SSORequired`: where the user authorizes SSO. */
+  readonly authorizationURL?: string
+}
 
 const MissingOrganizationCauses = [
   'OAuth app access restrictions',
@@ -27,28 +32,73 @@ const MissingOrganizationCauses = [
   'insufficient repository permissions',
 ]
 
-export function getOrganizationDiagnostics(
+function sortByLogin(
   organizations: ReadonlyArray<IAPIOrganization>
-): OrganizationDiagnostics {
-  const sortedOrganizations = [...organizations].sort((a, b) =>
+): ReadonlyArray<IAPIOrganization> {
+  return [...organizations].sort((a, b) =>
     caseInsensitiveCompare(a.login, b.login)
   )
+}
 
-  if (sortedOrganizations.length === 0) {
-    return {
-      kind: OrganizationDiagnosticsKind.None,
-      summary: 'No organizations visible',
-      organizations: sortedOrganizations,
-      causes: MissingOrganizationCauses,
+export function getOrganizationDiagnostics(
+  result: OrganizationAccessResult
+): OrganizationDiagnostics {
+  switch (result.kind) {
+    case 'ok': {
+      const organizations = sortByLogin(result.organizations)
+
+      if (organizations.length === 0) {
+        return {
+          kind: OrganizationDiagnosticsKind.None,
+          summary: 'No organizations visible',
+          organizations,
+          causes: MissingOrganizationCauses,
+        }
+      }
+
+      const plural = organizations.length === 1 ? '' : 's'
+
+      return {
+        kind: OrganizationDiagnosticsKind.Visible,
+        summary: `${organizations.length} organization${plural} visible`,
+        organizations,
+        causes: [],
+      }
     }
-  }
 
-  const plural = sortedOrganizations.length === 1 ? '' : 's'
+    case 'missing-scope': {
+      const scopes = result.missingScopes.join(', ')
+      return {
+        kind: OrganizationDiagnosticsKind.MissingScope,
+        summary: `Your sign-in is missing the ${scopes} permission`,
+        organizations: [],
+        causes: [],
+      }
+    }
 
-  return {
-    kind: OrganizationDiagnosticsKind.Visible,
-    summary: `${sortedOrganizations.length} organization${plural} visible`,
-    organizations: sortedOrganizations,
-    causes: [],
+    case 'sso-required':
+      return {
+        kind: OrganizationDiagnosticsKind.SSORequired,
+        summary: 'Single sign-on authorization required',
+        organizations: [],
+        causes: [],
+        authorizationURL: result.authorizationURL,
+      }
+
+    case 'forbidden':
+      return {
+        kind: OrganizationDiagnosticsKind.Forbidden,
+        summary: 'Access to organizations was denied',
+        organizations: [],
+        causes: MissingOrganizationCauses,
+      }
+
+    case 'error':
+      return {
+        kind: OrganizationDiagnosticsKind.Error,
+        summary: 'Unable to load organizations',
+        organizations: [],
+        causes: [],
+      }
   }
 }
