@@ -95,9 +95,25 @@ export class InteractiveRebaseDialog extends React.Component<
     return this.state.entries.every(e => e.action === 'drop')
   }
 
+  /**
+   * The commits are displayed newest-first, so the last non-dropped entry is
+   * the oldest commit git will replay — the first line of the generated todo.
+   * Git refuses to `squash`/`fixup` that first line ("cannot squash without a
+   * previous commit"), so flag it here to keep the user out of that error.
+   */
+  private oldestKeptIsSquash(): boolean {
+    const kept = this.state.entries.filter(e => e.action !== 'drop')
+    const oldest = kept.at(-1)
+    return (
+      oldest !== undefined &&
+      (oldest.action === 'squash' || oldest.action === 'fixup')
+    )
+  }
+
   public render() {
     const { entries, dragOverIndex } = this.state
-    const disabled = this.allDropped()
+    const oldestKeptIsSquash = this.oldestKeptIsSquash()
+    const disabled = this.allDropped() || oldestKeptIsSquash
 
     return (
       <Dialog
@@ -107,9 +123,10 @@ export class InteractiveRebaseDialog extends React.Component<
       >
         <DialogContent>
           <p className="interactive-rebase-description">
-            Reorder commits or set an action for each. Squash combines a commit
-            into the one above it; Fixup does the same but discards the message;
-            Drop removes the commit entirely.
+            Commits are listed newest first. Reorder them or set an action for
+            each. Squash combines a commit into the older one below it; Fixup
+            does the same but discards the message; Drop removes the commit
+            entirely.
           </p>
           <div className="interactive-rebase-list" role="list">
             {entries.map((entry, i) => (
@@ -162,6 +179,12 @@ export class InteractiveRebaseDialog extends React.Component<
               </div>
             ))}
           </div>
+          {oldestKeptIsSquash && (
+            <p className="interactive-rebase-warning" role="alert">
+              The oldest commit can't be squashed or fixed up — there's no
+              earlier commit to combine it into. Set it to Pick, or drop it.
+            </p>
+          )}
           {this.hasOnlyPicks() && (
             <p className="interactive-rebase-hint">
               Tip: Drag rows to reorder commits, or change the action to squash

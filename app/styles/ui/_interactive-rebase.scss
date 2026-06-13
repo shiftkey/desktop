@@ -1,0 +1,88 @@
+#interactive-rebase {
+  .interactive-rebase-description {
+    margin: 0 0 var(--spacing);
+    color: var(--text-secondary-color);
+  }
+
+  .interactive-rebase-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--box-border-color);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+  }
+
+  .interactive-rebase-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing);
+    padding: var(--spacing-half) var(--spacing);
+    border-bottom: 1px solid var(--box-border-color);
+    background-color: var(--background-color);
+    cursor: grab;
+    transition: background-color 0.1s ease-in-out;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background-color: var(--list-item-hover-background-color);
+    }
+
+    // Highlight the row the dragged commit will drop onto.
+    &--dragover {
+      background-color: var(--list-item-selected-background-color);
+      box-shadow: inset 0 0 0 1px var(--focus-color);
+    }
+
+    // Dropped commits are kept visible but struck through so the user can
+    // see what they're removing and undo it before starting the rebase.
+    &--drop {
+      .interactive-rebase-sha,
+      .interactive-rebase-summary {
+        text-decoration: line-through;
+        color: var(--text-secondary-color);
+      }
+    }
+  }
+
+  .interactive-rebase-drag-handle {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-secondary-color);
+    cursor: grab;
+  }
+
+  .interactive-rebase-sha {
+    flex-shrink: 0;
+    font-family: var(--font-family-monospace);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+  }
+
+  .interactive-rebase-summary {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .interactive-rebase-action {
+    flex-shrink: 0;
+  }
+
+  .interactive-rebase-hint {
+    margin: var(--spacing) 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+  }
+
+  .interactive-rebase-warning {
+    margin: var(--spacing) 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-deleted, #cf222e);
+  }
+}
