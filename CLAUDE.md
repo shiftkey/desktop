@@ -160,6 +160,46 @@ their lifecycle (add / remove / prune).
 - **Dispatcher**: `loadWorktrees`, `createWorktree`, `removeWorktree`,
   `pruneWorktrees`.
 
+### Interactive Rebase (`app/src/lib/git/interactive-rebase.ts`, `app/src/ui/interactive-rebase/`)
+
+A planning dialog that lets the user reorder, squash, fixup, and drop a range
+of recent commits, then drives a single `git rebase -i` through the shared
+multi-commit-operation machinery.
+
+- **Git layer** (`interactive-rebase.ts`): `interactiveRebase(repo, entries,
+  lastRetainedCommitRef, progressCallback?, allCommits?)`. Entries arrive
+  **newest-first** (UI/history order) and are reversed to oldest-first before
+  being written to a temp todo file, which `rebaseInteractive` injects via
+  `sequence.editor=cat`. The todo line editor is `:` (no-op), so squash keeps
+  git's default combined message and fixup discards the squashed message. The
+  temp file is always removed in a `finally`. Empty entries → `RebaseResult.Error`.
+- **Base selection**: the dialog window is the most recent N commits (currently
+  20). `lastRetainedCommitRef` is the **parent** of the oldest windowed commit
+  (`${oldest.sha}^`), or `null` (→ `--root`) when that commit is the repo root.
+  Computed in `App.showInteractiveRebaseDialog` — getting this wrong silently
+  freezes the oldest commit, so it's covered by tests.
+- **Model**: `MultiCommitOperationKind.InteractiveRebase`, plus the exported
+  `RebaseTodoAction` (`pick`/`squash`/`fixup`/`drop`) and `IInteractiveRebaseEntry`
+  (`{commit, action}`) in `models/multi-commit-operation.ts`. The kind is wired
+  through `isIdMultiCommitOperation`, the choose-branch switch, the dispatcher
+  success-banner switch, the app-store undo switch, and all four `StatsStore`
+  operation switches (mirroring `Reorder`).
+- **UI**: `InteractiveRebaseDialog` (`PopupType.InteractiveRebase`) lists commits
+  newest-first with HTML5 drag-to-reorder and a per-row action `<select>`.
+  Because the list is newest-first, squash/fixup melds a commit into the row
+  **below** it (the older commit). Start Rebase is disabled when every commit
+  is dropped, or when the oldest non-dropped commit is squash/fixup (git rejects
+  squashing the first todo line). Styles in `app/styles/ui/_interactive-rebase.scss`.
+- **Flow**: menu `interactive-rebase` → `App.showInteractiveRebaseDialog` →
+  `Dispatcher.showInteractiveRebaseDialog` → dialog → `Dispatcher.startInteractiveRebase`
+  (initializes the multi-commit operation, shows its progress popup) →
+  `AppStore._startInteractiveRebase` (reverses + drops-excluded `allCommits` for
+  progress alignment, runs `interactiveRebase` under `performFailableOperation`)
+  → `processMultiCommitOperationRebaseResult`.
+- Tests: end-to-end fixture-repo coverage in
+  `app/test/unit/git/interactive-rebase-test.ts` (pick/drop/reorder/squash,
+  `--root`, empty-list error).
+
 ### GitHub Actions Workflow Runs (`app/src/lib/stores/workflow-runs-store.ts`, `app/src/ui/workflow-runs/`)
 
 An Actions tab listing recent workflow runs with status icons, run numbers,

@@ -156,7 +156,10 @@ describe('RepoHealthStore', () => {
     }
     let nowCall = 0
     const store = new RepoHealthStore({
-      collectorOptions: { probes: p, now: () => (nowCall++ === 0 ? 1000 : 2000) },
+      collectorOptions: {
+        probes: p,
+        now: () => (nowCall++ === 0 ? 1000 : 2000),
+      },
     })
     const all = store.refreshAll([repo(1)])
     // Wait until the full-refresh collection has captured its timestamp.

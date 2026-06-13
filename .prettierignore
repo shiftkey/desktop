@@ -8,6 +8,9 @@ yarn-error.log
 .awcache
 .idea/
 .eslintcache
+# Claude Code's working directory, including any agent git worktrees it creates.
+# These mirror the repo (and vendored, unparseable assets) and must not be linted.
+.claude/
 app/coverage
 app/static/common
 app/test/fixtures

@@ -3,3 +3,7 @@
 # might be included when linting
 node_modules
 app/node_modules
+
+# Claude Code's working directory, including any agent git worktrees it creates.
+# These mirror the repo and must not be linted.
+.claude/
