@@ -66,15 +66,24 @@ export class RepoHealthDashboard extends React.Component<
             type="search"
             className="repo-health-dashboard__search"
             placeholder="Search repositories…"
+            aria-label="Search repositories"
             value={this.state.query}
             onChange={this.onQueryChange}
           />
-          <select value={this.state.sort} onChange={this.onSortChange}>
+          <select
+            value={this.state.sort}
+            onChange={this.onSortChange}
+            aria-label="Sort repositories"
+          >
             <option value="attention">Sort: Attention score</option>
             <option value="recent">Sort: Recent activity</option>
             <option value="name">Sort: Name</option>
           </select>
-          <select value={this.state.filter} onChange={this.onFilterChange}>
+          <select
+            value={this.state.filter}
+            onChange={this.onFilterChange}
+            aria-label="Filter repositories"
+          >
             <option value="all">All ({this.props.repositories.length})</option>
             <option value="attention">
               Needs attention ({summary.needAttention})

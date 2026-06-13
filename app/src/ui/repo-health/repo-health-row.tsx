@@ -95,6 +95,7 @@ export class RepoHealthRow extends React.PureComponent<IRepoHealthRowProps> {
         key="ci"
         label="CI"
         value={ciLabel(h.defaultBranchStatus)}
+        valueTitle={ciStatusText(h.defaultBranchStatus)}
         bad={h.defaultBranchStatus === 'failure'}
         warn={h.defaultBranchStatus === 'pending'}
       />
@@ -132,17 +133,33 @@ function SignalCell({
   value,
   warn,
   bad,
+  valueTitle,
 }: {
   label: string
   value: string | number
   warn?: boolean
   bad?: boolean
+  /**
+   * Optional human-readable description of `value`. Supply this when `value`
+   * is a glyph (e.g. the CI status check/cross) that conveys meaning visually
+   * but is opaque to screen readers. The glyph is then hidden from assistive
+   * tech and this text is exposed instead, so the cell reads as e.g.
+   * "CI failing".
+   */
+  valueTitle?: string
 }) {
   const cls = bad ? ' bad' : warn ? ' warn' : ''
   return (
     <div className={`repo-health-card__cell${cls}`}>
       <span className="repo-health-card__cell-label">{label}</span>
-      <span className="repo-health-card__cell-value">{value}</span>
+      {valueTitle !== undefined ? (
+        <span className="repo-health-card__cell-value">
+          <span aria-hidden={true}>{value}</span>
+          <span className="sr-only">{valueTitle}</span>
+        </span>
+      ) : (
+        <span className="repo-health-card__cell-value">{value}</span>
+      )}
     </div>
   )
 }
@@ -157,6 +174,20 @@ function ciLabel(state: IRepoHealth['defaultBranchStatus']): string {
       return '…'
     default:
       return '—'
+  }
+}
+
+/** Screen-reader / tooltip text for the CI status glyph. */
+function ciStatusText(state: IRepoHealth['defaultBranchStatus']): string {
+  switch (state) {
+    case 'success':
+      return 'passing'
+    case 'failure':
+      return 'failing'
+    case 'pending':
+      return 'pending'
+    default:
+      return 'no status'
   }
 }
 

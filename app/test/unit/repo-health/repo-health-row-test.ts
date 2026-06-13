@@ -112,6 +112,23 @@ describe('RepoHealthRow', () => {
     expect(dump(tree)).toContain('"value":"✗"')
   })
 
+  it('gives the CI glyph an accessible text alternative', () => {
+    const failing = makeRow({
+      health: health({ defaultBranchStatus: 'failure' }),
+    })
+    expect(dump(failing.row.render())).toContain('"valueTitle":"failing"')
+
+    const passing = makeRow({
+      health: health({ defaultBranchStatus: 'success' }),
+    })
+    expect(dump(passing.row.render())).toContain('"valueTitle":"passing"')
+
+    const unknown = makeRow({
+      health: health({ defaultBranchStatus: 'unknown' }),
+    })
+    expect(dump(unknown.row.render())).toContain('"valueTitle":"no status"')
+  })
+
   it('forwards the click with the repository', () => {
     const { row, onClick } = makeRow()
     const tree: any = row.render()

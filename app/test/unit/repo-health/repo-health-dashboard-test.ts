@@ -177,6 +177,14 @@ describe('RepoHealthDashboard', () => {
     expect(onRefresh).toHaveBeenCalledTimes(1)
   })
 
+  it('labels the search and sort/filter controls for screen readers', () => {
+    const { dash } = makeDashboard()
+    const text = JSON.stringify(dash.render())
+    expect(text).toContain('"aria-label":"Search repositories"')
+    expect(text).toContain('"aria-label":"Sort repositories"')
+    expect(text).toContain('"aria-label":"Filter repositories"')
+  })
+
   it('renders summary stats including key labels', () => {
     const repos = [repo(1, 'a'), repo(2, 'b'), repo(3, 'c')]
     const statuses = new Map([
