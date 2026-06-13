@@ -103,8 +103,20 @@ if (!ClientID || !ClientID.length || !ClientSecret || !ClientSecret.length) {
 
 export type GitHubAccountType = 'User' | 'Organization'
 
-/** The OAuth scopes we want to request */
-const oauthScopes = ['repo', 'user', 'workflow']
+/**
+ * The OAuth scopes we want to request.
+ *
+ * - `repo` grants read/write to the user's repositories *and* the
+ *   organization repositories they're a member/collaborator on, which is what
+ *   lets them clone, pull, commit, and push to org repos.
+ * - `read:org` is required for the `/user/orgs` endpoint to return the
+ *   organizations the user belongs to (including private memberships).
+ *   Without it `fetchOrgs` comes back empty, so the app can't discover the
+ *   user's orgs or surface their org repositories.
+ * - `user` grants access to the user's profile and email addresses.
+ * - `workflow` lets the user push changes to GitHub Actions workflow files.
+ */
+const oauthScopes = ['repo', 'read:org', 'user', 'workflow']
 
 enum HttpStatusCode {
   NotModified = 304,

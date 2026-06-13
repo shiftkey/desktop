@@ -1,4 +1,8 @@
-import { getNextPagePathWithIncreasingPageSize } from '../../src/lib/api'
+import {
+  getNextPagePathWithIncreasingPageSize,
+  getOAuthAuthorizationURL,
+  getDotComAPIEndpoint,
+} from '../../src/lib/api'
 import * as URL from 'url'
 
 interface IPageInfo {
@@ -124,6 +128,38 @@ describe('API', () => {
       assertNext({ per_page: 100, page: 8 }, { per_page: 100, page: 8 })
       assertNext({ per_page: 100, page: 9 }, { per_page: 100, page: 9 })
       assertNext({ per_page: 100, page: 10 }, { per_page: 100, page: 10 })
+    })
+  })
+
+  describe('getOAuthAuthorizationURL', () => {
+    function getRequestedScopes(endpoint: string): ReadonlyArray<string> {
+      const url = getOAuthAuthorizationURL(endpoint, 'some-state')
+      const { query } = URL.parse(url, true)
+      const scope = typeof query.scope === 'string' ? query.scope : ''
+      return scope.split(' ').filter(s => s.length > 0)
+    }
+
+    it('requests read:org so the user’s organizations are discoverable', () => {
+      // Without read:org the /user/orgs endpoint returns nothing for OAuth
+      // tokens, which would leave org discovery (and the org list in account
+      // preferences) empty.
+      expect(getRequestedScopes(getDotComAPIEndpoint())).toContain('read:org')
+    })
+
+    it('requests repo so the user can clone, pull, and push org repositories', () => {
+      expect(getRequestedScopes(getDotComAPIEndpoint())).toContain('repo')
+    })
+
+    it('requests the full expected set of scopes', () => {
+      expect([...getRequestedScopes(getDotComAPIEndpoint())].sort()).toEqual(
+        ['read:org', 'repo', 'user', 'workflow'].sort()
+      )
+    })
+
+    it('targets the login/oauth/authorize endpoint with the provided state', () => {
+      const url = getOAuthAuthorizationURL(getDotComAPIEndpoint(), 'my-state')
+      expect(url).toContain('/login/oauth/authorize')
+      expect(url).toContain('state=my-state')
     })
   })
 })

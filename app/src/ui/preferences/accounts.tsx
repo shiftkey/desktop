@@ -227,7 +227,8 @@ export class Accounts extends React.Component<IAccountsProps, IAccountsState> {
       <div className="organization-status">
         <strong>{diagnostics.summary}</strong>
         <p>
-          If an organization is missing, check OAuth app restrictions, SAML SSO,
+          If an organization is missing, sign out and back in to grant
+          organization access, then check OAuth app restrictions, SAML SSO,
           private membership, and repository permissions.
         </p>
         <LinkButton uri={OrganizationApprovalDocsURL}>
