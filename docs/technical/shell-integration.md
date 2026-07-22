@@ -242,6 +242,7 @@ These shells are currently supported:
  - [XTerm](http://invisible-island.net/xterm/)
  - [Terminology](https://www.enlightenment.org/docs/apps/terminology.md)
  - [Black Box](https://gitlab.gnome.org/raggesilver/blackbox)
+ - [Ptyxis](https://gitlab.gnome.org/chergert/ptyxis)
 
 These are defined in an enum at the top of the file:
 
@@ -256,6 +257,7 @@ export enum Shell {
   Xterm = 'XTerm',
   Terminology = 'Terminology',
   BlackBox = 'Black Box',
+  Ptyxis = 'Ptyxis',
 }
 ```
 
