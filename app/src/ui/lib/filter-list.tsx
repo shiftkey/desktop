@@ -24,17 +24,20 @@ export interface IFilterListItem {
 }
 
 /** A group of items in the list. */
-export interface IFilterListGroup<T extends IFilterListItem> {
+export interface IFilterListGroup<
+  Item extends IFilterListItem,
+  Identifier = string
+> {
   /** The identifier for this group. */
-  readonly identifier: string
+  readonly identifier: Identifier
 
   /** The items in the group. */
-  readonly items: ReadonlyArray<T>
+  readonly items: ReadonlyArray<Item>
 }
 
-interface IFlattenedGroup {
+interface IFlattenedGroup<T> {
   readonly kind: 'group'
-  readonly identifier: string
+  readonly identifier: T
 }
 
 interface IFlattenedItem<T extends IFilterListItem> {
@@ -48,11 +51,11 @@ interface IFlattenedItem<T extends IFilterListItem> {
  * A row in the list. This is used internally after the user-provided groups are
  * flattened.
  */
-type IFilterListRow<T extends IFilterListItem> =
-  | IFlattenedGroup
+type IFilterListRow<T extends IFilterListItem, GroupIdentifier> =
+  | IFlattenedGroup<GroupIdentifier>
   | IFlattenedItem<T>
 
-interface IFilterListProps<T extends IFilterListItem> {
+interface IFilterListProps<T extends IFilterListItem, GroupIdentifier> {
   /** A class name for the wrapping element. */
   readonly className?: string
 
@@ -61,7 +64,7 @@ interface IFilterListProps<T extends IFilterListItem> {
 
   /** The ordered groups to display in the list. */
   // eslint-disable-next-line react/no-unused-prop-types
-  readonly groups: ReadonlyArray<IFilterListGroup<T>>
+  readonly groups: ReadonlyArray<IFilterListGroup<T, GroupIdentifier>>
 
   /** The selected item. */
   readonly selectedItem: T | null
@@ -70,7 +73,9 @@ interface IFilterListProps<T extends IFilterListItem> {
   readonly renderItem: (item: T, matches: IMatches) => JSX.Element | null
 
   /** Called to render header for the group with the given identifier. */
-  readonly renderGroupHeader?: (identifier: string) => JSX.Element | null
+  readonly renderGroupHeader?: (
+    identifier: GroupIdentifier
+  ) => JSX.Element | null
 
   /** Called to render content before/above the filter and list. */
   readonly renderPreList?: () => JSX.Element | null
@@ -170,8 +175,8 @@ interface IFilterListProps<T extends IFilterListItem> {
   ) => void
 }
 
-interface IFilterListState<T extends IFilterListItem> {
-  readonly rows: ReadonlyArray<IFilterListRow<T>>
+interface IFilterListState<T extends IFilterListItem, GroupIdentifier> {
+  readonly rows: ReadonlyArray<IFilterListRow<T, GroupIdentifier>>
   readonly selectedRow: number
   readonly filterValue: string
   readonly filterValueChanged: boolean
@@ -191,14 +196,17 @@ export interface IFilterSelectionSource {
 export type SelectionSource = ListSelectionSource | IFilterSelectionSource
 
 /** A List which includes the ability to filter based on its contents. */
-export class FilterList<T extends IFilterListItem> extends React.Component<
-  IFilterListProps<T>,
-  IFilterListState<T>
+export class FilterList<
+  T extends IFilterListItem,
+  GroupIdentifier = string
+> extends React.Component<
+  IFilterListProps<T, GroupIdentifier>,
+  IFilterListState<T, GroupIdentifier>
 > {
   private list: List | null = null
   private filterTextBox: TextBox | null = null
 
-  public constructor(props: IFilterListProps<T>) {
+  public constructor(props: IFilterListProps<T, GroupIdentifier>) {
     super(props)
 
     if (props.filterTextBox !== undefined) {
@@ -208,13 +216,15 @@ export class FilterList<T extends IFilterListItem> extends React.Component<
     this.state = createStateUpdate(props, null)
   }
 
-  public componentWillReceiveProps(nextProps: IFilterListProps<T>) {
+  public componentWillReceiveProps(
+    nextProps: IFilterListProps<T, GroupIdentifier>
+  ) {
     this.setState(createStateUpdate(nextProps, this.state))
   }
 
   public componentDidUpdate(
-    prevProps: IFilterListProps<T>,
-    prevState: IFilterListState<T>
+    prevProps: IFilterListProps<T, GroupIdentifier>,
+    prevState: IFilterListState<T, GroupIdentifier>
   ) {
     if (this.props.onSelectionChanged) {
       const oldSelectedItemId = getItemIdFromRowIndex(
@@ -587,11 +597,11 @@ export function getText<T extends IFilterListItem>(
   return item['text']
 }
 
-function createStateUpdate<T extends IFilterListItem>(
-  props: IFilterListProps<T>,
-  state: IFilterListState<T> | null
+function createStateUpdate<T extends IFilterListItem, GroupIdentifier>(
+  props: IFilterListProps<T, GroupIdentifier>,
+  state: IFilterListState<T, GroupIdentifier> | null
 ) {
-  const flattenedRows = new Array<IFilterListRow<T>>()
+  const flattenedRows = new Array<IFilterListRow<T, GroupIdentifier>>()
   const filter = (props.filterText || '').toLowerCase()
 
   for (const group of props.groups) {
@@ -643,8 +653,8 @@ function createStateUpdate<T extends IFilterListItem>(
   }
 }
 
-function getItemFromRowIndex<T extends IFilterListItem>(
-  items: ReadonlyArray<IFilterListRow<T>>,
+function getItemFromRowIndex<T extends IFilterListItem, GroupIdentifier>(
+  items: ReadonlyArray<IFilterListRow<T, GroupIdentifier>>,
   index: number
 ): T | null {
   if (index >= 0 && index < items.length) {
@@ -658,8 +668,8 @@ function getItemFromRowIndex<T extends IFilterListItem>(
   return null
 }
 
-function getItemIdFromRowIndex<T extends IFilterListItem>(
-  items: ReadonlyArray<IFilterListRow<T>>,
+function getItemIdFromRowIndex<T extends IFilterListItem, GroupIdentifier>(
+  items: ReadonlyArray<IFilterListRow<T, GroupIdentifier>>,
   index: number
 ): string | null {
   const item = getItemFromRowIndex(items, index)

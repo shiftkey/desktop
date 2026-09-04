@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { ITrailer } from '../../src/lib/git'
 import { Commit } from '../../src/models/commit'
 import { CommitIdentity } from '../../src/models/commit-identity'
@@ -16,7 +18,7 @@ describe('getSquashedCommitDescription', () => {
     const squashOnto = buildTestCommit('ontoSummary', 'ontoDesc', [])
 
     const desc = getSquashedCommitDescription(commits, squashOnto)
-    expect(desc).toBe('ontoDesc\n\nsummary1\n\ndesc1\n\nsummary2\n\ndesc2')
+    assert.equal(desc, 'ontoDesc\n\nsummary1\n\ndesc1\n\nsummary2\n\ndesc2')
   })
 
   it('builds squashed commit descriptions that do not include coauthors', async () => {
@@ -32,7 +34,7 @@ describe('getSquashedCommitDescription', () => {
     )
 
     const desc = getSquashedCommitDescription(commits, squashOnto)
-    expect(desc).toBe('ontoDesc\n\nsummary1\n\ndesc1\n\nsummary2\n\ndesc2')
+    assert.equal(desc, 'ontoDesc\n\nsummary1\n\ndesc1\n\nsummary2\n\ndesc2')
   })
 
   it('builds squashed commit descriptions with whitespace trimmed', async () => {
@@ -48,7 +50,7 @@ describe('getSquashedCommitDescription', () => {
     )
 
     const desc = getSquashedCommitDescription(commits, squashOnto)
-    expect(desc).toBe('ontoDesc\n\nsummary1\n\ndesc1\n\nsummary2\n\ndesc2')
+    assert.equal(desc, 'ontoDesc\n\nsummary1\n\ndesc1\n\nsummary2\n\ndesc2')
   })
 })
 

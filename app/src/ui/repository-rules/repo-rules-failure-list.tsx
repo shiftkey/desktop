@@ -37,8 +37,6 @@ export class RepoRulesMetadataFailureList extends React.Component<IRepoRulesMeta
       endText = '.'
     }
 
-    const rulesText = __DARWIN__ ? 'Rules' : 'rules'
-
     return (
       <div className="repo-rules-failure-list-component">
         <p>
@@ -48,36 +46,39 @@ export class RepoRulesMetadataFailureList extends React.Component<IRepoRulesMeta
             View all rulesets for this branch.
           </RepoRulesetsForBranchLink>
         </p>
-        {failures.failed.length > 0 && (
-          <div className="repo-rule-list">
-            <strong>Failed {rulesText}:</strong>
-            {this.renderRuleFailureList(failures.failed)}
-          </div>
-        )}
-        {failures.bypassed.length > 0 && (
-          <div className="repo-rule-list">
-            <strong>Bypassed {rulesText}:</strong>
-            {this.renderRuleFailureList(failures.bypassed)}
-          </div>
-        )}
+        {this.renderRuleFailureList(failures.failed, 'Failed')}
+        {this.renderRuleFailureList(failures.bypassed, 'Bypassed')}
       </div>
     )
   }
 
-  private renderRuleFailureList(failures: RepoRulesMetadataFailure[]) {
+  private renderRuleFailureList(
+    failures: RepoRulesMetadataFailure[],
+    label: string
+  ) {
+    if (failures.length === 0) {
+      return null
+    }
+    const rulesText = __DARWIN__ ? 'Rules' : 'rules'
+    const labelId = `repo-rule-list-label-${label.toLowerCase()}`
     return (
-      <ul>
-        {failures.map(f => (
-          <li key={`${f.description}-${f.rulesetId}`}>
-            <RepoRulesetLink
-              repository={this.props.repository}
-              rulesetId={f.rulesetId}
-            >
-              {f.description}
-            </RepoRulesetLink>
-          </li>
-        ))}
-      </ul>
+      <div className="repo-rule-list">
+        <label id={labelId}>
+          {label} {rulesText}:
+        </label>
+        <ul aria-labelledby={labelId}>
+          {failures.map(f => (
+            <li key={`${f.description}-${f.rulesetId}`}>
+              <RepoRulesetLink
+                repository={this.props.repository}
+                rulesetId={f.rulesetId}
+              >
+                {f.description}
+              </RepoRulesetLink>
+            </li>
+          ))}
+        </ul>
+      </div>
     )
   }
 }

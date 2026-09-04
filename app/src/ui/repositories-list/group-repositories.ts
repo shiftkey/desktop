@@ -2,27 +2,51 @@ import {
   Repository,
   ILocalRepositoryState,
   nameOf,
+  isRepositoryWithGitHubRepository,
+  RepositoryWithGitHubRepository,
 } from '../../models/repository'
 import { CloningRepository } from '../../models/cloning-repository'
-import { getDotComAPIEndpoint } from '../../lib/api'
-import { caseInsensitiveCompare } from '../../lib/compare'
+import { getHTMLURL } from '../../lib/api'
+import { caseInsensitiveCompare, compare } from '../../lib/compare'
 import { IFilterListGroup, IFilterListItem } from '../lib/filter-list'
 import { IAheadBehind } from '../../models/branch'
+import { assertNever } from '../../lib/fatal-error'
+import { isDotCom } from '../../lib/endpoint-capabilities'
+import { Owner } from '../../models/owner'
+
+export type RepositoryListGroup =
+  | {
+      kind: 'recent' | 'other'
+    }
+  | {
+      kind: 'dotcom'
+      owner: Owner
+    }
+  | {
+      kind: 'enterprise'
+      host: string
+    }
 
 /**
- * Special, reserved repository group names
- *
- * (GitHub.com user and org names cannot contain `_`,
- * so these are safe to union with all possible
- * GitHub repo owner names)
+ * Returns a unique grouping key (string) for a repository group. Doubles as a
+ * case sensitive sorting key (i.e the case sensitive sort order of the keys is
+ * the order in which the groups will be displayed in the repository list).
  */
-export enum KnownRepositoryGroup {
-  Enterprise = '_Enterprise_',
-  NonGitHub = '_Non-GitHub_',
+export const getGroupKey = (group: RepositoryListGroup) => {
+  const { kind } = group
+  switch (kind) {
+    case 'recent':
+      return `0:recent`
+    case 'dotcom':
+      return `1:dotcom:${group.owner.login}`
+    case 'enterprise':
+      return `2:enterprise:${group.host}`
+    case 'other':
+      return `3:other`
+    default:
+      assertNever(group, `Unknown repository group kind ${kind}`)
+  }
 }
-
-export type RepositoryGroupIdentifier = KnownRepositoryGroup | string
-
 export type Repositoryish = Repository | CloningRepository
 
 export interface IRepositoryListItem extends IFilterListItem {
@@ -34,147 +58,115 @@ export interface IRepositoryListItem extends IFilterListItem {
   readonly changedFilesCount: number
 }
 
-const fallbackValue = {
-  changedFilesCount: 0,
-  aheadBehind: null,
+const recentRepositoriesThreshold = 7
+
+const getHostForRepository = (repo: RepositoryWithGitHubRepository) =>
+  new URL(getHTMLURL(repo.gitHubRepository.endpoint)).host
+
+const getGroupForRepository = (repo: Repositoryish): RepositoryListGroup => {
+  if (repo instanceof Repository && isRepositoryWithGitHubRepository(repo)) {
+    return isDotCom(repo.gitHubRepository.endpoint)
+      ? { kind: 'dotcom', owner: repo.gitHubRepository.owner }
+      : { kind: 'enterprise', host: getHostForRepository(repo) }
+  }
+  return { kind: 'other' }
 }
+
+type RepoGroupItem = { group: RepositoryListGroup; repos: Repositoryish[] }
 
 export function groupRepositories(
   repositories: ReadonlyArray<Repositoryish>,
-  localRepositoryStateLookup: ReadonlyMap<number, ILocalRepositoryState>
-): ReadonlyArray<IFilterListGroup<IRepositoryListItem>> {
-  const grouped = new Map<RepositoryGroupIdentifier, Repositoryish[]>()
-  const gitHubOwners = new Set<string>()
-  for (const repository of repositories) {
-    const gitHubRepository =
-      repository instanceof Repository ? repository.gitHubRepository : null
-    let group: RepositoryGroupIdentifier = KnownRepositoryGroup.NonGitHub
-    if (gitHubRepository) {
-      if (gitHubRepository.endpoint === getDotComAPIEndpoint()) {
-        group = gitHubRepository.owner.login
-        gitHubOwners.add(group)
-      } else {
-        group = KnownRepositoryGroup.Enterprise
-      }
-    } else {
-      group = KnownRepositoryGroup.NonGitHub
+  localRepositoryStateLookup: ReadonlyMap<number, ILocalRepositoryState>,
+  recentRepositories: ReadonlyArray<number>
+): ReadonlyArray<IFilterListGroup<IRepositoryListItem, RepositoryListGroup>> {
+  const includeRecentGroup = repositories.length > recentRepositoriesThreshold
+  const recentSet = includeRecentGroup ? new Set(recentRepositories) : undefined
+  const groups = new Map<string, RepoGroupItem>()
+
+  const addToGroup = (group: RepositoryListGroup, repo: Repositoryish) => {
+    const key = getGroupKey(group)
+    let rg = groups.get(key)
+    if (!rg) {
+      rg = { group, repos: [] }
+      groups.set(key, rg)
     }
 
-    let repositories = grouped.get(group)
-    if (!repositories) {
-      repositories = new Array<Repository>()
-      grouped.set(group, repositories)
-    }
-
-    repositories.push(repository)
+    rg.repos.push(repo)
   }
 
-  const groups = new Array<IFilterListGroup<IRepositoryListItem>>()
-
-  const addGroup = (identifier: RepositoryGroupIdentifier) => {
-    const repositories = grouped.get(identifier)
-    if (!repositories || repositories.length === 0) {
-      return
+  for (const repo of repositories) {
+    if (recentSet?.has(repo.id) && repo instanceof Repository) {
+      addToGroup({ kind: 'recent' }, repo)
     }
 
-    const names = new Map<string, number>()
-    for (const repository of repositories) {
-      const existingCount = names.get(repository.name) || 0
-      names.set(repository.name, existingCount + 1)
-    }
-
-    repositories.sort((x, y) =>
-      caseInsensitiveCompare(repositorySortingKey(x), repositorySortingKey(y))
-    )
-    const items: ReadonlyArray<IRepositoryListItem> = repositories.map(r => {
-      const nameCount = names.get(r.name) || 0
-      const { aheadBehind, changedFilesCount } =
-        localRepositoryStateLookup.get(r.id) || fallbackValue
-      const repositoryText =
-        r instanceof Repository ? [r.alias ?? r.name, nameOf(r)] : [r.name]
-
-      return {
-        text: repositoryText,
-        id: r.id.toString(),
-        repository: r,
-        needsDisambiguation:
-          nameCount > 1 && identifier === KnownRepositoryGroup.Enterprise,
-        aheadBehind,
-        changedFilesCount,
-      }
-    })
-
-    groups.push({ identifier, items })
+    addToGroup(getGroupForRepository(repo), repo)
   }
 
-  // NB: This ordering reflects the order in the repositories sidebar.
-  const owners = [...gitHubOwners.values()]
-  owners.sort(caseInsensitiveCompare)
-  owners.forEach(addGroup)
-
-  addGroup(KnownRepositoryGroup.Enterprise)
-  addGroup(KnownRepositoryGroup.NonGitHub)
-
-  return groups
+  return Array.from(groups)
+    .sort(([xKey], [yKey]) => compare(xKey, yKey))
+    .map(([, { group, repos }]) => ({
+      identifier: group,
+      items: toSortedListItems(
+        group,
+        repos,
+        localRepositoryStateLookup,
+        groups
+      ),
+    }))
 }
 
-/**
- * Creates the group `Recent` of repositories recently opened for use with `FilterList` component
- *
- * @param recentRepositories list of recent repositories' ids
- * @param repositories full list of repositories (we use this to get data about the `recentRepositories`)
- * @param localRepositoryStateLookup cache of local state about full list of repositories (we use this to get data about the `recentRepositories`)
- */
-export function makeRecentRepositoriesGroup(
-  recentRepositories: ReadonlyArray<number>,
+// Returns the display title for a repository, which is either the alias
+// (if available) or the name.
+const getDisplayTitle = (r: Repositoryish) =>
+  r instanceof Repository && r.alias != null ? r.alias : r.name
+
+const toSortedListItems = (
+  group: RepositoryListGroup,
   repositories: ReadonlyArray<Repositoryish>,
-  localRepositoryStateLookup: ReadonlyMap<number, ILocalRepositoryState>
-): IFilterListGroup<IRepositoryListItem> {
-  const names = new Map<string, number>()
-  for (const id of recentRepositories) {
-    const repository = repositories.find(r => r.id === id)
-    if (repository !== undefined) {
-      const alias = repository instanceof Repository ? repository.alias : null
-      const name = alias ?? repository.name
-      const existingCount = names.get(name) || 0
-      names.set(name, existingCount + 1)
-    }
-  }
+  localRepositoryStateLookup: ReadonlyMap<number, ILocalRepositoryState>,
+  groups: Map<string, RepoGroupItem>
+): IRepositoryListItem[] => {
+  const groupNames = new Map<string, number>()
+  const allNames = new Map<string, number>()
 
-  const items = new Array<IRepositoryListItem>()
-
-  for (const id of recentRepositories) {
-    const repository = repositories.find(r => r.id === id)
-    if (repository === undefined) {
+  for (const groupItem of groups.values()) {
+    // All items in the recent group are by definition present in another
+    // group and therefore we don't want to count them.
+    if (groupItem.group.kind === 'recent') {
       continue
     }
 
-    const { aheadBehind, changedFilesCount } =
-      localRepositoryStateLookup.get(id) || fallbackValue
-    const repositoryAlias =
-      repository instanceof Repository ? repository.alias : null
-    const repositoryText =
-      repository instanceof Repository
-        ? [repositoryAlias ?? repository.name, nameOf(repository)]
-        : [repository.name]
-    const nameCount = names.get(repositoryAlias ?? repository.name) || 0
-    items.push({
-      text: repositoryText,
-      id: id.toString(),
-      repository,
-      needsDisambiguation: nameCount > 1,
-      aheadBehind,
-      changedFilesCount,
+    for (const title of groupItem.repos.map(getDisplayTitle)) {
+      allNames.set(title, (allNames.get(title) ?? 0) + 1)
+      if (groupItem.group === group) {
+        groupNames.set(title, (groupNames.get(title) ?? 0) + 1)
+      }
+    }
+  }
+
+  return repositories
+    .map(r => {
+      const repoState = localRepositoryStateLookup.get(r.id)
+      const title = getDisplayTitle(r)
+
+      return {
+        text: r instanceof Repository ? [title, nameOf(r)] : [title],
+        id: r.id.toString(),
+        repository: r,
+        needsDisambiguation:
+          // If the repository is in the enterprise group and has a duplicate
+          // name in the group, we need to disambiguate it. We don't have to
+          // disambiguate repositories in the 'dotcom' group because they are
+          // already grouped by owner. If the repository is in the 'recent'
+          // group and has a duplicate name in any group, we need to
+          // disambiguate it.
+          ((groupNames.get(title) ?? 0) > 1 && group.kind === 'enterprise') ||
+          ((allNames.get(title) ?? 0) > 1 && group.kind === 'recent'),
+        aheadBehind: repoState?.aheadBehind ?? null,
+        changedFilesCount: repoState?.changedFilesCount ?? 0,
+      }
     })
-  }
-
-  return {
-    identifier: 'Recent',
-    items,
-  }
+    .sort(({ repository: x }, { repository: y }) =>
+      caseInsensitiveCompare(getDisplayTitle(x), getDisplayTitle(y))
+    )
 }
-
-// Use either the configured alias or the repository name when sorting the
-// repository list.
-const repositorySortingKey = (r: Repositoryish) =>
-  r instanceof Repository && r.alias !== null ? r.alias : r.name

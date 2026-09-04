@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { readdir, readFile } from 'fs/promises'
 import { EOL } from 'os'
 import { join } from 'path'
@@ -12,47 +14,42 @@ const format = (msg: string, lvl: string) => ({ [MESSAGE]: msg, [LEVEL]: lvl })
 const info = (t: DesktopFileTransport, m: string) => write(t, format(m, 'info'))
 
 describe('DesktopFileTransport', () => {
-  it('creates a file on demand', async () => {
-    const d = await createTempDirectory('desktop-logs')
-    const t = new DesktopFileTransport({ logDirectory: d })
+  it('creates a file on demand', async t => {
+    const d = await createTempDirectory(t)
+    const transport = new DesktopFileTransport({ logDirectory: d })
 
-    expect(await readdir(d)).toBeArrayOfSize(0)
-    await info(t, 'heyo')
+    assert.equal((await readdir(d)).length, 0)
+    await info(transport, 'heyo')
     const files = await readdir(d)
-    expect(files).toBeArrayOfSize(1)
-    expect(await readFile(join(d, files[0]), 'utf8')).toEqual(`heyo${EOL}`)
+    assert.equal(files.length, 1)
+    assert.equal(await readFile(join(d, files[0]), 'utf8'), `heyo${EOL}`)
 
-    t.close()
+    await promisify(transport.close).call(transport)
   })
 
-  it('creates a file for each day', async () => {
-    const originalToISOString = Date.prototype.toISOString
-    const globalDate = global.Date as any
-    const d = await createTempDirectory('desktop-logs')
-    const t = new DesktopFileTransport({ logDirectory: d })
+  it('creates a file for each day', async t => {
+    t.mock.timers.enable({ apis: ['Date'] })
 
-    try {
-      expect(await readdir(d)).toBeArrayOfSize(0)
+    const d = await createTempDirectory(t)
+    const transport = new DesktopFileTransport({ logDirectory: d })
 
-      globalDate.prototype.toISOString = () => '2022-03-10T10:00:00.000Z'
-      await info(t, 'heyo')
+    assert.equal((await readdir(d)).length, 0)
 
-      globalDate.prototype.toISOString = () => '2022-03-11T11:00:00.000Z'
-      await info(t, 'heyo')
+    t.mock.timers.setTime(Date.parse('2022-03-10T10:00:00.000Z'))
+    await info(transport, 'heyo')
 
-      expect(await readdir(d)).toBeArrayOfSize(2)
+    t.mock.timers.setTime(Date.parse('2022-03-11T11:00:00.000Z'))
+    await info(transport, 'heyo')
 
-      t.close()
-    } finally {
-      globalDate.toISOString = originalToISOString
-    }
+    assert.equal((await readdir(d)).length, 2)
+
+    await promisify(transport.close).call(transport)
   })
 
-  it.only('retains a maximum of 14 log files', async () => {
-    const originalToISOString = Date.prototype.toISOString
-    const globalDate = global.Date as any
-    const d = await createTempDirectory('desktop-logs')
-    const t = new DesktopFileTransport({ logDirectory: d })
+  it('retains a maximum of 14 log files', async t => {
+    t.mock.timers.enable({ apis: ['Date'] })
+    const d = await createTempDirectory(t)
+    const transport = new DesktopFileTransport({ logDirectory: d })
 
     const dates = [
       '2022-03-01T10:00:00.000Z',
@@ -77,37 +74,32 @@ describe('DesktopFileTransport', () => {
       '2022-03-20T10:00:00.000Z',
     ]
 
-    try {
-      expect(await readdir(d)).toBeArrayOfSize(0)
-      for (const date of dates) {
-        globalDate.prototype.toISOString = () => date
-        await info(t, 'heyo')
-      }
-
-      const retainedFiles = await readdir(d)
-      expect(retainedFiles).toBeArrayOfSize(14)
-
-      // Retains the newest files (ISO date is lexicographically sortable)
-      expect(retainedFiles.sort()).toEqual([
-        '2022-03-07.desktop.development.log',
-        '2022-03-08.desktop.development.log',
-        '2022-03-09.desktop.development.log',
-        '2022-03-10.desktop.development.log',
-        '2022-03-11.desktop.development.log',
-        '2022-03-12.desktop.development.log',
-        '2022-03-13.desktop.development.log',
-        '2022-03-14.desktop.development.log',
-        '2022-03-15.desktop.development.log',
-        '2022-03-16.desktop.development.log',
-        '2022-03-17.desktop.development.log',
-        '2022-03-18.desktop.development.log',
-        '2022-03-19.desktop.development.log',
-        '2022-03-20.desktop.development.log',
-      ])
-
-      t.close()
-    } finally {
-      globalDate.prototype.toISOString = originalToISOString
+    assert.equal((await readdir(d)).length, 0)
+    for (const date of dates) {
+      t.mock.timers.setTime(Date.parse(date))
+      await info(transport, 'heyo')
     }
+
+    const retainedFiles = await readdir(d)
+
+    // Retains the newest files (ISO date is lexicographically sortable)
+    assert.deepStrictEqual(retainedFiles.sort(), [
+      '2022-03-07.desktop.development.log',
+      '2022-03-08.desktop.development.log',
+      '2022-03-09.desktop.development.log',
+      '2022-03-10.desktop.development.log',
+      '2022-03-11.desktop.development.log',
+      '2022-03-12.desktop.development.log',
+      '2022-03-13.desktop.development.log',
+      '2022-03-14.desktop.development.log',
+      '2022-03-15.desktop.development.log',
+      '2022-03-16.desktop.development.log',
+      '2022-03-17.desktop.development.log',
+      '2022-03-18.desktop.development.log',
+      '2022-03-19.desktop.development.log',
+      '2022-03-20.desktop.development.log',
+    ])
+
+    await promisify(transport.close).call(transport)
   })
 })

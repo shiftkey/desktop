@@ -1,0 +1,125 @@
+// Copilot conflict resolution - entry point button layout
+.conflicts-footer-with-copilot {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+
+  .copilot-resolve-button {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-half);
+  }
+}
+
+// Copilot conflicts result dialog
+dialog#copilot-conflicts-dialog {
+  width: 560px;
+
+  .copilot-conflicts-file-list {
+    list-style: none;
+    padding: 0 var(--spacing-double);
+    margin: 0 calc(-1 * var(--spacing-double));
+    max-height: 350px;
+    overflow-y: auto;
+
+    .copilot-conflicts-file-item {
+      display: flex;
+      flex-flow: row nowrap;
+      align-items: flex-start;
+      margin-bottom: var(--spacing);
+      padding: var(--spacing);
+      border-radius: var(--border-radius);
+      border: var(--base-border);
+
+      &.resolved {
+        .copilot-file-resolved-text {
+          color: var(--color-new);
+          font-size: var(--font-size-sm);
+        }
+
+        .green-circle {
+          background-color: var(--color-new);
+          color: var(--background-color);
+          border-radius: 50%;
+          height: 20px;
+          width: 20px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          margin-left: auto;
+          flex-shrink: 0;
+        }
+      }
+
+      .copilot-file-icon,
+      .file-octicon {
+        margin-right: var(--spacing);
+        margin-top: 2px;
+        flex-shrink: 0;
+      }
+
+      .copilot-file-details {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        flex: 1;
+
+        .path-text-component {
+          text-overflow: ellipsis;
+          max-width: 100%;
+        }
+
+        .copilot-file-reasoning {
+          font-size: var(--font-size-sm);
+          color: var(--text-secondary-color);
+          margin-top: 2px;
+          line-height: 1.3;
+          // Clamp long reasoning text
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      }
+
+      .copilot-file-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-half);
+        margin-left: var(--spacing);
+        flex-shrink: 0;
+
+        .copilot-resolution-dropdown {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-third);
+          font-size: var(--font-size-sm);
+          line-height: 18px;
+
+          .octicon {
+            pointer-events: none;
+          }
+        }
+
+        .copilot-overflow-menu {
+          min-width: 0;
+          padding: 4px 6px;
+
+          .octicon {
+            pointer-events: none;
+          }
+        }
+      }
+    }
+  }
+
+  .copilot-conflicts-footer {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+}

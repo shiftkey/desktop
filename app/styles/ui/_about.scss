@@ -33,6 +33,10 @@ dialog#about {
       }
     }
 
+    .terms-and-license-container {
+      margin-top: var(--spacing);
+    }
+
     .version-text {
       cursor: pointer;
       .octicon {

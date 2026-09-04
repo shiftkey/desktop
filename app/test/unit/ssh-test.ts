@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { parseAddSSHHostPrompt } from '../../src/lib/ssh/ssh'
 
 describe('SSH', () => {
@@ -9,7 +11,7 @@ Are you sure you want to continue connecting (yes/no/[fingerprint])? `
 
       const info = parseAddSSHHostPrompt(prompt)
 
-      expect(info).toEqual({
+      assert.deepStrictEqual(info, {
         host: 'github.com',
         ip: '140.82.121.3',
         fingerprint: 'SHA256:nThbg6kXUpJWGl7E1IGOCspRomTxdCARLviKw6E5SY8',
@@ -25,7 +27,7 @@ Are you sure you want to continue connecting (yes/no/[fingerprint])? `
 
       const info = parseAddSSHHostPrompt(prompt)
 
-      expect(info).toEqual({
+      assert.deepStrictEqual(info, {
         host: 'my-domain.com',
         ip: '1.2.3.4',
         fingerprint: 'ThisIsAFakeFingerprintForTestingPurposes',
@@ -41,7 +43,7 @@ Are you sure you want to continue connecting (yes/no/[fingerprint])? `
 
       const info = parseAddSSHHostPrompt(prompt)
 
-      expect(info).toEqual({
+      assert.deepStrictEqual(info, {
         host: 'my-domain.com',
         ip: '1.2.3.4',
         fingerprint: 'ThisIsAFakeFingerprintForTestingPurposes',
@@ -57,7 +59,7 @@ Are you sure you want to continue connecting (yes/no)? `
 
       const info = parseAddSSHHostPrompt(prompt)
 
-      expect(info).toEqual({
+      assert.deepStrictEqual(info, {
         host: 'my-domain.com',
         ip: '1.2.3.4',
         fingerprint: 'ThisIsAFakeFingerprintForTestingPurposes',

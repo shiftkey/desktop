@@ -8,6 +8,7 @@ import {
   FoldoutType,
   SelectionType,
   HistoryTabMode,
+  CommitOptions,
 } from '../lib/app-state'
 import { Dispatcher } from './dispatcher'
 import { AppStore, GitHubUserStore, IssuesStore } from '../lib/stores'
@@ -18,7 +19,6 @@ import { RetryAction } from '../models/retry-actions'
 import { FetchType } from '../models/fetch'
 import { shouldRenderApplicationMenu } from './lib/features'
 import { matchExistingRepository } from '../lib/repository-matching'
-import { getDotComAPIEndpoint } from '../lib/api'
 import { getVersion, getName } from './lib/app-proxy'
 import {
   getOS,
@@ -36,7 +36,7 @@ import {
 import { Branch } from '../models/branch'
 import { PreferencesTab } from '../models/preferences'
 import { findItemByAccessKey, itemIsSelectable } from '../models/app-menu'
-import { Account } from '../models/account'
+import { Account, isDotComAccount } from '../models/account'
 import { TipState } from '../models/tip'
 import { CloneRepositoryTab } from '../models/clone-repository-tab'
 import { CloningRepository } from '../models/cloning-repository'
@@ -71,6 +71,11 @@ import { Welcome } from './welcome'
 import { AppMenuBar } from './app-menu'
 import { UpdateAvailable, renderBanner } from './banners'
 import { Preferences } from './preferences'
+import { EditCopilotBYOKProviderDialog } from './copilot/edit-byok-provider-dialog'
+import { EditCopilotBYOKModelDialog } from './copilot/edit-byok-model-dialog'
+import { ConfirmDeleteCopilotBYOKProviderDialog } from './copilot/confirm-delete-byok-provider-dialog'
+import type { IBYOKProvider } from '../lib/copilot/byok'
+import { OpenWithExternalEditor } from './open-with-external-editor/open-with-external-editor'
 import { RepositorySettings } from './repository-settings'
 import { AppError } from './app-error'
 import { MissingRepository } from './missing-repository'
@@ -126,7 +131,10 @@ import { DiscardSelection } from './discard-changes/discard-selection-dialog'
 import { LocalChangesOverwrittenDialog } from './local-changes-overwritten/local-changes-overwritten-dialog'
 import memoizeOne from 'memoize-one'
 import { AheadBehindStore } from '../lib/stores/ahead-behind-store'
-import { getAccountForRepository } from '../lib/get-account-for-repository'
+import {
+  getAccountForCommitMessageGeneration,
+  getAccountForRepository,
+} from '../lib/get-account-for-repository'
 import { CommitOneLine } from '../models/commit'
 import { CommitDragElement } from './drag-elements/commit-drag-element'
 import classNames from 'classnames'
@@ -166,6 +174,7 @@ import { showContextualMenu } from '../lib/menu-item'
 import { UnreachableCommitsDialog } from './history/unreachable-commits-dialog'
 import { OpenPullRequestDialog } from './open-pull-request/open-pull-request-dialog'
 import { sendNonFatalException } from '../lib/helpers/non-fatal-exception'
+import { ICustomIntegration } from '../lib/custom-integration'
 import { createCommitURL } from '../lib/commit-url'
 import { InstallingUpdate } from './installing-update/installing-update'
 import { DialogStackContext } from './dialog'
@@ -182,6 +191,21 @@ import { webUtils } from 'electron'
 import { showTestUI } from './lib/test-ui-components/test-ui-components'
 import { ConfirmCommitFilteredChanges } from './changes/confirm-commit-filtered-changes-dialog'
 import { AboutTestDialog } from './about/about-test-dialog'
+import { enableCopilotSdkCommitMessageGeneration } from '../lib/feature-flag'
+import {
+  ISecretScanResult,
+  PushProtectionErrorDialog,
+} from './secret-scanning/push-protection-error-dialog'
+import { GenerateCommitMessageOverrideWarning } from './generate-commit-message/generate-commit-message-override-warning'
+import { GenerateCommitMessageDisclaimer } from './generate-commit-message/generate-commit-message-disclaimer'
+import { IAPICreatePushProtectionBypassResponse } from '../lib/api'
+import {
+  BypassPushProtectionDialog,
+  BypassReason,
+  BypassReasonType,
+} from './secret-scanning/bypass-push-protection-dialog'
+import { HookFailed } from './hook-failed/hook-failed'
+import { CommitProgress } from './commit-progress/commit-progress'
 
 const MinuteInMilliseconds = 1000 * 60
 const HourInMilliseconds = MinuteInMilliseconds * 60
@@ -247,7 +271,7 @@ export class App extends React.Component<IAppProps, IAppState> {
    * passed popupType, so it can be used in render() without creating
    * multiple instances when the component gets re-rendered.
    */
-  private getOnPopupDismissedFn = memoizeOne((popupId: string) => {
+  private getOnPopupDismissedFn = memoizeOne((popupId: number) => {
     return () => this.onPopupDismissed(popupId)
   })
 
@@ -491,6 +515,8 @@ export class App extends React.Component<IAppProps, IAppState> {
         return uninstallWindowsCLI()
       case 'open-external-editor':
         return this.openCurrentRepositoryInExternalEditor()
+      case 'open-with-external-editor':
+        return this.showOpenWithExternalEditor()
       case 'select-all':
         return this.selectAll()
       case 'show-stashed-changes':
@@ -503,6 +529,8 @@ export class App extends React.Component<IAppProps, IAppState> {
         return this.resizeActiveResizable('increase-active-resizable-width')
       case 'decrease-active-resizable-width':
         return this.resizeActiveResizable('decrease-active-resizable-width')
+      case 'toggle-changes-filter':
+        return this.toggleChangesFilterVisibility()
       default:
         if (isTestMenuEvent(name)) {
           return showTestUI(
@@ -514,6 +542,13 @@ export class App extends React.Component<IAppProps, IAppState> {
         }
         return assertNever(name, `Unknown menu event name: ${name}`)
     }
+  }
+
+  /**
+   * This method dispatches an action to update the changes filter visibility
+   */
+  private toggleChangesFilterVisibility() {
+    this.props.dispatcher.toggleChangesFilterVisibility()
   }
 
   /**
@@ -606,20 +641,6 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
 
     updateStore.checkForUpdates(inBackground, skipGuidCheck)
-  }
-
-  private getDotComAccount(): Account | null {
-    const dotComAccount = this.state.accounts.find(
-      a => a.endpoint === getDotComAPIEndpoint()
-    )
-    return dotComAccount || null
-  }
-
-  private getEnterpriseAccount(): Account | null {
-    const enterpriseAccount = this.state.accounts.find(
-      a => a.endpoint !== getDotComAPIEndpoint()
-    )
-    return enterpriseAccount || null
   }
 
   private updateBranchWithContributionTargetBranch() {
@@ -802,9 +823,10 @@ export class App extends React.Component<IAppProps, IAppState> {
   }
 
   private showCreateTutorialRepositoryPopup = () => {
-    const account = this.getDotComAccount() || this.getEnterpriseAccount()
+    const account =
+      this.state.accounts.find(isDotComAccount) ?? this.state.accounts.at(0)
 
-    if (account === null) {
+    if (!account) {
       return
     }
 
@@ -1286,6 +1308,16 @@ export class App extends React.Component<IAppProps, IAppState> {
     this.openInShell(repository)
   }
 
+  /**
+   * Gets a label string for the currently selected external editor, or
+   * `undefined` if the user has selected a custom editor.
+   */
+  private get externalEditorLabel() {
+    return this.state.useCustomEditor
+      ? undefined
+      : this.state.selectedExternalEditor ?? undefined
+  }
+
   private openCurrentRepositoryInExternalEditor() {
     const repository = this.getRepository()
     if (!repository) {
@@ -1393,7 +1425,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     )
   }
 
-  private onPopupDismissed = (popupId: string) => {
+  private onPopupDismissed = (popupId: number) => {
     return this.props.dispatcher.closePopupById(popupId)
   }
 
@@ -1452,6 +1484,8 @@ export class App extends React.Component<IAppProps, IAppState> {
             dispatcher={this.props.dispatcher}
             repository={popup.repository}
             branch={popup.branch}
+            accounts={this.state.accounts}
+            cachedRepoRulesets={this.state.cachedRepoRulesets}
             onDismissed={onPopupDismissedFn}
           />
         )
@@ -1527,7 +1561,7 @@ export class App extends React.Component<IAppProps, IAppState> {
             key="preferences"
             initialSelectedTab={popup.initialSelectedTab}
             dispatcher={this.props.dispatcher}
-            dotComAccount={this.getDotComAccount()}
+            accounts={this.state.accounts}
             confirmRepositoryRemoval={
               this.state.askForConfirmationOnRepositoryRemoval
             }
@@ -1546,6 +1580,9 @@ export class App extends React.Component<IAppProps, IAppState> {
             askForConfirmationOnCommitFilteredChanges={
               this.state.askForConfirmationOnCommitFilteredChanges
             }
+            confirmCommitMessageOverride={
+              this.state.askForConfirmationOnCommitMessageOverride
+            }
             uncommittedChangesStrategy={this.state.uncommittedChangesStrategy}
             selectedExternalEditor={this.state.selectedExternalEditor}
             useWindowsOpenSSH={this.state.useWindowsOpenSSH}
@@ -1553,7 +1590,6 @@ export class App extends React.Component<IAppProps, IAppState> {
             notificationsEnabled={this.state.notificationsEnabled}
             optOutOfUsageTracking={this.state.optOutOfUsageTracking}
             useExternalCredentialHelper={this.state.useExternalCredentialHelper}
-            enterpriseAccount={this.getEnterpriseAccount()}
             repository={repository}
             onDismissed={onPopupDismissedFn}
             selectedShell={this.state.selectedShell}
@@ -1567,7 +1603,10 @@ export class App extends React.Component<IAppProps, IAppState> {
             onEditGlobalGitConfig={this.editGlobalGitConfig}
             underlineLinks={this.state.underlineLinks}
             showDiffCheckMarks={this.state.showDiffCheckMarks}
-            canFilterChanges={this.state.canFilterChanges}
+            selectedCopilotModels={this.state.selectedCopilotModels}
+            copilotModels={this.state.copilotModels}
+            copilotAvailable={this.state.copilotAvailable}
+            byokProviders={this.state.byokProviders}
           />
         )
       case PopupType.RepositorySettings: {
@@ -1624,8 +1663,7 @@ export class App extends React.Component<IAppProps, IAppState> {
         return (
           <CloneRepository
             key="clone-repository"
-            dotComAccount={this.getDotComAccount()}
-            enterpriseAccount={this.getEnterpriseAccount()}
+            accounts={this.state.accounts}
             initialURL={popup.initialURL}
             onDismissed={onPopupDismissedFn}
             dispatcher={this.props.dispatcher}
@@ -1680,6 +1718,35 @@ export class App extends React.Component<IAppProps, IAppState> {
             onDismissed={onPopupDismissedFn}
             onOpenShell={this.onOpenShellIgnoreWarning}
             path={popup.path}
+          />
+        )
+      case PopupType.EditCopilotBYOKProvider:
+        return (
+          <EditCopilotBYOKProviderDialog
+            key="edit-copilot-byok-provider"
+            dispatcher={this.props.dispatcher}
+            provider={popup.provider}
+            onSave={this.onSaveCopilotBYOKProvider}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      case PopupType.EditCopilotBYOKModel:
+        return (
+          <EditCopilotBYOKModelDialog
+            key="edit-copilot-byok-model"
+            model={popup.model}
+            otherModelIds={popup.otherModelIds}
+            onSave={popup.onSave}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      case PopupType.ConfirmDeleteCopilotBYOKProvider:
+        return (
+          <ConfirmDeleteCopilotBYOKProviderDialog
+            key="confirm-delete-copilot-byok-provider"
+            provider={popup.provider}
+            onConfirm={this.onConfirmDeleteCopilotBYOKProvider}
+            onDismissed={onPopupDismissedFn}
           />
         )
       case PopupType.About:
@@ -1787,6 +1854,13 @@ export class App extends React.Component<IAppProps, IAppState> {
             showPreferencesDialog={this.onShowIntegrationsPreferences}
             viewPreferences={openPreferences}
             suggestDefaultEditor={suggestDefaultEditor}
+          />
+        )
+      case PopupType.OpenWithExternalEditor:
+        return (
+          <OpenWithExternalEditor
+            onDismissed={onPopupDismissedFn}
+            onOpenWithEditor={this.openRepositoryInSelectedEditor}
           />
         )
       case PopupType.OpenShellFailed:
@@ -2143,6 +2217,11 @@ export class App extends React.Component<IAppProps, IAppState> {
             onSubmitCommitMessage={popup.onSubmitCommitMessage}
             repositoryAccount={repositoryAccount}
             accounts={this.state.accounts}
+            hasCommitHooks={repositoryState.hasCommitHooks}
+            skipCommitHooks={repositoryState.skipCommitHooks}
+            signOffCommits={repositoryState.signOffCommits}
+            allowEmptyCommit={repositoryState.allowEmptyCommit}
+            onUpdateCommitOptions={this.onUpdateCommitOptions}
           />
         )
       case PopupType.MultiCommitOperation: {
@@ -2351,6 +2430,7 @@ export class App extends React.Component<IAppProps, IAppState> {
             emoji={emoji}
             onDismissed={onPopupDismissedFn}
             accounts={this.state.accounts}
+            preferAbsoluteDates={this.state.preferAbsoluteDates}
           />
         )
       }
@@ -2495,8 +2575,113 @@ export class App extends React.Component<IAppProps, IAppState> {
             onShowTermsAndConditions={this.showTermsAndConditions}
           />
         )
+      case PopupType.PushProtectionError:
+        return (
+          <PushProtectionErrorDialog
+            key="push-protection-error"
+            secrets={popup.secrets}
+            onDelegatedBypassLinkClick={this.onSecretDelegatedBypassLinkClick}
+            onRemediationInstructionsLinkClick={
+              this.onSecretRemediationInstructionsLinkClick
+            }
+            bypassPushProtection={this.openBypassPushProtection}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      case PopupType.BypassPushProtection:
+        return (
+          <BypassPushProtectionDialog
+            key="bypass-push-protection"
+            secret={popup.secret}
+            bypassPushProtection={popup.bypassPushProtection}
+            onDismissed={this.onDismissBypassPushProtection(
+              popup.id,
+              popup.onDismissed
+            )}
+          />
+        )
+      case PopupType.GenerateCommitMessageOverrideWarning: {
+        const account = getAccountForCommitMessageGeneration(
+          this.state.accounts,
+          popup.repository
+        )
+
+        return (
+          <GenerateCommitMessageOverrideWarning
+            key="generate-commit-message-override-warning"
+            dispatcher={this.props.dispatcher}
+            repository={popup.repository}
+            filesSelected={popup.filesSelected}
+            showCopilotInstructionsTip={
+              account !== undefined &&
+              enableCopilotSdkCommitMessageGeneration(account)
+            }
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
+      case PopupType.GenerateCommitMessageDisclaimer: {
+        return (
+          <GenerateCommitMessageDisclaimer
+            key="generate-commit-message-disclaimer"
+            dispatcher={this.props.dispatcher}
+            repository={popup.repository}
+            filesSelected={popup.filesSelected}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
+      case PopupType.HookFailed: {
+        return (
+          <HookFailed
+            key="hook-failure-dialog"
+            hookName={popup.hookName}
+            terminalOutput={popup.terminalOutput}
+            resolve={popup.resolve}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
+      case PopupType.CommitProgress: {
+        return (
+          <CommitProgress
+            key="commit-progress-dialog"
+            subscribeToCommitOutput={popup.subscribeToCommitOutput}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
       default:
         return assertNever(popup, `Unknown popup type: ${popup}`)
+    }
+  }
+
+  private onUpdateCommitOptions = (
+    repository: Repository,
+    options: Partial<CommitOptions>
+  ) => {
+    this.props.dispatcher.updateCommitOptions(repository, options)
+  }
+
+  private onSecretDelegatedBypassLinkClick = () => {
+    this.props.dispatcher.incrementMetric(
+      'secretsDetectedOnPushDelegatedBypassLinkClickedCount'
+    )
+  }
+
+  private onSecretRemediationInstructionsLinkClick = () => {
+    this.props.dispatcher.incrementMetric(
+      'secretRemediationInstructionsLinkClickedCount'
+    )
+  }
+
+  private onDismissBypassPushProtection = (
+    popupId: number,
+    popupDismiss: () => void
+  ) => {
+    return () => {
+      popupDismiss()
+      this.onPopupDismissed(popupId)
     }
   }
 
@@ -2514,6 +2699,71 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
 
     return selectedState.state.pullRequestState
+  }
+
+  private openBypassPushProtection = (secret: ISecretScanResult) => {
+    return new Promise<IAPICreatePushProtectionBypassResponse | null>(
+      resolve => {
+        this.props.dispatcher.showPopup({
+          type: PopupType.BypassPushProtection,
+          secret,
+          bypassPushProtection: (
+            secret: ISecretScanResult,
+            reason: BypassReasonType
+          ) => {
+            this.bypassPushProtection(secret, reason)
+              .then(response => {
+                this.recordSecretBypassStats(reason)
+                resolve(response)
+              })
+              .catch(error => {
+                resolve(null)
+                this.props.dispatcher.postError(error)
+              })
+              .finally(() => {
+                this.props.dispatcher.closePopup(PopupType.BypassPushProtection)
+              })
+          },
+          onDismissed: () => {
+            resolve(null)
+          },
+        })
+      }
+    )
+  }
+
+  private recordSecretBypassStats = (reason: BypassReasonType) => {
+    this.props.dispatcher.incrementMetric('secretsDetectedOnPushBypassedCount')
+    switch (reason) {
+      case BypassReason.FalsePositive:
+        this.props.dispatcher.incrementMetric(
+          'secretsDetectedOnPushBypassedAsFalsePositiveCount'
+        )
+        break
+      case BypassReason.UsedInTests:
+        this.props.dispatcher.incrementMetric(
+          'secretsDetectedOnPushBypassedAsUsedInTestCount'
+        )
+        break
+      case BypassReason.WillFixLater:
+        this.props.dispatcher.incrementMetric(
+          'secretsDetectedOnPushBypassedAsWillFixLaterCount'
+        )
+        break
+      default:
+        return assertNever(reason, `Unknown Bypass reason: ${reason}`)
+    }
+  }
+
+  private bypassPushProtection = (
+    secret: ISecretScanResult,
+    reason: BypassReasonType
+  ): Promise<IAPICreatePushProtectionBypassResponse | null> => {
+    return this.props.dispatcher.createPushProtectionBypass(
+      reason,
+      secret.id,
+      secret.bypassURL
+    )
   }
 
   private getWarnForcePushDialogOnBegin(
@@ -2574,6 +2824,12 @@ export class App extends React.Component<IAppProps, IAppState> {
     })
   }
 
+  private showOpenWithExternalEditor = () => {
+    this.props.dispatcher.showPopup({
+      type: PopupType.OpenWithExternalEditor,
+    })
+  }
+
   private onBranchCreatedFromCommit = () => {
     const repositoryView = this.repositoryViewRef.current
     if (repositoryView !== null) {
@@ -2587,6 +2843,21 @@ export class App extends React.Component<IAppProps, IAppState> {
 
   private onCheckForNonStaggeredUpdates = () =>
     this.checkForUpdates(false, true)
+
+  private onSaveCopilotBYOKProvider = (
+    provider: IBYOKProvider,
+    secret: string | null | undefined
+  ) => {
+    if (this.state.byokProviders.some(p => p.id === provider.id)) {
+      this.props.dispatcher.updateCopilotBYOKProvider(provider, secret)
+    } else {
+      this.props.dispatcher.addCopilotBYOKProvider(provider, secret ?? null)
+    }
+  }
+
+  private onConfirmDeleteCopilotBYOKProvider = (provider: IBYOKProvider) => {
+    this.props.dispatcher.deleteCopilotBYOKProvider(provider.id)
+  }
 
   private showAcknowledgements = () => {
     this.props.dispatcher.showPopup({ type: PopupType.Acknowledgements })
@@ -2701,9 +2972,7 @@ export class App extends React.Component<IAppProps, IAppState> {
     const selectedRepository = this.state.selectedState
       ? this.state.selectedState.repository
       : null
-    const externalEditorLabel = this.state.selectedExternalEditor
-      ? this.state.selectedExternalEditor
-      : undefined
+
     const { useCustomShell, selectedShell } = this.state
     const filterText = this.state.repositoryFilterText
     return (
@@ -2723,7 +2992,7 @@ export class App extends React.Component<IAppProps, IAppState> {
         onOpenInShell={this.openInShell}
         onShowRepository={this.showRepository}
         onOpenInExternalEditor={this.openInExternalEditor}
-        externalEditorLabel={externalEditorLabel}
+        externalEditorLabel={this.externalEditorLabel}
         shellLabel={useCustomShell ? undefined : selectedShell}
         dispatcher={this.props.dispatcher}
       />
@@ -2764,6 +3033,22 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
 
     this.props.dispatcher.openInExternalEditor(repository.path)
+  }
+
+  private openRepositoryInSelectedEditor = async (
+    selectedEditor: string | null,
+    customEditor: ICustomIntegration | null
+  ) => {
+    const repository = this.getRepository()
+    if (!(repository instanceof Repository)) {
+      return
+    }
+
+    await this.props.dispatcher.openInSelectedExternalEditor(
+      repository.path,
+      selectedEditor,
+      customEditor
+    )
   }
 
   private onOpenInExternalEditor = (path: string) => {
@@ -2873,8 +3158,6 @@ export class App extends React.Component<IAppProps, IAppState> {
       return
     }
 
-    const externalEditorLabel = this.state.selectedExternalEditor ?? undefined
-
     const onChangeRepositoryAlias = (repository: Repository) => {
       this.props.dispatcher.showPopup({
         type: PopupType.ChangeRepositoryAlias,
@@ -2893,7 +3176,7 @@ export class App extends React.Component<IAppProps, IAppState> {
       onOpenInExternalEditor: this.openInExternalEditor,
       askForConfirmationOnRemoveRepository:
         this.state.askForConfirmationOnRepositoryRemoval,
-      externalEditorLabel: externalEditorLabel,
+      externalEditorLabel: this.externalEditorLabel,
       onChangeRepositoryAlias: onChangeRepositoryAlias,
       onRemoveRepositoryAlias: onRemoveRepositoryAlias,
       onViewOnGitHub: this.viewOnGitHub,
@@ -3185,23 +3468,25 @@ export class App extends React.Component<IAppProps, IAppState> {
   }
 
   private renderRepository() {
-    const state = this.state
+    const { accounts } = this.state
+
     if (this.inNoRepositoriesViewState()) {
       return (
         <NoRepositoriesView
-          dotComAccount={this.getDotComAccount()}
-          enterpriseAccount={this.getEnterpriseAccount()}
+          accounts={accounts}
           onCreate={this.showCreateRepository}
           onClone={this.showCloneRepo}
           onAdd={this.showAddLocalRepo}
           onCreateTutorialRepository={this.showCreateTutorialRepositoryPopup}
           onResumeTutorialRepository={this.onResumeTutorialRepository}
           tutorialPaused={this.isTutorialPaused()}
-          apiRepositories={state.apiRepositories}
+          apiRepositories={this.state.apiRepositories}
           onRefreshRepositories={this.onRefreshRepositories}
         />
       )
     }
+
+    const state = this.state
 
     const selectedState = state.selectedState
     if (!selectedState) {
@@ -3209,10 +3494,6 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
 
     if (selectedState.type === SelectionType.Repository) {
-      const externalEditorLabel = state.useCustomEditor
-        ? undefined
-        : state.selectedExternalEditor ?? undefined
-
       return (
         <RepositoryView
           ref={this.repositoryViewRef}
@@ -3233,6 +3514,7 @@ export class App extends React.Component<IAppProps, IAppState> {
           hideWhitespaceInChangesDiff={state.hideWhitespaceInChangesDiff}
           hideWhitespaceInHistoryDiff={state.hideWhitespaceInHistoryDiff}
           showDiffCheckMarks={state.showDiffCheckMarks}
+          preferAbsoluteDates={state.preferAbsoluteDates}
           showSideBySideDiff={state.showSideBySideDiff}
           focusCommitMessage={state.focusCommitMessage}
           askForConfirmationOnDiscardChanges={
@@ -3251,7 +3533,7 @@ export class App extends React.Component<IAppProps, IAppState> {
           isExternalEditorAvailable={
             state.useCustomEditor || state.selectedExternalEditor !== null
           }
-          externalEditorLabel={externalEditorLabel}
+          externalEditorLabel={this.externalEditorLabel}
           resolvedExternalEditor={state.resolvedExternalEditor}
           onOpenInExternalEditor={this.onOpenInExternalEditor}
           appMenu={state.appMenuState[0]}
@@ -3264,7 +3546,15 @@ export class App extends React.Component<IAppProps, IAppState> {
           showCommitLengthWarning={this.state.showCommitLengthWarning}
           onCherryPick={this.startCherryPickWithoutBranch}
           pullRequestSuggestedNextAction={state.pullRequestSuggestedNextAction}
-          canFilterChanges={state.canFilterChanges}
+          showChangesFilter={state.showChangesFilter}
+          shouldShowGenerateCommitMessageCallOut={
+            !this.state.commitMessageGenerationButtonClicked
+          }
+          hasCommitHooks={selectedState.state.hasCommitHooks}
+          skipCommitHooks={selectedState.state.skipCommitHooks}
+          signOffCommits={selectedState.state.signOffCommits}
+          allowEmptyCommit={selectedState.state.allowEmptyCommit}
+          onUpdateCommitOptions={this.onUpdateCommitOptions}
         />
       )
     } else if (selectedState.type === SelectionType.CloningRepository) {
@@ -3444,8 +3734,8 @@ export class App extends React.Component<IAppProps, IAppState> {
    * be able to be detected.
    */
   private async checkIfThankYouIsInOrder(): Promise<void> {
-    const dotComAccount = this.getDotComAccount()
-    if (dotComAccount === null) {
+    const dotComAccount = this.state.accounts.find(isDotComAccount)
+    if (!dotComAccount) {
       // The user is not signed in or is a GHE user who should not have any.
       return
     }
@@ -3483,7 +3773,7 @@ export class App extends React.Component<IAppProps, IAppState> {
       // Grab emoji's by reference because we could still be loading emoji's
       emoji: this.state.emoji,
       onOpenCard: () =>
-        this.openThankYouCard(userContributions, displayVersion),
+        this.openThankYouCard(userContributions, displayVersion, dotComAccount),
       onThrowCardAway: () => {
         updateLastThankYou(
           this.props.dispatcher,
@@ -3498,15 +3788,10 @@ export class App extends React.Component<IAppProps, IAppState> {
 
   private openThankYouCard = (
     userContributions: ReadonlyArray<ReleaseNote>,
-    latestVersion: string | null = null
+    latestVersion: string | null = null,
+    account: Account
   ) => {
-    const dotComAccount = this.getDotComAccount()
-
-    if (dotComAccount === null) {
-      // The user is not signed in or is a GHE user who should not have any.
-      return
-    }
-    const { friendlyName } = dotComAccount
+    const { friendlyName } = account
 
     this.props.dispatcher.showPopup({
       type: PopupType.ThankYou,

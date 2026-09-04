@@ -154,13 +154,20 @@ export class Popover extends React.Component<IPopoverProps, IPopoverState> {
       flip({ padding: PopoverScreenBorderPadding }),
       size({
         apply({ availableHeight, availableWidth }) {
-          Object.assign(contentDiv.style, {
-            maxHeight:
-              maxHeight === undefined
-                ? `${availableHeight}px`
-                : `${Math.min(availableHeight, maxHeight)}px`,
-            maxWidth: `${availableWidth}px`,
-          })
+          const newMaxHeight =
+            maxHeight === undefined
+              ? `${availableHeight}px`
+              : `${Math.min(availableHeight, maxHeight)}px`
+
+          contentDiv.style.setProperty(
+            '--available-height',
+            `${newMaxHeight}px`
+          )
+
+          contentDiv.style.setProperty(
+            '--available-width',
+            `${availableWidth}px`
+          )
         },
         padding: PopoverScreenBorderPadding,
       }),

@@ -147,11 +147,9 @@ interface IAugmentedSectionFilterListProps<T extends IFilterListItem> {
   readonly renderPostFilter?: () => JSX.Element | null
 
   /**
-   * Called to render content after the filter input <Row> element.
-   * - Can be used when you want content between the filter input and the filter
-   *   list items.
+   * Called to to allow providing a custom filter row as opposed to the default one.
    */
-  readonly renderPostFilterRow?: () => JSX.Element | null
+  readonly renderCustomFilterRow?: () => JSX.Element | null
 
   /** Called when there are no items to render.  */
   readonly renderNoItems?: () => JSX.Element | null
@@ -210,9 +208,6 @@ interface IAugmentedSectionFilterListProps<T extends IFilterListItem> {
    * where to scroll do on rendering of the list.
    */
   readonly setScrollTop?: number
-
-  /** The aria-label attribute for the list component. */
-  readonly ariaLabel?: string
 
   /** A message to be announced after the no results message - Used to pass in
    * any messaging shown to visual users */
@@ -381,6 +376,10 @@ export class AugmentedSectionFilterList<
       return null
     }
 
+    if (this.props.renderCustomFilterRow) {
+      return this.props.renderCustomFilterRow()
+    }
+
     return (
       <Row className="filter-field-row">
         {this.props.filterTextBox === undefined ? this.renderTextBox() : null}
@@ -397,10 +396,6 @@ export class AugmentedSectionFilterList<
         {this.props.renderPreList ? this.props.renderPreList() : null}
 
         {this.renderFilterRow()}
-
-        {this.props.renderPostFilterRow
-          ? this.props.renderPostFilterRow()
-          : null}
 
         <div className="filter-list-container">{this.renderContent()}</div>
       </div>
@@ -491,8 +486,8 @@ export class AugmentedSectionFilterList<
           }}
           onScroll={this.props.onScroll}
           setScrollTop={this.props.setScrollTop}
-          ariaLabel={this.props.ariaLabel}
           selectionMode={this.props.selectionMode}
+          getSectionAriaLabel={this.getSectionAriaLabel}
         />
       )
     }
@@ -522,6 +517,14 @@ export class AugmentedSectionFilterList<
     return groupAriaLabel !== undefined
       ? `${itemAriaLabel}, ${groupAriaLabel}`
       : itemAriaLabel
+  }
+
+  private getSectionAriaLabel = (section: number) => {
+    const groupAriaLabel = this.props.getGroupAriaLabel?.(
+      this.state.groups[section]
+    )
+
+    return groupAriaLabel !== undefined ? groupAriaLabel : undefined
   }
 
   private renderRow = (index: RowIndexPath) => {
@@ -719,7 +722,7 @@ export class AugmentedSectionFilterList<
     }
   }
 
-  private onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+  public onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     const list = this.list
     const key = event.key
 

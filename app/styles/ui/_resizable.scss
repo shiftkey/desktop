@@ -8,10 +8,12 @@
 
   .resize-handle {
     position: absolute;
-    right: -5px;
+    right: -3px;
     top: 0px;
     height: 100%;
-    width: 10px;
+    width: 6px;
+    padding: 0;
+    z-index: var(--drag-overlay-z-index);
     cursor: ew-resize;
 
     // remove button styles

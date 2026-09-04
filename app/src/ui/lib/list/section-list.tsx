@@ -28,6 +28,7 @@ import {
   RowIndexPath,
   rowIndexPathEquals,
   rowIndexPathToGlobalIndex,
+  rowListIncludesIndexPath,
 } from './list-row-index-path'
 import { range } from '../../../lib/range'
 import { sendNonFatalException } from '../../../lib/helpers/non-fatal-exception'
@@ -65,6 +66,18 @@ interface ISectionListProps {
    * that will result in an empty list item.
    */
   readonly rowRenderer: (indexPath: RowIndexPath) => JSX.Element | null
+
+  /**
+   * Optional render function for the keyboard focus tooltip
+   *
+   * This is used to render a tooltip when the row is focused via keyboard
+   * navigation. This should be provided if the row has tooltip content that is
+   * only accessible via the mouse. The content in the mouse tooltip(s) will
+   * need to be in the keyboard focus tooltip as well.
+   */
+  readonly renderRowFocusTooltip?: (
+    indexPath: RowIndexPath
+  ) => JSX.Element | string | null
 
   /**
    * Whether or not a given section has a header row at the beginning. When
@@ -301,11 +314,8 @@ interface ISectionListProps {
    */
   readonly setScrollTop?: number
 
-  /** The aria-labelledby attribute for the list component. */
-  readonly ariaLabelledBy?: string
-
-  /** The aria-label attribute for the list component. */
-  readonly ariaLabel?: string
+  /** The aria-label attribute for the section list component. */
+  readonly getSectionAriaLabel?: (section: number) => string | undefined
 
   /**
    * Optional callback for providing an aria label for screen readers for each
@@ -1136,7 +1146,7 @@ export class SectionList extends React.Component<
     const customClasses = new Array<string>()
     rowCustomClassNameMap.forEach(
       (rows: ReadonlyArray<RowIndexPath>, className: string) => {
-        if (rows.includes(rowIndex)) {
+        if (rowListIncludesIndexPath(rows, rowIndex)) {
           customClasses.push(className)
         }
       }
@@ -1202,6 +1212,7 @@ export class SectionList extends React.Component<
         <ListRow
           key={params.key}
           id={id}
+          role="option"
           ariaLabel={ariaLabel}
           sectionHasHeader={sectionHasHeader}
           onRowRef={this.onRowRef}
@@ -1223,6 +1234,12 @@ export class SectionList extends React.Component<
           children={element}
           selectable={selectable}
           className={customClasses}
+          renderRowFocusTooltip={this.props.renderRowFocusTooltip}
+          hasKeyboardFocus={
+            this.focusRow !== InvalidRowIndexPath &&
+            this.focusRow.section === section &&
+            this.focusRow.row === indexPath.row
+          }
         />
       )
     }
@@ -1352,8 +1369,7 @@ export class SectionList extends React.Component<
           overscanRowCount={4}
           style={{ ...params.style, width: '100%' }}
           tabIndex={-1}
-          aria-labelledby={this.props.ariaLabelledBy}
-          aria-label={this.props.ariaLabel}
+          aria-label={this.props.getSectionAriaLabel?.(section)}
         />
       )
     }
@@ -1496,14 +1512,19 @@ export class SectionList extends React.Component<
 
     this.lastScroll = 'fake'
 
-    if (this.rootGrid) {
-      const element = ReactDOM.findDOMNode(this.rootGrid)
-      if (element instanceof Element) {
-        element.scrollTop = e.currentTarget.scrollTop
-      }
-    }
+    const scrollTop = e.currentTarget.scrollTop
 
-    this.setState({ scrollTop: e.currentTarget.scrollTop })
+    // Use scrollToPosition instead of directly setting element.scrollTop.
+    // Direct DOM mutation doesn't properly update react-virtualized's internal
+    // state, which can cause rows to not render correctly after keyboard
+    // navigation followed by scrollbar dragging.
+    // See https://github.com/desktop/desktop/issues/21940
+    this.rootGrid?.scrollToPosition({
+      scrollLeft: 0,
+      scrollTop,
+    })
+
+    this.setState({ scrollTop })
 
     // Make sure the root grid re-renders its children
     this.rootGrid?.recomputeGridSize()
@@ -1525,7 +1546,10 @@ export class SectionList extends React.Component<
         (__DARWIN__ && event.button === 0 && event.ctrlKey)
 
       // prevent the right-click event from changing the selection if not necessary
-      if (isRightClick && this.props.selectedRows.includes(row)) {
+      if (
+        isRightClick &&
+        rowListIncludesIndexPath(this.props.selectedRows, row)
+      ) {
         return
       }
 
@@ -1570,7 +1594,7 @@ export class SectionList extends React.Component<
          */
         if (this.props.onSelectionChanged) {
           let newSelection: ReadonlyArray<RowIndexPath>
-          if (this.props.selectedRows.includes(row)) {
+          if (rowListIncludesIndexPath(this.props.selectedRows, row)) {
             // remove the ability to deselect the last item
             if (this.props.selectedRows.length === 1) {
               return
@@ -1591,7 +1615,7 @@ export class SectionList extends React.Component<
         (this.props.selectionMode === 'range' ||
           this.props.selectionMode === 'multi') &&
         this.props.selectedRows.length > 1 &&
-        this.props.selectedRows.includes(row)
+        rowListIncludesIndexPath(this.props.selectedRows, row)
       ) {
         // Do nothing. Multiple rows are already selected. We assume the user is
         // pressing down on multiple and may desire to start dragging. We will
@@ -1622,7 +1646,10 @@ export class SectionList extends React.Component<
       event.button === 2 || (__DARWIN__ && event.button === 0 && event.ctrlKey)
 
     // prevent the right-click event from changing the selection if not necessary
-    if (isRightClick && this.props.selectedRows.includes(row)) {
+    if (
+      isRightClick &&
+      rowListIncludesIndexPath(this.props.selectedRows, row)
+    ) {
       return
     }
 
@@ -1632,7 +1659,7 @@ export class SectionList extends React.Component<
       !event.shiftKey &&
       !multiSelectKey &&
       this.props.selectedRows.length > 1 &&
-      this.props.selectedRows.includes(row) &&
+      rowListIncludesIndexPath(this.props.selectedRows, row) &&
       (this.props.selectionMode === 'range' ||
         this.props.selectionMode === 'multi')
     ) {

@@ -21,7 +21,7 @@ export class Accessibility extends React.Component<
   public render() {
     return (
       <DialogContent>
-        <div className="advanced-section">
+        <div className="accessibility-section">
           <h2>Accessibility</h2>
           <Checkbox
             label="Underline links"
@@ -33,7 +33,7 @@ export class Accessibility extends React.Component<
           />
           <p
             id="underline-setting-description"
-            className="git-settings-description"
+            className="settings-description"
           >
             When enabled, GitHub Desktop will underline links in commit
             messages, comments, and other text fields. This can help make links
@@ -52,7 +52,7 @@ export class Accessibility extends React.Component<
           />
           <p
             id="diff-checkmarks-setting-description"
-            className="git-settings-description"
+            className="settings-description"
           >
             When enabled, check marks will be displayed along side the line
             numbers and groups of line numbers in the diff when committing. When

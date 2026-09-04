@@ -10,6 +10,7 @@ import { Start } from './start'
 import { SignInEnterprise } from './sign-in-enterprise'
 import { ConfigureGit } from './configure-git'
 import { UiView } from '../ui-view'
+import { getGlobalConfigValue } from '../../lib/git'
 
 /** The steps along the Welcome flow. */
 export enum WelcomeStep {
@@ -35,6 +36,9 @@ interface IWelcomeState {
    * time to run to completion.
    */
   readonly exiting: boolean
+
+  readonly globalUserName?: string
+  readonly globalUserEmail?: string
 }
 
 // Note that we're reusing the welcome illustrations in the crash process, any
@@ -69,6 +73,23 @@ export class Welcome extends React.Component<IWelcomeProps, IWelcomeState> {
 
   public componentDidMount() {
     this.props.dispatcher.recordWelcomeWizardInitiated()
+    this.refreshGlobalGitAuthorInfo()
+  }
+
+  public refreshGlobalGitAuthorInfo() {
+    Promise.all([
+      getGlobalConfigValue('user.name'),
+      getGlobalConfigValue('user.email'),
+    ])
+      .then(([globalUserName, globalUserEmail]) => {
+        this.setState({
+          globalUserName: globalUserName ?? undefined,
+          globalUserEmail: globalUserEmail ?? undefined,
+        })
+      })
+      .catch(e => {
+        log.error(`[Welcome] error while fetching global user config`, e)
+      })
   }
 
   /**
@@ -166,6 +187,8 @@ export class Welcome extends React.Component<IWelcomeProps, IWelcomeState> {
             advance={this.advanceToStep}
             accounts={this.props.accounts}
             done={this.done}
+            globalUserName={this.state.globalUserName}
+            globalUserEmail={this.state.globalUserEmail}
           />
         )
 
@@ -178,6 +201,13 @@ export class Welcome extends React.Component<IWelcomeProps, IWelcomeState> {
     log.info(`[Welcome] advancing to step: ${step}`)
     if (step === WelcomeStep.SignInToEnterprise) {
       this.props.dispatcher.beginEnterpriseSignIn()
+    }
+
+    // Refresh the global user name and email if we're moving to the
+    // ConfigureGit step. This is necessary because the user could theoretically
+    // have changed their global git config while the welcome flow was open.
+    if (step === WelcomeStep.ConfigureGit) {
+      this.refreshGlobalGitAuthorInfo()
     }
 
     this.setState({ currentStep: step })

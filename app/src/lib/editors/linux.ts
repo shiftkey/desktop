@@ -1,5 +1,6 @@
-import { pathExists } from '../../ui/lib/path-exists'
+import { pathExists } from '../path-exists'
 import { IFoundEditor } from './found-editor'
+import untildify from 'untildify'
 
 /** Represents an external editor on Linux */
 interface ILinuxExternalEditor {
@@ -43,7 +44,7 @@ const editors: ILinuxExternalEditor[] = [
       '/usr/bin/code',
       '/mnt/c/Program Files/Microsoft VS Code/bin/code',
       '/var/lib/flatpak/app/com.visualstudio.code/current/active/export/bin/com.visualstudio.code',
-      '.local/share/flatpak/app/com.visualstudio.code/current/active/export/bin/com.visualstudio.code',
+      '~/.local/share/flatpak/app/com.visualstudio.code/current/active/export/bin/com.visualstudio.code',
     ],
   },
   {
@@ -52,7 +53,27 @@ const editors: ILinuxExternalEditor[] = [
       '/snap/bin/code-insiders',
       '/usr/bin/code-insiders',
       '/var/lib/flatpak/app/com.visualstudio.code.insiders/current/active/export/bin/com.visualstudio.code.insiders',
-      '.local/share/flatpak/app/com.visualstudio.code.insiders/current/active/export/bin/com.visualstudio.code.insiders',
+      '~/.local/share/flatpak/app/com.visualstudio.code.insiders/current/active/export/bin/com.visualstudio.code.insiders',
+    ],
+  },
+  {
+    name: 'Cursor',
+    paths: [
+      '/usr/bin/cursor',
+      '/usr/share/cursor/bin/cursor',
+      '/snap/bin/cursor',
+      '~/.local/bin/cursor',
+      '~/.local/opt/cursor/Cursor.AppImage',
+    ],
+  },
+  {
+    name: 'Windsurf',
+    paths: [
+      '/usr/bin/windsurf',
+      '/usr/share/windsurf/bin/windsurf',
+      '/snap/bin/windsurf',
+      '~/.local/bin/windsurf',
+      '~/.local/opt/windsurf/Windsurf.AppImage',
     ],
   },
   {
@@ -61,7 +82,7 @@ const editors: ILinuxExternalEditor[] = [
       '/usr/bin/codium',
       '/var/lib/flatpak/app/com.vscodium.codium/current/active/export/bin/com.vscodium.codium',
       '/usr/share/vscodium-bin/bin/codium',
-      '.local/share/flatpak/app/com.vscodium.codium/current/active/export/bin/com.vscodium.codium',
+      '~/.local/share/flatpak/app/com.vscodium.codium/current/active/export/bin/com.vscodium.codium',
       '/snap/bin/codium',
     ],
   },
@@ -100,47 +121,47 @@ const editors: ILinuxExternalEditor[] = [
     name: 'JetBrains PhpStorm',
     paths: [
       '/snap/bin/phpstorm',
-      '.local/share/JetBrains/Toolbox/scripts/PhpStorm',
+      '~/.local/share/JetBrains/Toolbox/scripts/PhpStorm',
     ],
   },
   {
     name: 'JetBrains WebStorm',
     paths: [
       '/snap/bin/webstorm',
-      '.local/share/JetBrains/Toolbox/scripts/webstorm',
+      '~/.local/share/JetBrains/Toolbox/scripts/webstorm',
     ],
   },
   {
     name: 'IntelliJ IDEA',
-    paths: ['/snap/bin/idea', '.local/share/JetBrains/Toolbox/scripts/idea'],
+    paths: ['/snap/bin/idea', '~/.local/share/JetBrains/Toolbox/scripts/idea'],
   },
   {
     name: 'IntelliJ IDEA Ultimate Edition',
     paths: [
       '/snap/bin/intellij-idea-ultimate',
-      '.local/share/JetBrains/Toolbox/scripts/intellij-idea-ultimate',
+      '~/.local/share/JetBrains/Toolbox/scripts/intellij-idea-ultimate',
     ],
   },
   {
     name: 'JetBrains Goland',
     paths: [
       '/snap/bin/goland',
-      '.local/share/JetBrains/Toolbox/scripts/goland',
+      '~/.local/share/JetBrains/Toolbox/scripts/goland',
     ],
   },
   {
     name: 'JetBrains CLion',
-    paths: ['/snap/bin/clion', '.local/share/JetBrains/Toolbox/scripts/clion1'],
+    paths: ['/snap/bin/clion', '~/.local/share/JetBrains/Toolbox/scripts/clion1'],
   },
   {
     name: 'JetBrains Rider',
-    paths: ['/snap/bin/rider', '.local/share/JetBrains/Toolbox/scripts/rider'],
+    paths: ['/snap/bin/rider', '~/.local/share/JetBrains/Toolbox/scripts/rider'],
   },
   {
     name: 'JetBrains RubyMine',
     paths: [
       '/snap/bin/rubymine',
-      '.local/share/JetBrains/Toolbox/scripts/rubymine',
+      '~/.local/share/JetBrains/Toolbox/scripts/rubymine',
     ],
   },
   {
@@ -148,21 +169,21 @@ const editors: ILinuxExternalEditor[] = [
     paths: [
       '/snap/bin/pycharm',
       '/snap/bin/pycharm-professional',
-      '.local/share/JetBrains/Toolbox/scripts/pycharm',
+      '~/.local/share/JetBrains/Toolbox/scripts/pycharm',
     ],
   },
   {
     name: 'JetBrains RustRover',
     paths: [
       '/snap/bin/rustrover',
-      '.local/share/JetBrains/Toolbox/scripts/rustrover',
+      '~/.local/share/JetBrains/Toolbox/scripts/rustrover',
     ],
   },
   {
     name: 'Android Studio',
     paths: [
       '/snap/bin/studio',
-      '.local/share/JetBrains/Toolbox/scripts/studio',
+      '~/.local/share/JetBrains/Toolbox/scripts/studio',
     ],
   },
   {
@@ -215,8 +236,9 @@ const editors: ILinuxExternalEditor[] = [
 
 async function getAvailablePath(paths: string[]): Promise<string | null> {
   for (const path of paths) {
-    if (await pathExists(path)) {
-      return path
+    const expandedPath = untildify(path)
+    if (await pathExists(expandedPath)) {
+      return expandedPath
     }
   }
 

@@ -1,3 +1,5 @@
+import { describe, it, beforeEach } from 'node:test'
+import assert from 'node:assert'
 import { RepositoriesStore } from '../../src/lib/stores/repositories-store'
 import { TestRepositoriesDatabase } from '../helpers/databases'
 import { IAPIFullRepository, getDotComAPIEndpoint } from '../../src/lib/api'
@@ -19,7 +21,7 @@ describe('RepositoriesStore', () => {
       await repositoriesStore.addRepository(repoPath)
 
       const repositories = await repositoriesStore.getAll()
-      expect(repositories[0].path).toBe(repoPath)
+      assert.equal(repositories[0].path, repoPath)
     })
   })
 
@@ -29,7 +31,7 @@ describe('RepositoriesStore', () => {
       await repositoriesStore.addRepository('/some/other/path')
 
       const repositories = await repositoriesStore.getAll()
-      expect(repositories).toHaveLength(2)
+      assert.equal(repositories.length, 2)
     })
   })
 
@@ -70,9 +72,10 @@ describe('RepositoriesStore', () => {
       const repositories = await repositoriesStore.getAll()
       const repo = repositories[0]
       assertIsRepositoryWithGitHubRepository(repo)
-      expect(repo.gitHubRepository.isPrivate).toBe(true)
-      expect(repo.gitHubRepository.fork).toBe(false)
-      expect(repo.gitHubRepository.htmlURL).toBe(
+      assert(repo.gitHubRepository.isPrivate)
+      assert(!repo.gitHubRepository.fork)
+      assert.equal(
+        repo.gitHubRepository.htmlURL,
         'https://github.com/my-user/my-repo'
       )
     })
@@ -88,7 +91,8 @@ describe('RepositoriesStore', () => {
         await repositoriesStore.upsertGitHubRepository(endpoint, apiRepo)
       )
 
-      expect(firstRepo.gitHubRepository.dbID).toBe(
+      assert.equal(
+        firstRepo.gitHubRepository.dbID,
         secondRepo.gitHubRepository.dbID
       )
     })

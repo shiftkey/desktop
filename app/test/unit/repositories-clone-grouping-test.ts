@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import {
   groupRepositories,
   YourRepositoriesIdentifier,
@@ -94,25 +96,25 @@ describe('clone repository grouping', () => {
     ]
 
     const grouped = groupRepositories(repositories, 'shiftkey')
-    expect(grouped).toHaveLength(3)
+    assert.equal(grouped.length, 3)
 
-    expect(grouped[0].identifier).toBe(YourRepositoriesIdentifier)
-    expect(grouped[0].items).toHaveLength(1)
+    assert.equal(grouped[0].identifier, YourRepositoriesIdentifier)
+    assert.equal(grouped[0].items.length, 1)
 
     let item = grouped[0].items[0]
-    expect(item.name).toBe('some-repo')
+    assert.equal(item.name, 'some-repo')
 
-    expect(grouped[1].identifier).toBe('desktop')
-    expect(grouped[1].items).toHaveLength(1)
+    assert.equal(grouped[1].identifier, 'desktop')
+    assert.equal(grouped[1].items.length, 1)
 
     item = grouped[1].items[0]
-    expect(item.name).toBe('desktop')
+    assert.equal(item.name, 'desktop')
 
     item = grouped[2].items[0]
-    expect(grouped[2].identifier).toBe('octokit')
-    expect(grouped[2].items).toHaveLength(1)
+    assert.equal(grouped[2].identifier, 'octokit')
+    assert.equal(grouped[2].items.length, 1)
 
     item = grouped[2].items[0]
-    expect(item.name).toBe('octokit.net')
+    assert.equal(item.name, 'octokit.net')
   })
 })

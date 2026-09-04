@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import {
   SpellcheckEnglishLabel,
   getSpellCheckLanguageMenuItemOptions,
@@ -13,7 +15,7 @@ describe('spell-checker-menu', () => {
       getAvailableSpellcheckerLanguages()
     )
 
-    expect(spellcheckerMenuItem).toBeNull()
+    assert(spellcheckerMenuItem === null)
   })
 
   it('returns null menu item options when spellchecker language is english, user language is not english and user language is not supported', () => {
@@ -23,7 +25,7 @@ describe('spell-checker-menu', () => {
       getAvailableSpellcheckerLanguages()
     )
 
-    expect(spellcheckerMenuItem).toBeNull()
+    assert(spellcheckerMenuItem === null)
   })
 
   it('returns set system language label when spellchecker language is english, user language is not english and user language is supported', () => {
@@ -33,7 +35,7 @@ describe('spell-checker-menu', () => {
       getAvailableSpellcheckerLanguages()
     )
 
-    expect(spellcheckerMenuItem?.label).toBe(SpellcheckSystemLabel)
+    assert.equal(spellcheckerMenuItem?.label, SpellcheckSystemLabel)
   })
 
   it('returns set to english label when spellchecker language is no english', () => {
@@ -43,6 +45,6 @@ describe('spell-checker-menu', () => {
       getAvailableSpellcheckerLanguages()
     )
 
-    expect(spellcheckerMenuItem?.label).toBe(SpellcheckEnglishLabel)
+    assert.equal(spellcheckerMenuItem?.label, SpellcheckEnglishLabel)
   })
 })

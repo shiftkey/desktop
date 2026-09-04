@@ -11,10 +11,16 @@ import { sanitizedRepositoryName } from '../add-repository/sanitized-repository-
 import { Octicon } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
 import { RepositoryPublicationSettings } from '../../models/publish-settings'
+import { AccountPicker } from '../account-picker'
 
 interface IPublishRepositoryProps {
   /** The user to use for publishing. */
   readonly account: Account
+
+  /** The available accounts that the user is able to use when publishing */
+  readonly accounts: ReadonlyArray<Account>
+
+  readonly onSelectedAccountChanged: (account: Account) => void
 
   /** The settings to use when publishing the repository. */
   readonly settings: RepositoryPublicationSettings
@@ -142,6 +148,17 @@ export class PublishRepository extends React.Component<
   public render() {
     return (
       <DialogContent>
+        {this.props.accounts.length > 1 && (
+          <Row>
+            <AccountPicker
+              accounts={this.props.accounts}
+              openButtonClassName="dialog-preferred-focus"
+              selectedAccount={this.props.account}
+              onSelectedAccountChanged={this.props.onSelectedAccountChanged}
+            />
+          </Row>
+        )}
+
         <Row>
           <TextBox
             label="Name"

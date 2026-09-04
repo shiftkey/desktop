@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'fs/promises'
 
 const GitDescriptionPath = '.git/description'
 
-const DefaultGitDescription =
+export const DefaultGitDescription =
   "Unnamed repository; edit this file 'description' to name the repository.\n"
 
 /** Get the repository's description from the .git/description file. */

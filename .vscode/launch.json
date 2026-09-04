@@ -4,43 +4,21 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Jest All",
-      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
-      "program": "${workspaceFolder}/node_modules/jest/bin/jest",
+      "name": "Debug current test file",
+      "cwd": "${workspaceFolder}",
       "args": [
-        "--silent",
-        "--config",
-        "${workspaceFolder}/app/jest.unit.config.js"
-      ],
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
-      "env": {
-        "ELECTRON_RUN_AS_NODE": "1"
-      },
-      "windows": {
-        "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron.cmd"
-      }
-    },
-    {
-      "type": "node",
-      "request": "launch",
-      "name": "Jest Current",
-      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
-      "program": "${workspaceFolder}/node_modules/jest/bin/jest",
-      "args": [
-        "--silent",
-        "--config",
-        "${workspaceFolder}/app/jest.unit.config.js",
+        "--disable-warning=ExperimentalWarning",
+        "--experimental-test-module-mocks",
+        "--import",
+        "tsx",
+        "--import",
+        "./app/test/globals.mts",
+        "--test",
         "${relativeFile}"
       ],
+      "envFile": ".test.env",
       "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
-      "env": {
-        "ELECTRON_RUN_AS_NODE": "1"
-      },
-      "windows": {
-        "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron.cmd"
-      }
+      "internalConsoleOptions": "neverOpen"
     }
   ]
 }

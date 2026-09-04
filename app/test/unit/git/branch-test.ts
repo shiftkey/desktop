@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { shell } from '../../helpers/test-app-shell'
 import {
   setupEmptyRepository,
@@ -23,161 +25,155 @@ import {
   deleteLocalBranch,
   deleteRemoteBranch,
 } from '../../../src/lib/git'
-import { StatsStore, StatsDatabase } from '../../../src/lib/stats'
-import { UiActivityMonitor } from '../../../src/ui/lib/ui-activity-monitor'
 import { assertNonNullable } from '../../../src/lib/fatal-error'
-import { fakePost } from '../../fake-stats-post'
+import { TestStatsStore } from '../../helpers/test-stats-store'
 
 describe('git/branch', () => {
-  let statsStore: StatsStore
-
-  beforeEach(() => {
-    statsStore = new StatsStore(
-      new StatsDatabase('test-StatsDatabase'),
-      new UiActivityMonitor(),
-      fakePost
-    )
-  })
-
   describe('tip', () => {
-    it('returns unborn for new repository', async () => {
-      const repository = await setupEmptyRepository()
+    it('returns unborn for new repository', async t => {
+      const repository = await setupEmptyRepository(t)
 
-      const store = new GitStore(repository, shell, statsStore)
+      const store = new GitStore(repository, shell, new TestStatsStore())
       await store.loadStatus()
       const tip = store.tip
 
-      expect(tip.kind).toEqual(TipState.Unborn)
+      assert.equal(tip.kind, TipState.Unborn)
       const unborn = tip as IUnbornRepository
-      expect(unborn.ref).toEqual('master')
+      assert.equal(unborn.ref, 'master')
     })
 
-    it('returns correct ref if checkout occurs', async () => {
-      const repository = await setupEmptyRepository()
+    it('returns correct ref if checkout occurs', async t => {
+      const repository = await setupEmptyRepository(t)
 
       await exec(['checkout', '-b', 'not-master'], repository.path)
 
-      const store = new GitStore(repository, shell, statsStore)
+      const store = new GitStore(repository, shell, new TestStatsStore())
       await store.loadStatus()
       const tip = store.tip
 
-      expect(tip.kind).toEqual(TipState.Unborn)
+      assert.equal(tip.kind, TipState.Unborn)
       const unborn = tip as IUnbornRepository
-      expect(unborn.ref).toEqual('not-master')
+      assert.equal(unborn.ref, 'not-master')
     })
 
-    it('returns detached for arbitrary checkout', async () => {
-      const path = await setupFixtureRepository('detached-head')
+    it('returns detached for arbitrary checkout', async t => {
+      const path = await setupFixtureRepository(t, 'detached-head')
       const repository = new Repository(path, -1, null, false)
 
-      const store = new GitStore(repository, shell, statsStore)
+      const store = new GitStore(repository, shell, new TestStatsStore())
       await store.loadStatus()
       const tip = store.tip
 
-      expect(tip.kind).toEqual(TipState.Detached)
+      assert.equal(tip.kind, TipState.Detached)
       const detached = tip as IDetachedHead
-      expect(detached.currentSha).toEqual(
+      assert.equal(
+        detached.currentSha,
         '2acb028231d408aaa865f9538b1c89de5a2b9da8'
       )
     })
 
-    it('returns current branch when on a valid HEAD', async () => {
-      const path = await setupFixtureRepository('repo-with-many-refs')
+    it('returns current branch when on a valid HEAD', async t => {
+      const path = await setupFixtureRepository(t, 'repo-with-many-refs')
       const repository = new Repository(path, -1, null, false)
 
-      const store = new GitStore(repository, shell, statsStore)
+      const store = new GitStore(repository, shell, new TestStatsStore())
       await store.loadStatus()
       const tip = store.tip
 
-      expect(tip.kind).toEqual(TipState.Valid)
+      assert.equal(tip.kind, TipState.Valid)
       const onBranch = tip as IValidBranch
-      expect(onBranch.branch.name).toEqual('commit-with-long-description')
-      expect(onBranch.branch.tip.sha).toEqual(
+      assert.equal(onBranch.branch.name, 'commit-with-long-description')
+      assert.equal(
+        onBranch.branch.tip.sha,
         'dfa96676b65e1c0ed43ca25492252a5e384c8efd'
       )
     })
 
-    it('returns non-origin remote', async () => {
-      const path = await setupFixtureRepository('repo-with-multiple-remotes')
+    it('returns non-origin remote', async t => {
+      const path = await setupFixtureRepository(t, 'repo-with-multiple-remotes')
       const repository = new Repository(path, -1, null, false)
 
-      const store = new GitStore(repository, shell, statsStore)
+      const store = new GitStore(repository, shell, new TestStatsStore())
       await store.loadStatus()
       const tip = store.tip
 
-      expect(tip.kind).toEqual(TipState.Valid)
+      assert.equal(tip.kind, TipState.Valid)
       const valid = tip as IValidBranch
-      expect(valid.branch.upstreamRemoteName).toEqual('bassoon')
+      assert.equal(valid.branch.upstreamRemoteName, 'bassoon')
     })
   })
 
   describe('upstreamWithoutRemote', () => {
-    it('returns the upstream name without the remote prefix', async () => {
-      const path = await setupFixtureRepository('repo-with-multiple-remotes')
+    it('returns the upstream name without the remote prefix', async t => {
+      const path = await setupFixtureRepository(t, 'repo-with-multiple-remotes')
       const repository = new Repository(path, -1, null, false)
 
-      const store = new GitStore(repository, shell, statsStore)
+      const store = new GitStore(repository, shell, new TestStatsStore())
       await store.loadStatus()
       const tip = store.tip
 
-      expect(tip.kind).toEqual(TipState.Valid)
+      assert.equal(tip.kind, TipState.Valid)
 
       const valid = tip as IValidBranch
-      expect(valid.branch.upstreamRemoteName).toEqual('bassoon')
-      expect(valid.branch.upstream).toEqual('bassoon/master')
-      expect(valid.branch.upstreamWithoutRemote).toEqual('master')
+      assert.equal(valid.branch.upstreamRemoteName, 'bassoon')
+      assert.equal(valid.branch.upstream, 'bassoon/master')
+      assert.equal(valid.branch.upstreamWithoutRemote, 'master')
     })
   })
 
   describe('getBranchesPointedAt', () => {
-    let repository: Repository
     describe('in a local repo', () => {
-      beforeEach(async () => {
-        const path = await setupFixtureRepository('test-repo')
-        repository = new Repository(path, -1, null, false)
-      })
+      it('finds one branch name', async t => {
+        const path = await setupFixtureRepository(t, 'test-repo')
+        const repository = new Repository(path, -1, null, false)
 
-      it('finds one branch name', async () => {
         const branches = await getBranchesPointedAt(repository, 'HEAD')
-        expect(branches).toHaveLength(1)
-        expect(branches![0]).toEqual('master')
+        assert(branches !== null)
+        assert.equal(branches.length, 1)
+        assert.equal(branches[0], 'master')
       })
 
-      it('finds no branch names', async () => {
+      it('finds no branch names', async t => {
+        const path = await setupFixtureRepository(t, 'test-repo')
+        const repository = new Repository(path, -1, null, false)
+
         const branches = await getBranchesPointedAt(repository, 'HEAD^')
-        expect(branches).toHaveLength(0)
+        assert(branches !== null)
+        assert.equal(branches.length, 0)
       })
 
-      it('returns null on a malformed committish', async () => {
+      it('returns null on a malformed committish', async t => {
+        const path = await setupFixtureRepository(t, 'test-repo')
+        const repository = new Repository(path, -1, null, false)
+
         const branches = await getBranchesPointedAt(repository, 'MERGE_HEAD')
-        expect(branches).toBeNull()
+        assert(branches === null)
       })
     })
 
     describe('in a repo with identical branches', () => {
-      beforeEach(async () => {
-        const path = await setupFixtureRepository('repo-with-multiple-remotes')
-        repository = new Repository(path, -1, null, false)
+      it('finds multiple branch names', async t => {
+        const path = await setupFixtureRepository(
+          t,
+          'repo-with-multiple-remotes'
+        )
+        const repository = new Repository(path, -1, null, false)
         await createBranch(repository, 'other-branch', null)
-      })
-      it('finds multiple branch names', async () => {
+
         const branches = await getBranchesPointedAt(repository, 'HEAD')
-        expect(branches).toHaveLength(2)
-        expect(branches).toContain('other-branch')
-        expect(branches).toContain('master')
+        assert(branches !== null)
+        assert.equal(branches.length, 2)
+        assert(branches.includes('other-branch'))
+        assert(branches.includes('master'))
       })
     })
   })
 
   describe('deleteLocalBranch', () => {
-    let repository: Repository
+    it('deletes local branches', async t => {
+      const path = await setupFixtureRepository(t, 'test-repo')
+      const repository = new Repository(path, -1, null, false)
 
-    beforeEach(async () => {
-      const path = await setupFixtureRepository('test-repo')
-      repository = new Repository(path, -1, null, false)
-    })
-
-    it('deletes local branches', async () => {
       const name = 'test-branch'
       await createBranch(repository, name, null)
       const [branch] = await getBranches(repository, `refs/heads/${name}`)
@@ -185,96 +181,95 @@ describe('git/branch', () => {
 
       const ref = `refs/heads/${name}`
 
-      expect(branch).not.toBeNull()
-      expect(await getBranches(repository, ref)).toBeArrayOfSize(1)
+      assert(branch !== null)
+      assert.equal((await getBranches(repository, ref)).length, 1)
 
       await deleteLocalBranch(repository, branch.name)
 
-      expect(await getBranches(repository, ref)).toBeArrayOfSize(0)
+      assert.equal((await getBranches(repository, ref)).length, 0)
     })
   })
 
   describe('deleteRemoteBranch', () => {
-    let mockRemote: Repository
+    it('delete a local branches upstream branch', async t => {
+      const path = await setupFixtureRepository(t, 'test-repo')
+      const mockRemote = new Repository(path, -1, null, false)
 
-    beforeEach(async () => {
-      const path = await setupFixtureRepository('test-repo')
-      mockRemote = new Repository(path, -1, null, false)
-    })
-
-    it('delete a local branches upstream branch', async () => {
       const name = 'test-branch'
       const branch = await createBranch(mockRemote, name, null)
       const localRef = `refs/heads/${name}`
 
-      expect(branch).not.toBeNull()
+      assert(branch !== null)
 
-      const mockLocal = await setupLocalForkOfRepository(mockRemote)
+      const mockLocal = await setupLocalForkOfRepository(t, mockRemote)
 
       const remoteRef = `refs/remotes/origin/${name}`
       const [remoteBranch] = await getBranches(mockLocal, remoteRef)
-      expect(remoteBranch).not.toBeUndefined()
+      assert(remoteBranch !== undefined)
 
       await checkoutBranch(mockLocal, remoteBranch, null)
       await git(['checkout', '-'], mockLocal.path, 'checkoutPrevious')
 
-      expect(await getBranches(mockLocal, localRef)).toBeArrayOfSize(1)
-      expect(await getBranches(mockRemote, localRef)).toBeArrayOfSize(1)
+      assert.equal((await getBranches(mockLocal, localRef)).length, 1)
+      assert.equal((await getBranches(mockRemote, localRef)).length, 1)
 
       const [localBranch] = await getBranches(mockLocal, localRef)
-      expect(localBranch).not.toBeUndefined()
-      expect(localBranch.upstreamRemoteName).not.toBeNull()
-      expect(localBranch.upstreamWithoutRemote).not.toBeNull()
+      assert(localBranch !== undefined)
+      assert(localBranch.upstreamRemoteName !== null)
+      assert(localBranch.upstreamWithoutRemote !== null)
 
       await deleteRemoteBranch(
         mockLocal,
-        { name: localBranch.upstreamRemoteName!, url: '' },
-        localBranch.upstreamWithoutRemote!
+        { name: localBranch.upstreamRemoteName, url: '' },
+        localBranch.upstreamWithoutRemote
       )
 
-      expect(await getBranches(mockLocal, localRef)).toBeArrayOfSize(1)
-      expect(await getBranches(mockLocal, remoteRef)).toBeArrayOfSize(0)
-      expect(await getBranches(mockRemote, localRef)).toBeArrayOfSize(0)
+      assert.equal((await getBranches(mockLocal, localRef)).length, 1)
+      assert.equal((await getBranches(mockLocal, remoteRef)).length, 0)
+      assert.equal((await getBranches(mockRemote, localRef)).length, 0)
     })
 
-    it('handles attempted delete of removed remote branch', async () => {
+    it('handles attempted delete of removed remote branch', async t => {
+      const path = await setupFixtureRepository(t, 'test-repo')
+      const mockRemote = new Repository(path, -1, null, false)
+
       const name = 'test-branch'
       const branch = await createBranch(mockRemote, name, null)
       const localRef = `refs/heads/${name}`
 
-      expect(branch).not.toBeNull()
-      expect(await getBranches(mockRemote, localRef)).toBeArrayOfSize(1)
+      assert(branch !== null)
+      assert.equal((await getBranches(mockRemote, localRef)).length, 1)
 
-      const mockLocal = await setupLocalForkOfRepository(mockRemote)
+      const mockLocal = await setupLocalForkOfRepository(t, mockRemote)
 
       const remoteRef = `refs/remotes/origin/${name}`
       const [remoteBranch] = await getBranches(mockLocal, remoteRef)
-      expect(remoteBranch).not.toBeUndefined()
+      assert(remoteBranch !== undefined)
 
       await checkoutBranch(mockLocal, remoteBranch, null)
       await git(['checkout', '-'], mockLocal.path, 'checkoutPrevious')
 
-      expect(await getBranches(mockLocal, localRef)).toBeArrayOfSize(1)
-      expect(await getBranches(mockRemote, localRef)).toBeArrayOfSize(1)
+      assert.equal((await getBranches(mockLocal, localRef)).length, 1)
+      assert.equal((await getBranches(mockRemote, localRef)).length, 1)
 
       const [upstreamBranch] = await getBranches(mockRemote, localRef)
-      expect(upstreamBranch).not.toBeUndefined()
+      assert(upstreamBranch !== undefined)
       await deleteLocalBranch(mockRemote, upstreamBranch.name)
-      expect(await getBranches(mockRemote, localRef)).toBeArrayOfSize(0)
+      assert.equal((await getBranches(mockRemote, localRef)).length, 0)
 
       const [localBranch] = await getBranches(mockLocal, localRef)
-      expect(localBranch).not.toBeUndefined()
-      expect(localBranch.upstreamRemoteName).not.toBeNull()
-      expect(localBranch.upstreamWithoutRemote).not.toBeNull()
+      assert(localBranch !== undefined)
+      assert(localBranch.upstreamRemoteName !== null)
+      assert(localBranch.upstreamWithoutRemote !== null)
 
       await deleteRemoteBranch(
         mockLocal,
-        { name: localBranch.upstreamRemoteName!, url: '' },
-        localBranch.upstreamWithoutRemote!
+        { name: localBranch.upstreamRemoteName, url: '' },
+        localBranch.upstreamWithoutRemote
       )
 
-      expect(await getBranches(mockLocal, remoteRef)).toBeArrayOfSize(0)
-      expect(await getBranches(mockRemote, localRef)).toBeArrayOfSize(0)
+      assert.equal((await getBranches(mockLocal, remoteRef)).length, 0)
+      assert.equal((await getBranches(mockRemote, localRef)).length, 0)
     })
   })
 })

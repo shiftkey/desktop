@@ -1,3 +1,5 @@
+import { Account } from '../models/account'
+
 const Disable = false
 
 /**
@@ -39,11 +41,6 @@ function enableBetaFeatures(): boolean {
 export const enableTestMenuItems = () =>
   enableDevelopmentFeatures() || __RELEASE_CHANNEL__ === 'test'
 
-/** Should git pass `--recurse-submodules` when performing operations? */
-export function enableRecurseSubmodulesFlag(): boolean {
-  return true
-}
-
 export function enableReadmeOverwriteWarning(): boolean {
   return enableBetaFeatures()
 }
@@ -72,16 +69,6 @@ export function enableUpdateFromEmulatedX64ToARM64(): boolean {
   return enableBetaFeatures()
 }
 
-/** Should we allow resetting to a previous commit? */
-export function enableResetToCommit(): boolean {
-  return true
-}
-
-/** Should we allow checking out a single commit? */
-export function enableCheckoutCommit(): boolean {
-  return true
-}
-
 /** Should we show previous tags as suggestions? */
 export function enablePreviousTagSuggestions(): boolean {
   return enableBetaFeatures()
@@ -100,6 +87,38 @@ export function enableImagePreviewsForDDSFiles(): boolean {
 export const enableCustomIntegration = () => true
 
 export const enableResizingToolbarButtons = () => true
-export const enableGitConfigParameters = enableBetaFeatures
 
-export const enableFilteredChangesList = enableDevelopmentFeatures
+export const enableCommitMessageGeneration = (account: Account) => {
+  return (
+    (account.features ?? []).includes(
+      'desktop_copilot_generate_commit_message'
+    ) &&
+    // IMPORTANT: Do not remove this feature flag without replacing its usages
+    // with a check for the `isCopilotDesktopEnabled` property on the account.
+    account.isCopilotDesktopEnabled
+  )
+}
+
+export const enableCopilotSdkCommitMessageGeneration = (account: Account) => {
+  return (
+    enableBetaFeatures() &&
+    (account.features ?? []).includes(
+      'desktop_enable_copilot_sdk_commit_message_generation'
+    )
+  )
+}
+
+/** Should we enable Copilot-powered merge conflict resolution? */
+export function enableCopilotConflictResolution(): boolean {
+  return enableDevelopmentFeatures()
+}
+
+export function enableAccessibleListToolTips(): boolean {
+  return enableBetaFeatures()
+}
+
+export const enableHooksEnvironment = () => true
+
+export const enableHooksByDefault = enableBetaFeatures
+
+export const enableFormattingPreferences = () => true

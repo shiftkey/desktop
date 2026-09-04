@@ -202,6 +202,8 @@ export class Resizable extends React.Component<
       >
         {this.props.children}
         <button
+          // Prevent form submission with this button
+          type="button"
           tabIndex={-1}
           onMouseDown={this.handleDragStart}
           onDoubleClick={this.props.onReset}

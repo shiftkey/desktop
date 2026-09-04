@@ -1,21 +1,23 @@
-/* eslint-disable no-sync */
+import { mkdtemp, rm } from 'fs/promises'
+import { tmpdir } from 'os'
+import { join } from 'path'
+import { TestContext } from 'node:test'
+import { sleep } from '../../src/lib/promise'
+import { isErrnoException } from '../../src/lib/errno-exception'
 
-/** Module for creating and managing temporary directories and files, using the
- * `temp` Node module
- */
-import * as temp from 'temp'
-import { promisify } from 'util'
-const _temp = temp.track()
+const isBusyError = (e: unknown) => isErrnoException(e) && e.code === 'EBUSY'
 
-/**
- * Open a new temporary directory, specifying the prefix/suffix options the
- * directory should use
- */
-export const mkdirSync = _temp.mkdirSync
-/**
- * Open a new temporary file, specifying the prefix/suffix options the file
- * should use
- */
-export const openSync = _temp.openSync
+// Reimplementation of retry logic in rimraf:
+// https://github.com/isaacs/rimraf/blob/8733d4c30078a1ae5f18bb6affe83c1eea0259b4/src/retry-busy.ts#L10
+const clean = async (path: string, n = 1): Promise<void> =>
+  rm(path, { recursive: true }).catch((e: unknown) =>
+    n <= 6 && isBusyError(e)
+      ? sleep(Math.ceil(Math.pow(n, 1.2))).then(() => clean(path, n + 1))
+      : Promise.reject(e)
+  )
 
-export const createTempDirectory = promisify(_temp.mkdir.bind(_temp))
+export const createTempDirectory = (t: TestContext) =>
+  mkdtemp(join(tmpdir(), 'desktop-test-')).then(path => {
+    t.after(() => clean(path))
+    return path
+  })

@@ -1,5 +1,5 @@
 import { Disposable } from 'event-kit'
-import { Account } from '../../models/account'
+import { Account, isDotComAccount } from '../../models/account'
 import { fatalError } from '../fatal-error'
 import {
   validateURL,
@@ -16,7 +16,6 @@ import {
 } from '../../lib/api'
 
 import { TypedBaseStore } from './base-store'
-import uuid from 'uuid'
 import { IOAuthAction } from '../parse-app-url'
 import { shell } from '../app-shell'
 import noop from 'lodash/noop'
@@ -231,9 +230,7 @@ export class SignInStore extends TypedBaseStore<SignInState | null> {
       this.reset()
     }
 
-    const existingAccount = this.accounts.find(
-      x => x.endpoint === getDotComAPIEndpoint()
-    )
+    const existingAccount = this.accounts.find(isDotComAccount)
 
     if (existingAccount) {
       this.setState({
@@ -284,7 +281,7 @@ export class SignInStore extends TypedBaseStore<SignInState | null> {
       }
     }
 
-    const csrfToken = uuid()
+    const csrfToken = crypto.randomUUID()
 
     new Promise<Account>((resolve, reject) => {
       const { endpoint, resultCallback } = currentState
@@ -425,7 +422,7 @@ export class SignInStore extends TypedBaseStore<SignInState | null> {
       let error = e
       if (e.name === InvalidURLErrorName) {
         error = new Error(
-          `The GitHub Enterprise instance address doesn't appear to be a valid URL. We're expecting something like https://github.example.com.`
+          `The GitHub Enterprise instance address doesn't appear to be a valid URL. We're expecting something like https://example.ghe.com.`
         )
       } else if (e.name === InvalidProtocolErrorName) {
         error = new Error(

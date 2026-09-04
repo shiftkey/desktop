@@ -23,13 +23,13 @@ import {
 import { merge } from '../merge'
 import { DefaultCommitMessage } from '../../models/commit-message'
 import { sendNonFatalException } from '../helpers/non-fatal-exception'
-import { StatsStore } from '../stats'
+import { IStatsStore } from '../stats'
 import { RepoRulesInfo } from '../../models/repo-rules'
 
 export class RepositoryStateCache {
   private readonly repositoryState = new Map<string, IRepositoryState>()
 
-  public constructor(private readonly statsStore: StatsStore) {}
+  public constructor(private readonly statsStore: IStatsStore) {}
 
   /** Get the state for the repository. */
   public get(repository: Repository): IRepositoryState {
@@ -318,6 +318,14 @@ function getInitialRepositoryState(): IRepositoryState {
       stashEntry: null,
       currentBranchProtected: false,
       currentRepoRulesInfo: new RepoRulesInfo(),
+      fileListFilter: {
+        filterText: '',
+        isIncludedInCommit: false,
+        isNewFile: false,
+        isModifiedFile: false,
+        isDeletedFile: false,
+        isExcludedFromCommit: false,
+      },
     },
     selectedSection: RepositorySectionTab.Changes,
     branchesState: {
@@ -355,6 +363,9 @@ function getInitialRepositoryState(): IRepositoryState {
     remote: null,
     isPushPullFetchInProgress: false,
     isCommitting: false,
+    hookProgress: null,
+    subscribeToCommitOutput: null,
+    isGeneratingCommitMessage: false,
     commitToAmend: null,
     lastFetched: null,
     checkoutProgress: null,
@@ -362,5 +373,9 @@ function getInitialRepositoryState(): IRepositoryState {
     revertProgress: null,
     multiCommitOperationUndoState: null,
     multiCommitOperationState: null,
+    hasCommitHooks: false,
+    skipCommitHooks: false,
+    signOffCommits: false,
+    allowEmptyCommit: false,
   }
 }

@@ -1,4 +1,4 @@
-import { pathExists } from '../../ui/lib/path-exists'
+import { pathExists } from '../path-exists'
 import { IFoundEditor } from './found-editor'
 import appPath from 'app-path'
 
@@ -223,6 +223,10 @@ const editors: IDarwinExternalEditor[] = [
   {
     name: 'Cursor',
     bundleIdentifiers: ['com.todesktop.230313mzl4w4u92'],
+  },
+  {
+    name: 'Windsurf',
+    bundleIdentifiers: ['com.exafunction.windsurf'],
   },
 ]
 

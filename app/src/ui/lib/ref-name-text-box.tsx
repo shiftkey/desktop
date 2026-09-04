@@ -65,10 +65,12 @@ export class RefNameTextBox extends React.Component<
 
   public constructor(props: IRefNameProps) {
     super(props)
+    this.state = this.getStateForInitialValue(props.initialValue)
+  }
 
-    const proposedValue = props.initialValue || ''
-
-    this.state = {
+  private getStateForInitialValue(initialValue?: string): IRefNameState {
+    const proposedValue = initialValue || ''
+    return {
       proposedValue,
       sanitizedValue: sanitizedRefName(proposedValue),
     }
@@ -80,6 +82,15 @@ export class RefNameTextBox extends React.Component<
       this.props.onValueChange !== undefined
     ) {
       this.props.onValueChange(this.state.sanitizedValue)
+    }
+  }
+
+  public componentWillReceiveProps(nextProps: IRefNameProps): void {
+    if (
+      nextProps.initialValue !== this.props.initialValue &&
+      this.state.sanitizedValue === ''
+    ) {
+      this.setState(this.getStateForInitialValue(nextProps.initialValue))
     }
   }
 

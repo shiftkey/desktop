@@ -1,7 +1,7 @@
 import { GitStore } from './git-store'
 import { Repository } from '../../models/repository'
 import { IAppShell } from '../app-shell'
-import { StatsStore } from '../stats'
+import { IStatsStore } from '../stats'
 
 export class GitStoreCache {
   /** GitStores keyed by their hash. */
@@ -9,7 +9,7 @@ export class GitStoreCache {
 
   public constructor(
     private readonly shell: IAppShell,
-    private readonly statsStore: StatsStore,
+    private readonly statsStore: IStatsStore,
     private readonly onGitStoreUpdated: (
       repository: Repository,
       gitStore: GitStore

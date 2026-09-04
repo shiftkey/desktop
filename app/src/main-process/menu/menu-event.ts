@@ -35,6 +35,7 @@ export type MenuEvent =
   | 'install-windows-cli'
   | 'uninstall-windows-cli'
   | 'open-external-editor'
+  | 'open-with-external-editor'
   | 'select-all'
   | 'show-stashed-changes'
   | 'hide-stashed-changes'
@@ -44,6 +45,7 @@ export type MenuEvent =
   | 'test-app-error'
   | 'decrease-active-resizable-width'
   | 'increase-active-resizable-width'
+  | 'toggle-changes-filter'
   | TestMenuEvent
 
 /**

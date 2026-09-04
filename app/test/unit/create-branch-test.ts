@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { getStartPoint } from '../../src/lib/create-branch'
 import { TipState, IValidBranch, IDetachedHead } from '../../src/models/tip'
 import {
@@ -54,15 +56,15 @@ describe('create-branch/getStartPoint', () => {
     }
 
     it('returns current HEAD when HEAD requested', () => {
-      expect(action(StartPoint.Head)).toBe(StartPoint.Head)
+      assert.equal(action(StartPoint.Head), StartPoint.Head)
     })
 
     it('chooses current branch when current branch requested', () => {
-      expect(action(StartPoint.CurrentBranch)).toBe(StartPoint.CurrentBranch)
+      assert.equal(action(StartPoint.CurrentBranch), StartPoint.CurrentBranch)
     })
 
     it('chooses default branch when default branch requested', () => {
-      expect(action(StartPoint.DefaultBranch)).toBe(StartPoint.DefaultBranch)
+      assert.equal(action(StartPoint.DefaultBranch), StartPoint.DefaultBranch)
     })
   })
 
@@ -80,15 +82,15 @@ describe('create-branch/getStartPoint', () => {
     }
 
     it('returns current HEAD when HEAD requested', () => {
-      expect(action(StartPoint.Head)).toBe(StartPoint.Head)
+      assert.equal(action(StartPoint.Head), StartPoint.Head)
     })
 
     it('chooses current branch when current branch requested', () => {
-      expect(action(StartPoint.CurrentBranch)).toBe(StartPoint.CurrentBranch)
+      assert.equal(action(StartPoint.CurrentBranch), StartPoint.CurrentBranch)
     })
 
     it('chooses default branch when default branch requested', () => {
-      expect(action(StartPoint.DefaultBranch)).toBe(StartPoint.DefaultBranch)
+      assert.equal(action(StartPoint.DefaultBranch), StartPoint.DefaultBranch)
     })
   })
 
@@ -106,15 +108,15 @@ describe('create-branch/getStartPoint', () => {
     }
 
     it('returns current HEAD when HEAD requested', () => {
-      expect(action(StartPoint.Head)).toBe(StartPoint.Head)
+      assert.equal(action(StartPoint.Head), StartPoint.Head)
     })
 
     it('returns current HEAD when current branch requested', () => {
-      expect(action(StartPoint.CurrentBranch)).toBe(StartPoint.Head)
+      assert.equal(action(StartPoint.CurrentBranch), StartPoint.Head)
     })
 
     it('returns current HEAD when default branch requested', () => {
-      expect(action(StartPoint.DefaultBranch)).toBe(StartPoint.Head)
+      assert.equal(action(StartPoint.DefaultBranch), StartPoint.Head)
     })
   })
 })

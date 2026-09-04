@@ -4,19 +4,16 @@ import { Checkbox, CheckboxValue } from '../lib/checkbox'
 import { LinkButton } from '../lib/link-button'
 import { SamplesURL } from '../../lib/stats'
 import { isWindowsOpenSSHAvailable } from '../../lib/ssh/ssh'
-import { enableFilteredChangesList } from '../../lib/feature-flag'
 
 interface IAdvancedPreferencesProps {
   readonly useWindowsOpenSSH: boolean
   readonly optOutOfUsageTracking: boolean
   readonly useExternalCredentialHelper: boolean
   readonly repositoryIndicatorsEnabled: boolean
-  readonly canFilterChanges: boolean
   readonly onUseWindowsOpenSSHChanged: (checked: boolean) => void
   readonly onOptOutofReportingChanged: (checked: boolean) => void
   readonly onUseExternalCredentialHelperChanged: (checked: boolean) => void
   readonly onRepositoryIndicatorsEnabledChanged: (enabled: boolean) => void
-  readonly onCanFilterChangesChanged: (enabled: boolean) => void
 }
 
 interface IAdvancedPreferencesState {
@@ -77,12 +74,6 @@ export class Advanced extends React.Component<
     this.props.onUseWindowsOpenSSHChanged(event.currentTarget.checked)
   }
 
-  private onCanFilterChangesChanged = (
-    event: React.FormEvent<HTMLInputElement>
-  ) => {
-    this.props.onCanFilterChangesChanged(event.currentTarget.checked)
-  }
-
   private reportDesktopUsageLabel() {
     return (
       <span>
@@ -107,10 +98,7 @@ export class Advanced extends React.Component<
             onChange={this.onRepositoryIndicatorsEnabledChanged}
             ariaDescribedBy="periodic-fetch-description"
           />
-          <div
-            id="periodic-fetch-description"
-            className="git-settings-description"
-          >
+          <div id="periodic-fetch-description" className="settings-description">
             <p>
               These icons indicate which repositories have local or remote
               changes, and require the periodic fetching of repositories that
@@ -150,7 +138,7 @@ export class Advanced extends React.Component<
           />
           <div
             id="use-external-credential-helper-description"
-            className="git-settings-description"
+            className="settings-description"
           >
             <p>
               Use{' '}
@@ -162,29 +150,7 @@ export class Advanced extends React.Component<
             </p>
           </div>
         </div>
-        {this.renderFilteredChangesSetting()}
       </DialogContent>
-    )
-  }
-
-  private renderFilteredChangesSetting() {
-    if (!enableFilteredChangesList()) {
-      return
-    }
-
-    return (
-      <>
-        <h2>Filter Changes</h2>
-        <div className="advanced-section">
-          <Checkbox
-            label={'Filter Changes'}
-            value={
-              this.props.canFilterChanges ? CheckboxValue.On : CheckboxValue.Off
-            }
-            onChange={this.onCanFilterChangesChanged}
-          />
-        </div>{' '}
-      </>
     )
   }
 

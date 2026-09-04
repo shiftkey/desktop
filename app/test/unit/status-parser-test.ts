@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import {
   IStatusEntry,
   IStatusHeader,
@@ -16,19 +18,19 @@ describe('parsePorcelainStatus', () => {
       ].join('\0') + '\0'
     ) as ReadonlyArray<IStatusEntry>
 
-    expect(entries).toHaveLength(3)
+    assert.equal(entries.length, 3)
 
     let i = 0
-    expect(entries[i].statusCode).toBe('.D')
-    expect(entries[i].path).toBe('deleted')
+    assert.equal(entries[i].statusCode, '.D')
+    assert.equal(entries[i].path, 'deleted')
     i++
 
-    expect(entries[i].statusCode).toBe('.M')
-    expect(entries[i].path).toBe('modified')
+    assert.equal(entries[i].statusCode, '.M')
+    assert.equal(entries[i].path, 'modified')
     i++
 
-    expect(entries[i].statusCode).toBe('??')
-    expect(entries[i].path).toBe('untracked')
+    assert.equal(entries[i].statusCode, '??')
+    assert.equal(entries[i].path, 'untracked')
   })
 
   it('parses renames', () => {
@@ -39,18 +41,18 @@ describe('parsePorcelainStatus', () => {
       ].join('\0') + '\0'
     ) as ReadonlyArray<IStatusEntry>
 
-    expect(entries).toHaveLength(2)
+    assert.equal(entries.length, 2)
 
     let i = 0
 
-    expect(entries[i].statusCode).toBe('R.')
-    expect(entries[i].path).toBe('new')
-    expect(entries[i].oldPath).toBe('old')
+    assert.equal(entries[i].statusCode, 'R.')
+    assert.equal(entries[i].path, 'new')
+    assert.equal(entries[i].oldPath, 'old')
     i++
 
-    expect(entries[i].statusCode).toBe('RM')
-    expect(entries[i].path).toBe('to')
-    expect(entries[i].oldPath).toBe('from')
+    assert.equal(entries[i].statusCode, 'RM')
+    assert.equal(entries[i].path, 'to')
+    assert.equal(entries[i].oldPath, 'from')
   })
 
   it('ignores ignored files', () => {
@@ -61,7 +63,7 @@ describe('parsePorcelainStatus', () => {
       ['! foo'].join('\0') + '\0'
     ) as ReadonlyArray<IStatusEntry>
 
-    expect(entries).toHaveLength(0)
+    assert.equal(entries.length, 0)
   })
 
   it('parses status headers', () => {
@@ -77,16 +79,17 @@ describe('parsePorcelainStatus', () => {
       ].join('\0') + '\0'
     ) as ReadonlyArray<IStatusHeader>
 
-    expect(entries).toHaveLength(4)
+    assert.equal(entries.length, 4)
 
     let i = 0
 
-    expect(entries[i++].value).toBe(
+    assert.equal(
+      entries[i++].value,
       'branch.oid 2de0487c2d3e977f5f560b746833f9d7f9a054fd'
     )
-    expect(entries[i++].value).toBe('branch.head master')
-    expect(entries[i++].value).toBe('branch.upstream origin/master')
-    expect(entries[i++].value).toBe('branch.ab +1 -0')
+    assert.equal(entries[i++].value, 'branch.head master')
+    assert.equal(entries[i++].value, 'branch.upstream origin/master')
+    assert.equal(entries[i++].value, 'branch.ab +1 -0')
   })
 
   it('parses a path which includes a newline', () => {
@@ -94,12 +97,13 @@ describe('parsePorcelainStatus', () => {
       /.DS_Store`
     const entries = parse(x) as ReadonlyArray<IStatusEntry>
 
-    expect(entries).toHaveLength(1)
+    assert.equal(entries.length, 1)
 
-    expect(entries[0].path)
-      .toBe(`ProjectSID/Images.xcassets/iPhone 67/Status Center/Report X68 Y461
-      /.DS_Store`)
-    expect(entries[0].statusCode).toBe('D.')
+    const expectedPath = `ProjectSID/Images.xcassets/iPhone 67/Status Center/Report X68 Y461
+      /.DS_Store`
+
+    assert.equal(entries[0].path, expectedPath)
+    assert.equal(entries[0].statusCode, 'D.')
   })
 
   it('parses a typechange', () => {
@@ -107,17 +111,17 @@ describe('parsePorcelainStatus', () => {
       '1 .T N... 120000 120000 100755 6165716e8b408ad09b51d1a37aa1ef50e7f84376 6165716e8b408ad09b51d1a37aa1ef50e7f84376 pdf_linux-x64/lib/libQt5Core.so.5'
     const entries = parse(x) as ReadonlyArray<IStatusEntry>
 
-    expect(entries).toHaveLength(1)
+    assert.equal(entries.length, 1)
 
-    expect(entries[0].path).toBe('pdf_linux-x64/lib/libQt5Core.so.5')
-    expect(entries[0].statusCode).toBe('.T')
+    assert.equal(entries[0].path, 'pdf_linux-x64/lib/libQt5Core.so.5')
+    assert.equal(entries[0].statusCode, '.T')
   })
 
   it('parses submodule changes', () => {
     const x = `1 .M SCMU 100644 100644 100644 e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 submodule/submodule`
     const entries = parse(x) as ReadonlyArray<IStatusEntry>
-    expect(entries).toHaveLength(1)
-    expect(entries[0].path).toBe('submodule/submodule')
-    expect(entries[0].submoduleStatusCode).toBe('SCMU')
+    assert.equal(entries.length, 1)
+    assert.equal(entries[0].path, 'submodule/submodule')
+    assert.equal(entries[0].submoduleStatusCode, 'SCMU')
   })
 })

@@ -1,4 +1,4 @@
-import { Disposable, DisposableLike } from 'event-kit'
+import { Disposable } from 'event-kit'
 
 import {
   IAPIOrganization,
@@ -7,6 +7,7 @@ import {
   IAPICheckSuite,
   IAPIRepoRuleset,
   getDotComAPIEndpoint,
+  IAPICreatePushProtectionBypassResponse,
 } from '../../lib/api'
 import { shell } from '../../lib/app-shell'
 import {
@@ -21,6 +22,7 @@ import {
   CherryPickConflictState,
   MultiCommitOperationConflictState,
   IMultiCommitOperationState,
+  CommitOptions,
 } from '../../lib/app-state'
 import { assertNever, fatalError } from '../../lib/fatal-error'
 import {
@@ -48,6 +50,11 @@ import {
 import { Shell } from '../../lib/shells'
 import { ILaunchStats, StatsStore } from '../../lib/stats'
 import { AppStore } from '../../lib/stores/app-store'
+import type {
+  CopilotFeature,
+  CopilotModelSelections,
+} from '../../lib/stores/copilot-store'
+import type { IBYOKProvider } from '../../lib/copilot/byok'
 import { RepositoryStateCache } from '../../lib/stores/repository-state-cache'
 import { getTipSha } from '../../lib/tip'
 
@@ -124,6 +131,11 @@ import { SignInResult } from '../../lib/stores/sign-in-store'
 import { ICustomIntegration } from '../../lib/custom-integration'
 import { isAbsolute } from 'path'
 import { CLIAction } from '../../lib/cli-action'
+import { BypassReasonType } from '../secret-scanning/bypass-push-protection-dialog'
+import {
+  ICopilotConflictResolutionResponse,
+  IConflictResolutionProgress,
+} from '../../lib/copilot-conflict-resolution'
 
 /**
  * An error handler function.
@@ -217,6 +229,13 @@ export class Dispatcher {
     missing: boolean
   ): Promise<Repository> {
     return this.appStore._updateRepositoryMissing(repository, missing)
+  }
+
+  public updateCommitOptions(
+    repository: Repository,
+    options: Partial<CommitOptions>
+  ) {
+    this.appStore._updateCommitOptions(repository, options)
   }
 
   /** Load the next batch of history for the repository. */
@@ -336,7 +355,9 @@ export class Dispatcher {
   /** Change the file's includedness. */
   public changeFileIncluded(
     repository: Repository,
-    file: WorkingDirectoryFileChange,
+    file:
+      | WorkingDirectoryFileChange
+      | ReadonlyArray<WorkingDirectoryFileChange>,
     include: boolean
   ): Promise<void> {
     return this.appStore._changeFileIncluded(repository, file, include)
@@ -395,7 +416,7 @@ export class Dispatcher {
   /**
    * Close the popup with given id.
    */
-  public closePopupById(popupId: string) {
+  public closePopupById(popupId: number) {
     return this.appStore._closePopupById(popupId)
   }
 
@@ -1071,6 +1092,56 @@ export class Dispatcher {
     return this.appStore._setCommitMessage(repository, message)
   }
 
+  public promptOverrideWithGeneratedCommitMessage(
+    repository: Repository,
+    filesSelected: ReadonlyArray<WorkingDirectoryFileChange>
+  ) {
+    return this.appStore._promptOverrideWithGeneratedCommitMessage(
+      repository,
+      filesSelected
+    )
+  }
+
+  public updateCommitMessageGenerationDisclaimerLastSeen() {
+    return this.appStore._updateCommitMessageGenerationDisclaimerLastSeen()
+  }
+
+  public generateCommitMessage(
+    repository: Repository,
+    filesSelected: ReadonlyArray<WorkingDirectoryFileChange>
+  ) {
+    return this.appStore._generateCommitMessage(repository, filesSelected)
+  }
+
+  /**
+   * Use Copilot to analyze and suggest resolutions for conflicts
+   * from merge, rebase, or cherry-pick operations.
+   */
+  public resolveConflictsWithCopilot(
+    repository: Repository,
+    onProgress?: (progress: IConflictResolutionProgress) => void
+  ): Promise<ICopilotConflictResolutionResponse | null> {
+    return this.appStore._resolveConflictsWithCopilot(repository, onProgress)
+  }
+
+  /**
+   * Start the full Copilot conflict resolution flow: call the API and
+   * transition to the result dialog.
+   */
+  public startCopilotConflictResolution(repository: Repository): Promise<void> {
+    return this.appStore._startCopilotConflictResolution(repository)
+  }
+
+  /**
+   * Write Copilot-resolved file contents to disk and stage them.
+   * Called when the user confirms the resolutions from the result dialog.
+   */
+  public applyCopilotConflictResolutions(
+    repository: Repository
+  ): Promise<void> {
+    return this.appStore._applyCopilotConflictResolutions(repository)
+  }
+
   /** Remove the given account from the app. */
   public removeAccount(account: Account): Promise<void> {
     return this.appStore._removeAccount(account)
@@ -1445,6 +1516,21 @@ export class Dispatcher {
    */
   public async openInExternalEditor(fullPath: string): Promise<void> {
     return this.appStore._openInExternalEditor(fullPath)
+  }
+
+  /**
+   * Opens a path in a selected external editor without changing preferences.
+   */
+  public async openInSelectedExternalEditor(
+    fullPath: string,
+    selectedEditor: string | null,
+    customEditor: ICustomIntegration | null
+  ): Promise<void> {
+    return this.appStore._openInSelectedExternalEditor(
+      fullPath,
+      selectedEditor,
+      customEditor
+    )
   }
 
   /**
@@ -2441,6 +2527,10 @@ export class Dispatcher {
     return this.appStore._setConfirmCommitFilteredChanges(value)
   }
 
+  public setConfirmCommitMessageOverrideSetting(value: boolean) {
+    return this.appStore._setConfirmCommitMessageOverrideSetting(value)
+  }
+
   /**
    * Converts a local repository to use the given fork
    * as its default remote and associated `GitHubRepository`.
@@ -2533,7 +2623,7 @@ export class Dispatcher {
     ref: string,
     callback: StatusCallBack,
     branchName?: string
-  ): DisposableLike {
+  ): Disposable {
     return this.commitStatusStore.subscribe(
       repository,
       ref,
@@ -3722,6 +3812,22 @@ export class Dispatcher {
     return this.appStore._setMultiCommitOperationStep(repository, step)
   }
 
+  /**
+   * Atomically transition the multi commit operation step and set the
+   * useCopilotConflictResolution flag in a single store update.
+   */
+  public setMultiCommitOperationStepWithCopilotResolution(
+    repository: Repository,
+    step: MultiCommitOperationStep,
+    useCopilotConflictResolution: boolean
+  ): void {
+    this.appStore._setMultiCommitOperationStepWithCopilotResolution(
+      repository,
+      step,
+      useCopilotConflictResolution
+    )
+  }
+
   /** Method to clear multi commit operation state. */
   public endMultiCommitOperation(repository: Repository) {
     this.appStore._endMultiCommitOperation(repository)
@@ -3966,8 +4072,8 @@ export class Dispatcher {
     return this.appStore._updateShowDiffCheckMarks(diffCheckMarks)
   }
 
-  public setCanFilterChanges(canFilterChanges: boolean) {
-    return this.appStore._updateCanFilterChanges(canFilterChanges)
+  public setPreferAbsoluteDates(value: boolean) {
+    return this.appStore._setPreferAbsoluteDates(value)
   }
 
   public testPruneBranches() {
@@ -3976,5 +4082,119 @@ export class Dispatcher {
 
   public editGlobalGitConfig() {
     return this.appStore._editGlobalGitConfig()
+  }
+
+  public setChangesListFilterText(repository: Repository, filterText: string) {
+    return this.appStore._setChangesListFilterText(repository, filterText)
+  }
+  public setIncludedChangesInCommitFilter(
+    repository: Repository,
+    isIncludedInCommit: boolean
+  ) {
+    return this.appStore._setIncludedChangesInCommitFilter(
+      repository,
+      isIncludedInCommit
+    )
+  }
+
+  public setFilterNewFiles(repository: Repository, isNewFile: boolean) {
+    return this.appStore._setFilterNewFiles(repository, isNewFile)
+  }
+
+  public setFilterModifiedFiles(
+    repository: Repository,
+    isModifiedFile: boolean
+  ) {
+    return this.appStore._setFilterModifiedFiles(repository, isModifiedFile)
+  }
+
+  public setFilterDeletedFiles(repository: Repository, isDeletedFile: boolean) {
+    return this.appStore._setFilterDeletedFiles(repository, isDeletedFile)
+  }
+
+  public setFilterExcludedFiles(
+    repository: Repository,
+    isExcludedFromCommit: boolean
+  ) {
+    return this.appStore._setFilterExcludedFiles(
+      repository,
+      isExcludedFromCommit
+    )
+  }
+
+  public async createPushProtectionBypass(
+    reason: BypassReasonType,
+    placeholderId: string,
+    bypassURL: string
+  ): Promise<IAPICreatePushProtectionBypassResponse | null> {
+    return this.appStore._createPushProtectionBypass(
+      reason,
+      placeholderId,
+      bypassURL
+    )
+  }
+
+  public toggleChangesFilterVisibility() {
+    this.appStore._toggleChangesFilterVisibility()
+  }
+
+  /** Set the selected Copilot model for a specific feature. */
+  public setSelectedCopilotModel(
+    feature: CopilotFeature,
+    model: string | null
+  ) {
+    return this.appStore._setSelectedCopilotModel(feature, model)
+  }
+
+  /** Replace all per-feature Copilot model selections at once. */
+  public setSelectedCopilotModels(models: CopilotModelSelections) {
+    return this.appStore._setSelectedCopilotModels(models)
+  }
+
+  /** Fetch the list of available Copilot models from the SDK. */
+  public fetchCopilotModels(): Promise<void> {
+    return this.appStore._fetchCopilotModels()
+  }
+
+  /**
+   * Add a new BYOK Copilot provider. The secret (API key / bearer token)
+   * is stored separately in the OS keychain.
+   */
+  public async addCopilotBYOKProvider(
+    provider: IBYOKProvider,
+    secret: string | null
+  ): Promise<void> {
+    try {
+      await this.appStore._addCopilotBYOKProvider(provider, secret)
+    } catch (e) {
+      log.error(`Error adding BYOK Copilot provider '${provider.name}'`, e)
+      this.postError(e)
+    }
+  }
+
+  /**
+   * Update a BYOK Copilot provider. Pass `secret = undefined` to leave the
+   * stored secret untouched, `null` to clear it, or a string to overwrite it.
+   */
+  public async updateCopilotBYOKProvider(
+    provider: IBYOKProvider,
+    secret: string | null | undefined
+  ): Promise<void> {
+    try {
+      await this.appStore._updateCopilotBYOKProvider(provider, secret)
+    } catch (e) {
+      log.error(`Error updating BYOK Copilot provider '${provider.name}'`, e)
+      this.postError(e)
+    }
+  }
+
+  /** Remove a BYOK Copilot provider and its stored secret. */
+  public async deleteCopilotBYOKProvider(id: string): Promise<void> {
+    try {
+      await this.appStore._deleteCopilotBYOKProvider(id)
+    } catch (e) {
+      log.error(`Error deleting BYOK Copilot provider '${id}'`, e)
+      this.postError(e)
+    }
   }
 }

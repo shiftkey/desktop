@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { RepositoryStateCache } from '../../src/lib/stores/repository-state-cache'
 import { Repository } from '../../src/models/repository'
 import { PullRequest } from '../../src/models/pull-request'
@@ -10,9 +12,7 @@ import {
 import { DiffSelection, DiffSelectionType } from '../../src/models/diff'
 import { HistoryTabMode, IDisplayHistory } from '../../src/lib/app-state'
 import { gitHubRepoFixture } from '../helpers/github-repo-builder'
-import { StatsDatabase, StatsStore } from '../../src/lib/stats'
-import { UiActivityMonitor } from '../../src/ui/lib/ui-activity-monitor'
-import { fakePost } from '../fake-stats-post'
+import { TestStatsStore } from '../helpers/test-stats-store'
 
 function createSamplePullRequest(gitHubRepository: GitHubRepository) {
   return new PullRequest(
@@ -36,27 +36,15 @@ function createSamplePullRequest(gitHubRepository: GitHubRepository) {
 }
 
 describe('RepositoryStateCache', () => {
-  let repository: Repository
-  let statsStore: StatsStore
-
-  beforeEach(() => {
-    repository = new Repository('/something/path', 1, null, false)
-
-    statsStore = new StatsStore(
-      new StatsDatabase('test-StatsDatabase'),
-      new UiActivityMonitor(),
-      fakePost
-    )
-  })
-
   it('can update branches state for a repository', () => {
+    const repository = new Repository('/something/path', 1, null, false)
     const gitHubRepository = gitHubRepoFixture({
       name: 'desktop',
       owner: 'desktop',
     })
     const firstPullRequest = createSamplePullRequest(gitHubRepository)
 
-    const cache = new RepositoryStateCache(statsStore)
+    const cache = new RepositoryStateCache(new TestStatsStore())
 
     cache.updateBranchesState(repository, () => {
       return {
@@ -66,11 +54,12 @@ describe('RepositoryStateCache', () => {
     })
 
     const { branchesState } = cache.get(repository)
-    expect(branchesState.isLoadingPullRequests).toBe(true)
-    expect(branchesState.openPullRequests).toHaveLength(1)
+    assert(branchesState.isLoadingPullRequests)
+    assert.equal(branchesState.openPullRequests.length, 1)
   })
 
   it('can update changes state for a repository', () => {
+    const repository = new Repository('/something/path', 1, null, false)
     const files = [
       new WorkingDirectoryFileChange(
         'README.md',
@@ -81,7 +70,7 @@ describe('RepositoryStateCache', () => {
 
     const summary = 'Hello world!'
 
-    const cache = new RepositoryStateCache(statsStore)
+    const cache = new RepositoryStateCache(new TestStatsStore())
 
     cache.updateChangesState(repository, () => {
       return {
@@ -89,22 +78,24 @@ describe('RepositoryStateCache', () => {
         commitMessage: {
           summary,
           description: null,
+          timestamp: Date.now(),
         },
         showCoAuthoredBy: true,
       }
     })
 
     const { changesState } = cache.get(repository)
-    expect(changesState.workingDirectory.includeAll).toBe(true)
-    expect(changesState.workingDirectory.files).toHaveLength(1)
-    expect(changesState.showCoAuthoredBy).toBe(true)
-    expect(changesState.commitMessage!.summary).toBe(summary)
+    assert(changesState.workingDirectory.includeAll)
+    assert.equal(changesState.workingDirectory.files.length, 1)
+    assert(changesState.showCoAuthoredBy)
+    assert.equal(changesState.commitMessage.summary, summary)
   })
 
   it('can update compare state for a repository', () => {
+    const repository = new Repository('/something/path', 1, null, false)
     const filterText = 'my-cool-branch'
 
-    const cache = new RepositoryStateCache(statsStore)
+    const cache = new RepositoryStateCache(new TestStatsStore())
 
     cache.updateCompareState(repository, () => {
       const newState: IDisplayHistory = {
@@ -119,8 +110,8 @@ describe('RepositoryStateCache', () => {
     })
 
     const { compareState } = cache.get(repository)
-    expect(compareState.formState.kind).toBe(HistoryTabMode.History)
-    expect(compareState.filterText).toBe(filterText)
-    expect(compareState.commitSHAs).toHaveLength(1)
+    assert.equal(compareState.formState.kind, HistoryTabMode.History)
+    assert.equal(compareState.filterText, filterText)
+    assert.equal(compareState.commitSHAs.length, 1)
   })
 })

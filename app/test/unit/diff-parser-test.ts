@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { DiffParser } from '../../src/lib/diff-parser'
 import { DiffLineType } from '../../src/models/diff'
 
@@ -53,60 +55,61 @@ index e1d4871..3bd3ee0 100644
 
     const parser = new DiffParser()
     const diff = parser.parse(reinstateSpacesAtTheStartOfBlankLines(diffText))
-    expect(diff.hunks).toHaveLength(3)
+    assert.equal(diff.hunks.length, 3)
 
     let hunk = diff.hunks[0]
-    expect(hunk.unifiedDiffStart).toBe(0)
-    expect(hunk.unifiedDiffEnd).toBe(7)
+    assert.equal(hunk.unifiedDiffStart, 0)
+    assert.equal(hunk.unifiedDiffEnd, 7)
 
     let lines = hunk.lines
-    expect(lines).toHaveLength(8)
+    assert.equal(lines.length, 8)
 
     let i = 0
-    expect(lines[i].text).toBe(
+    assert.equal(
+      lines[i].text,
       '@@ -18,6 +18,7 @@ export function parseRawDiff(lines: ReadonlyArray<string>): Diff {'
     )
-    expect(lines[i].type).toBe(DiffLineType.Hunk)
-    expect(lines[i].oldLineNumber).toBeNull()
-    expect(lines[i].newLineNumber).toBeNull()
+    assert.equal(lines[i].type, DiffLineType.Hunk)
+    assert(lines[i].oldLineNumber === null)
+    assert(lines[i].newLineNumber === null)
     i++
 
-    expect(lines[i].text).toBe(' ')
-    expect(lines[i].type).toBe(DiffLineType.Context)
-    expect(lines[i].oldLineNumber).toBe(18)
-    expect(lines[i].newLineNumber).toBe(18)
+    assert.equal(lines[i].text, ' ')
+    assert.equal(lines[i].type, DiffLineType.Context)
+    assert.equal(lines[i].oldLineNumber, 18)
+    assert.equal(lines[i].newLineNumber, 18)
     i++
 
-    expect(lines[i].text).toBe('     let numberOfUnifiedDiffLines = 0')
-    expect(lines[i].type).toBe(DiffLineType.Context)
-    expect(lines[i].oldLineNumber).toBe(19)
-    expect(lines[i].newLineNumber).toBe(19)
+    assert.equal(lines[i].text, '     let numberOfUnifiedDiffLines = 0')
+    assert.equal(lines[i].type, DiffLineType.Context)
+    assert.equal(lines[i].oldLineNumber, 19)
+    assert.equal(lines[i].newLineNumber, 19)
     i++
 
-    expect(lines[i].text).toBe(' ')
-    expect(lines[i].type).toBe(DiffLineType.Context)
-    expect(lines[i].oldLineNumber).toBe(20)
-    expect(lines[i].newLineNumber).toBe(20)
+    assert.equal(lines[i].text, ' ')
+    assert.equal(lines[i].type, DiffLineType.Context)
+    assert.equal(lines[i].oldLineNumber, 20)
+    assert.equal(lines[i].newLineNumber, 20)
     i++
 
-    expect(lines[i].text).toBe('+')
-    expect(lines[i].type).toBe(DiffLineType.Add)
-    expect(lines[i].oldLineNumber).toBeNull()
-    expect(lines[i].newLineNumber).toBe(21)
+    assert.equal(lines[i].text, '+')
+    assert.equal(lines[i].type, DiffLineType.Add)
+    assert(lines[i].oldLineNumber === null)
+    assert.equal(lines[i].newLineNumber, 21)
     i++
 
-    expect(lines[i].text).toBe('     while (prefixFound) {')
-    expect(lines[i].type).toBe(DiffLineType.Context)
-    expect(lines[i].oldLineNumber).toBe(21)
-    expect(lines[i].newLineNumber).toBe(22)
+    assert.equal(lines[i].text, '     while (prefixFound) {')
+    assert.equal(lines[i].type, DiffLineType.Context)
+    assert.equal(lines[i].oldLineNumber, 21)
+    assert.equal(lines[i].newLineNumber, 22)
     i++
 
     hunk = diff.hunks[1]
-    expect(hunk.unifiedDiffStart).toBe(8)
-    expect(hunk.unifiedDiffEnd).toBe(20)
+    assert.equal(hunk.unifiedDiffStart, 8)
+    assert.equal(hunk.unifiedDiffEnd, 20)
 
     lines = hunk.lines
-    expect(lines).toHaveLength(13)
+    assert.equal(lines.length, 13)
   })
 
   it('parses new files', () => {
@@ -121,26 +124,26 @@ index 0000000..f13588b
 
     const parser = new DiffParser()
     const diff = parser.parse(diffText)
-    expect(diff.hunks).toHaveLength(1)
+    assert.equal(diff.hunks.length, 1)
 
     const hunk = diff.hunks[0]
-    expect(hunk.unifiedDiffStart).toBe(0)
-    expect(hunk.unifiedDiffEnd).toBe(1)
+    assert.equal(hunk.unifiedDiffStart, 0)
+    assert.equal(hunk.unifiedDiffEnd, 1)
 
     const lines = hunk.lines
-    expect(lines).toHaveLength(2)
+    assert.equal(lines.length, 2)
 
     let i = 0
-    expect(lines[i].text).toBe('@@ -0,0 +1 @@')
-    expect(lines[i].type).toBe(DiffLineType.Hunk)
-    expect(lines[i].oldLineNumber).toBeNull()
-    expect(lines[i].newLineNumber).toBeNull()
+    assert.equal(lines[i].text, '@@ -0,0 +1 @@')
+    assert.equal(lines[i].type, DiffLineType.Hunk)
+    assert(lines[i].oldLineNumber === null)
+    assert(lines[i].newLineNumber === null)
     i++
 
-    expect(lines[i].text).toBe('+asdfasdf')
-    expect(lines[i].type).toBe(DiffLineType.Add)
-    expect(lines[i].oldLineNumber).toBeNull()
-    expect(lines[i].newLineNumber).toBe(1)
+    assert.equal(lines[i].text, '+asdfasdf')
+    assert.equal(lines[i].type, DiffLineType.Add)
+    assert(lines[i].oldLineNumber === null)
+    assert.equal(lines[i].newLineNumber, 1)
     i++
   })
 
@@ -156,32 +159,32 @@ index 24219cc..bf711a5 100644
 
     const parser = new DiffParser()
     const diff = parser.parse(diffText)
-    expect(diff.hunks).toHaveLength(1)
+    assert.equal(diff.hunks.length, 1)
 
     const hunk = diff.hunks[0]
-    expect(hunk.unifiedDiffStart).toBe(0)
-    expect(hunk.unifiedDiffEnd).toBe(2)
+    assert.equal(hunk.unifiedDiffStart, 0)
+    assert.equal(hunk.unifiedDiffEnd, 2)
 
     const lines = hunk.lines
-    expect(lines).toHaveLength(3)
+    assert.equal(lines.length, 3)
 
     let i = 0
-    expect(lines[i].text).toBe('@@ -1 +1 @@')
-    expect(lines[i].type).toBe(DiffLineType.Hunk)
-    expect(lines[i].oldLineNumber).toBeNull()
-    expect(lines[i].newLineNumber).toBeNull()
+    assert.equal(lines[i].text, '@@ -1 +1 @@')
+    assert.equal(lines[i].type, DiffLineType.Hunk)
+    assert(lines[i].oldLineNumber === null)
+    assert(lines[i].newLineNumber === null)
     i++
 
-    expect(lines[i].text).toBe('-foo @@')
-    expect(lines[i].type).toBe(DiffLineType.Delete)
-    expect(lines[i].oldLineNumber).toBe(1)
-    expect(lines[i].newLineNumber).toBeNull()
+    assert.equal(lines[i].text, '-foo @@')
+    assert.equal(lines[i].type, DiffLineType.Delete)
+    assert.equal(lines[i].oldLineNumber, 1)
+    assert(lines[i].newLineNumber === null)
     i++
 
-    expect(lines[i].text).toBe('+@@ foo')
-    expect(lines[i].type).toBe(DiffLineType.Add)
-    expect(lines[i].oldLineNumber).toBeNull()
-    expect(lines[i].newLineNumber).toBe(1)
+    assert.equal(lines[i].text, '+@@ foo')
+    assert.equal(lines[i].type, DiffLineType.Add)
+    assert(lines[i].oldLineNumber === null)
+    assert.equal(lines[i].newLineNumber, 1)
     i++
   })
 
@@ -198,28 +201,28 @@ index 0000000..faf7da1
 
     const parser = new DiffParser()
     const diff = parser.parse(diffText)
-    expect(diff.hunks).toHaveLength(1)
+    assert.equal(diff.hunks.length, 1)
 
     const hunk = diff.hunks[0]
-    expect(hunk.unifiedDiffStart).toBe(0)
-    expect(hunk.unifiedDiffEnd).toBe(1)
+    assert.equal(hunk.unifiedDiffStart, 0)
+    assert.equal(hunk.unifiedDiffEnd, 1)
 
     const lines = hunk.lines
-    expect(lines).toHaveLength(2)
+    assert.equal(lines.length, 2)
 
     let i = 0
-    expect(lines[i].text).toBe('@@ -0,0 +1 @@')
-    expect(lines[i].type).toBe(DiffLineType.Hunk)
-    expect(lines[i].oldLineNumber).toBeNull()
-    expect(lines[i].newLineNumber).toBeNull()
-    expect(lines[i].noTrailingNewLine).toBe(false)
+    assert.equal(lines[i].text, '@@ -0,0 +1 @@')
+    assert.equal(lines[i].type, DiffLineType.Hunk)
+    assert(lines[i].oldLineNumber === null)
+    assert(lines[i].newLineNumber === null)
+    assert.equal(lines[i].noTrailingNewLine, false)
     i++
 
-    expect(lines[i].text).toBe('+asdasdasd')
-    expect(lines[i].type).toBe(DiffLineType.Add)
-    expect(lines[i].oldLineNumber).toBeNull()
-    expect(lines[i].newLineNumber).toBe(1)
-    expect(lines[i].noTrailingNewLine).toBe(true)
+    assert.equal(lines[i].text, '+asdasdasd')
+    assert.equal(lines[i].type, DiffLineType.Add)
+    assert(lines[i].oldLineNumber === null)
+    assert.equal(lines[i].newLineNumber, 1)
+    assert.equal(lines[i].noTrailingNewLine, true)
     i++
   })
 
@@ -235,37 +238,37 @@ index 1910281..257cc56 100644
 `
     const parser = new DiffParser()
     const diff = parser.parse(diffText)
-    expect(diff.hunks).toHaveLength(1)
+    assert.equal(diff.hunks.length, 1)
 
     const hunk = diff.hunks[0]
-    expect(hunk.unifiedDiffStart).toBe(0)
-    expect(hunk.unifiedDiffEnd).toBe(2)
+    assert.equal(hunk.unifiedDiffStart, 0)
+    assert.equal(hunk.unifiedDiffEnd, 2)
 
     const lines = hunk.lines
-    expect(lines).toHaveLength(3)
+    assert.equal(lines.length, 3)
 
     let i = 0
-    expect(lines[i].text).toBe('@@ -1 +1 @@')
-    expect(lines[i].type).toBe(DiffLineType.Hunk)
-    expect(lines[i].oldLineNumber).toBeNull()
-    expect(lines[i].newLineNumber).toBeNull()
-    expect(lines[i].noTrailingNewLine).toBe(false)
+    assert.equal(lines[i].text, '@@ -1 +1 @@')
+    assert.equal(lines[i].type, DiffLineType.Hunk)
+    assert(lines[i].oldLineNumber === null)
+    assert(lines[i].newLineNumber === null)
+    assert.equal(lines[i].noTrailingNewLine, false)
     i++
 
-    expect(lines[i].text).toBe('-foo')
-    expect(lines[i].type).toBe(DiffLineType.Delete)
-    expect(lines[i].oldLineNumber).toBe(1)
-    expect(lines[i].newLineNumber).toBeNull()
-    expect(lines[i].originalLineNumber).toBe(1)
-    expect(lines[i].noTrailingNewLine).toBe(true)
+    assert.equal(lines[i].text, '-foo')
+    assert.equal(lines[i].type, DiffLineType.Delete)
+    assert.equal(lines[i].oldLineNumber, 1)
+    assert(lines[i].newLineNumber === null)
+    assert.equal(lines[i].originalLineNumber, 1)
+    assert.equal(lines[i].noTrailingNewLine, true)
     i++
 
-    expect(lines[i].text).toBe('+foo')
-    expect(lines[i].type).toBe(DiffLineType.Add)
-    expect(lines[i].oldLineNumber).toBeNull()
-    expect(lines[i].newLineNumber).toBe(1)
-    expect(lines[i].originalLineNumber).toBe(2)
-    expect(lines[i].noTrailingNewLine).toBe(false)
+    assert.equal(lines[i].text, '+foo')
+    assert.equal(lines[i].type, DiffLineType.Add)
+    assert(lines[i].oldLineNumber === null)
+    assert.equal(lines[i].newLineNumber, 1)
+    assert.equal(lines[i].originalLineNumber, 2)
+    assert.equal(lines[i].noTrailingNewLine, false)
     i++
   })
 
@@ -286,37 +289,37 @@ index 1910281..ba0e162 100644
 `
     const parser = new DiffParser()
     const diff = parser.parse(diffText)
-    expect(diff.hunks).toHaveLength(1)
+    assert.equal(diff.hunks.length, 1)
 
     const hunk = diff.hunks[0]
-    expect(hunk.unifiedDiffStart).toBe(0)
-    expect(hunk.unifiedDiffEnd).toBe(2)
+    assert.equal(hunk.unifiedDiffStart, 0)
+    assert.equal(hunk.unifiedDiffEnd, 2)
 
     const lines = hunk.lines
-    expect(lines).toHaveLength(3)
+    assert.equal(lines.length, 3)
 
     let i = 0
-    expect(lines[i].text).toBe('@@ -1 +1 @@')
-    expect(lines[i].type).toBe(DiffLineType.Hunk)
-    expect(lines[i].oldLineNumber).toBeNull()
-    expect(lines[i].newLineNumber).toBeNull()
-    expect(lines[i].noTrailingNewLine).toBe(false)
+    assert.equal(lines[i].text, '@@ -1 +1 @@')
+    assert.equal(lines[i].type, DiffLineType.Hunk)
+    assert(lines[i].oldLineNumber === null)
+    assert(lines[i].newLineNumber === null)
+    assert.equal(lines[i].noTrailingNewLine, false)
     i++
 
-    expect(lines[i].text).toBe('-foo')
-    expect(lines[i].type).toBe(DiffLineType.Delete)
-    expect(lines[i].oldLineNumber).toBe(1)
-    expect(lines[i].newLineNumber).toBeNull()
-    expect(lines[i].originalLineNumber).toBe(1)
-    expect(lines[i].noTrailingNewLine).toBe(true)
+    assert.equal(lines[i].text, '-foo')
+    assert.equal(lines[i].type, DiffLineType.Delete)
+    assert.equal(lines[i].oldLineNumber, 1)
+    assert(lines[i].newLineNumber === null)
+    assert.equal(lines[i].originalLineNumber, 1)
+    assert.equal(lines[i].noTrailingNewLine, true)
     i++
 
-    expect(lines[i].text).toBe('+bar')
-    expect(lines[i].type).toBe(DiffLineType.Add)
-    expect(lines[i].oldLineNumber).toBeNull()
-    expect(lines[i].newLineNumber).toBe(1)
-    expect(lines[i].originalLineNumber).toBe(2)
-    expect(lines[i].noTrailingNewLine).toBe(true)
+    assert.equal(lines[i].text, '+bar')
+    assert.equal(lines[i].type, DiffLineType.Add)
+    assert(lines[i].oldLineNumber === null)
+    assert.equal(lines[i].newLineNumber, 1)
+    assert.equal(lines[i].originalLineNumber, 2)
+    assert.equal(lines[i].noTrailingNewLine, true)
     i++
   })
 
@@ -328,8 +331,8 @@ Binary files /dev/null and b/IMG_2306.CR2 differ
 `
     const parser = new DiffParser()
     const diff = parser.parse(diffText)
-    expect(diff.hunks).toHaveLength(0)
-    expect(diff.isBinary).toBe(true)
+    assert.equal(diff.hunks.length, 0)
+    assert(diff.isBinary)
   })
 
   it('parses diff of empty file', () => {
@@ -342,7 +345,7 @@ index 0000000..e69de29
 
     const parser = new DiffParser()
     const diff = parser.parse(diffText)
-    expect(diff.hunks).toHaveLength(0)
+    assert.equal(diff.hunks.length, 0)
   })
 
   it('parses hunk headers with omitted line counts from new file', () => {
@@ -357,13 +360,13 @@ index 0000000..f13588b
 
     const parser = new DiffParser()
     const diff = parser.parse(diffText)
-    expect(diff.hunks).toHaveLength(1)
+    assert.equal(diff.hunks.length, 1)
 
     const hunk = diff.hunks[0]
-    expect(hunk.header.oldStartLine).toBe(0)
-    expect(hunk.header.oldLineCount).toBe(0)
-    expect(hunk.header.newStartLine).toBe(1)
-    expect(hunk.header.newLineCount).toBe(1)
+    assert.equal(hunk.header.oldStartLine, 0)
+    assert.equal(hunk.header.oldLineCount, 0)
+    assert.equal(hunk.header.newStartLine, 1)
+    assert.equal(hunk.header.newLineCount, 1)
   })
 
   it('parses hunk headers with omitted line counts from old file', () => {
@@ -378,12 +381,12 @@ index 0000000..f13588b
 
     const parser = new DiffParser()
     const diff = parser.parse(diffText)
-    expect(diff.hunks).toHaveLength(1)
+    assert.equal(diff.hunks.length, 1)
 
     const hunk = diff.hunks[0]
-    expect(hunk.header.oldStartLine).toBe(1)
-    expect(hunk.header.oldLineCount).toBe(1)
-    expect(hunk.header.newStartLine).toBe(0)
-    expect(hunk.header.newLineCount).toBe(0)
+    assert.equal(hunk.header.oldStartLine, 1)
+    assert.equal(hunk.header.oldLineCount, 1)
+    assert.equal(hunk.header.newStartLine, 0)
+    assert.equal(hunk.header.newLineCount, 0)
   })
 })

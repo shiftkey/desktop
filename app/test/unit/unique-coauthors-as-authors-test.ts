@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { ITrailer } from '../../src/lib/git'
 import { getUniqueCoauthorsAsAuthors } from '../../src/lib/unique-coauthors-as-authors'
 import { Commit } from '../../src/models/commit'
@@ -16,7 +18,7 @@ describe('getUniqueCoauthorsAsAuthors', () => {
     ]
 
     const coAuthors = getUniqueCoauthorsAsAuthors(commits)
-    expect(coAuthors).toBeArrayOfSize(0)
+    assert.equal(coAuthors.length, 0)
   })
 
   it('gets coauthor from commit with coauthor', async () => {
@@ -26,10 +28,10 @@ describe('getUniqueCoauthorsAsAuthors', () => {
     const commits: Commit[] = [buildTestCommit(trailers)]
 
     const coAuthors = getUniqueCoauthorsAsAuthors(commits)
-    expect(coAuthors).toBeArrayOfSize(1)
+    assert.equal(coAuthors.length, 1)
     const coAuthor = coAuthors[0]
-    expect(coAuthor.email).toBe(email)
-    expect(coAuthor.name).toBe(name)
+    assert.equal(coAuthor.email, email)
+    assert.equal(coAuthor.name, name)
   })
 
   it('does not return duplicate authors', async () => {
@@ -44,10 +46,10 @@ describe('getUniqueCoauthorsAsAuthors', () => {
     ]
 
     const coAuthors = getUniqueCoauthorsAsAuthors(commits)
-    expect(coAuthors).toBeArrayOfSize(1)
+    assert.equal(coAuthors.length, 1)
     const coAuthor = coAuthors[0]
-    expect(coAuthor.email).toBe(email)
-    expect(coAuthor.name).toBe(name)
+    assert.equal(coAuthor.email, email)
+    assert.equal(coAuthor.name, name)
   })
 
   it('does not return duplicate authors when name is different and email is the same', async () => {
@@ -63,7 +65,7 @@ describe('getUniqueCoauthorsAsAuthors', () => {
     ]
 
     const coAuthors = getUniqueCoauthorsAsAuthors(commits)
-    expect(coAuthors).toBeArrayOfSize(2)
+    assert.equal(coAuthors.length, 2)
   })
 
   it('does not return duplicate authors when email is different and name is the same', async () => {
@@ -80,7 +82,7 @@ describe('getUniqueCoauthorsAsAuthors', () => {
     ]
 
     const coAuthors = getUniqueCoauthorsAsAuthors(commits)
-    expect(coAuthors).toBeArrayOfSize(2)
+    assert.equal(coAuthors.length, 2)
   })
 
   it('can get multiple coauthors on multiple commits', async () => {
@@ -99,10 +101,10 @@ describe('getUniqueCoauthorsAsAuthors', () => {
     ]
 
     const coAuthors = getUniqueCoauthorsAsAuthors(commits)
-    expect(coAuthors).toBeArrayOfSize(2)
+    assert.equal(coAuthors.length, 2)
     const coAuthorEmails = coAuthors.map(c => c.email)
-    expect(coAuthorEmails).toContain(first_email)
-    expect(coAuthorEmails).toContain(second_email)
+    assert(coAuthorEmails.includes(first_email))
+    assert(coAuthorEmails.includes(second_email))
   })
 })
 

@@ -64,11 +64,14 @@ problems.
 
 ## Running tests
 
-- `yarn test` - Runs all unit and integration tests
+- `yarn test` - Alias for `yarn test:unit`
+- `yarn test:script` - Runs all script tests
+- `yarn test:eslint` - Runs all eslint tests 
 - `yarn test:unit` - Runs all unit tests
-  - Add `<file>` or `<pattern>` argument to only run tests in the specified file or files matching a pattern
-  - Add `-t <regex>` to only match tests whose name matches a regex
-  - For more information on these and other arguments, see [Jest CLI options](https://jestjs.io/docs/en/23.x/cli)
+  - Add `<file>` argument to only run tests in the specified file
+  - Add `<directory>` to search for tests matching our test pattern in the given directory
+  - Add `--test-name-pattern <pattern>` to only match tests whose name matches the pattern
+  - For more information on these and other arguments, see [Node CLI options](https://nodejs.org/api/test.html)
 
 ## Debugging
 

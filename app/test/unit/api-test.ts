@@ -1,4 +1,7 @@
-import { getNextPagePathWithIncreasingPageSize } from '../../src/lib/api'
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
+import { API, getNextPagePathWithIncreasingPageSize } from '../../src/lib/api'
+import { CopilotError } from '../../src/lib/copilot-error'
 import * as URL from 'url'
 
 interface IPageInfo {
@@ -21,10 +24,10 @@ function assertNext(current: IPageInfo, expected: IPageInfo) {
     new Response(null, { headers })
   )
 
-  expect(nextPath).not.toBeNull()
-  const { pathname, query } = URL.parse(nextPath!, true)
+  assert(nextPath !== null)
+  const { pathname, query } = URL.parse(nextPath, true)
 
-  expect(pathname).toBe('/items')
+  assert.equal(pathname, '/items')
 
   const per_page = parseInt(
     typeof query.per_page === 'string' ? query.per_page : '',
@@ -32,8 +35,8 @@ function assertNext(current: IPageInfo, expected: IPageInfo) {
   )
   const page = parseInt(typeof query.page === 'string' ? query.page : '', 10)
 
-  expect(per_page).toBe(expected.per_page)
-  expect(page).toBe(expected.page)
+  assert.equal(per_page, expected.per_page)
+  assert.equal(page, expected.page)
 
   // If getNextPagePathWithIncreasingPageSize has fiddled with the
   // page size or page number we want to ensure that the next page will
@@ -42,14 +45,14 @@ function assertNext(current: IPageInfo, expected: IPageInfo) {
     const receivedCurrent = current.per_page * current.page
     const receivedNext = per_page * page
 
-    expect(receivedNext).toBeGreaterThan(receivedCurrent)
+    assert(receivedNext > receivedCurrent)
   }
 }
 
 describe('API', () => {
   describe('getNextPagePathWithIncreasingPageSize', () => {
     it("returns null when there's no link header", () => {
-      expect(getNextPagePathWithIncreasingPageSize(new Response())).toBeNull()
+      assert(getNextPagePathWithIncreasingPageSize(new Response()) === null)
     })
 
     it('returns raw link when missing page size', () => {
@@ -59,7 +62,7 @@ describe('API', () => {
         })
       )
 
-      expect(nextPath).toEqual('/items?page=2')
+      assert.equal(nextPath, '/items?page=2')
     })
 
     it('returns raw link when missing page number', () => {
@@ -69,7 +72,7 @@ describe('API', () => {
         })
       )
 
-      expect(nextPath).toEqual('/items?per_page=10')
+      assert.equal(nextPath, '/items?per_page=10')
     })
 
     it('does not increase page size when not aligned', () => {
@@ -79,7 +82,7 @@ describe('API', () => {
         })
       )
 
-      expect(nextPath).toEqual('/items?per_page=10&page=2')
+      assert.equal(nextPath, '/items?per_page=10&page=2')
     })
 
     it('increases page size on alignment with an initial page size of 10', () => {
@@ -124,6 +127,51 @@ describe('API', () => {
       assertNext({ per_page: 100, page: 8 }, { per_page: 100, page: 8 })
       assertNext({ per_page: 100, page: 9 }, { per_page: 100, page: 9 })
       assertNext({ per_page: 100, page: 10 }, { per_page: 100, page: 10 })
+    })
+  })
+
+  describe('getDiffChangesCommitMessage', () => {
+    it('preserves structured payment required errors for the legacy Copilot API path', async () => {
+      const api = new API(
+        'https://api.github.com',
+        'token',
+        'https://copilot.example.com'
+      )
+
+      Reflect.set(
+        api,
+        'request',
+        async () =>
+          new Response(
+            JSON.stringify({
+              error: {
+                code: 'quota_exceeded',
+                message:
+                  'You have used all available Copilot premium requests.',
+              },
+            }),
+            {
+              status: 402,
+              headers: {
+                'Retry-After': '300',
+              },
+            }
+          )
+      )
+
+      await assert.rejects(
+        () => api.getDiffChangesCommitMessage('diff --git a/file b/file'),
+        error => {
+          assert(error instanceof CopilotError)
+          assert.equal(error.code, 'quota_exceeded')
+          assert.equal(
+            error.message,
+            'You have used all available Copilot premium requests.'
+          )
+          assert.equal(error.retryAfter, '300')
+          return true
+        }
+      )
     })
   })
 })

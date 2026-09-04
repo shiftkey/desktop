@@ -8,12 +8,11 @@ import {
   WelcomeLeftBottomImageUri,
 } from '../welcome/welcome'
 import { IAccountRepositories } from '../../lib/stores/api-repositories-store'
-import { Account } from '../../models/account'
-import { TabBar } from '../tab-bar'
+import { Account, accountEquals } from '../../models/account'
 import { CloneableRepositoryFilterList } from '../clone-repository/cloneable-repository-filter-list'
 import { IAPIRepository } from '../../lib/api'
-import { assertNever } from '../../lib/fatal-error'
 import { ClickSource } from '../lib/list'
+import { AccountPicker } from '../account-picker'
 
 interface INoRepositoriesProps {
   /** A function to call when the user chooses to create a repository. */
@@ -34,11 +33,7 @@ interface INoRepositoriesProps {
   /** true if tutorial is in paused state. */
   readonly tutorialPaused: boolean
 
-  /** The logged in account for GitHub.com. */
-  readonly dotComAccount: Account | null
-
-  /** The logged in account for GitHub Enterprise. */
-  readonly enterpriseAccount: Account | null
+  readonly accounts: ReadonlyArray<Account>
 
   /**
    * A map keyed on a user account (GitHub.com or GitHub Enterprise)
@@ -62,48 +57,16 @@ interface INoRepositoriesProps {
    */
   readonly onRefreshRepositories: (account: Account) => void
 }
-
-/**
- * An enumeration of all the tabs potentially available for
- * selection.
- */
-enum AccountTab {
-  dotCom,
-  enterprise,
-}
-
 interface INoRepositoriesState {
+  readonly selectedAccount: Account | undefined
   /**
-   * The selected account, or rather the preferred selection.
-   * Has no effect when the user isn't signed in to any account.
-   * If the selected account is GitHub.com and the user signs out
-   * of that account they will be coerced onto the Enterprise tab
-   * if that account is signed in, see the getSelectedAccount
-   * method.
+   * The currently selected repository (if any)
    */
-  readonly selectedTab: AccountTab
-
-  /**
-   * The currently selected repository (if any) in the GitHub.com
-   * tab.
-   */
-  readonly selectedDotComRepository: IAPIRepository | null
-
+  readonly selectedRepository: IAPIRepository | null
   /**
    * The current filter text in the GitHub.com clone tab
    */
-  readonly dotComFilterText: string
-
-  /**
-   * The currently selected repository (if any) in the GitHub
-   * Enterprise tab.
-   */
-  readonly selectedEnterpriseRepository: IAPIRepository | null
-
-  /**
-   * The current filter text in the GitHub.com clone tab
-   */
-  readonly enterpriseFilterText: string
+  readonly filterText: string
 }
 
 /**
@@ -114,15 +77,17 @@ export class NoRepositoriesView extends React.Component<
   INoRepositoriesProps,
   INoRepositoriesState
 > {
+  private get selectedAccount() {
+    return this.state.selectedAccount ?? this.props.accounts.at(0)
+  }
+
   public constructor(props: INoRepositoriesProps) {
     super(props)
 
     this.state = {
-      selectedTab: AccountTab.dotCom,
-      dotComFilterText: '',
-      enterpriseFilterText: '',
-      selectedDotComRepository: null,
-      selectedEnterpriseRepository: null,
+      selectedRepository: null,
+      selectedAccount: props.accounts.at(0),
+      filterText: '',
     }
   }
 
@@ -156,24 +121,33 @@ export class NoRepositoriesView extends React.Component<
   }
 
   public componentDidMount() {
-    this.ensureRepositoriesForAccount(this.getSelectedAccount())
+    if (this.state.selectedAccount) {
+      this.ensureRepositoriesForAccount(this.state.selectedAccount)
+    }
   }
 
   public componentDidUpdate(
     prevProps: INoRepositoriesProps,
     prevState: INoRepositoriesState
   ) {
-    if (
-      prevProps.dotComAccount !== this.props.dotComAccount ||
-      prevProps.enterpriseAccount !== this.props.enterpriseAccount ||
-      prevState.selectedTab !== this.state.selectedTab
-    ) {
-      this.ensureRepositoriesForAccount(this.getSelectedAccount())
+    if (prevProps.accounts !== this.props.accounts) {
+      const currentlySelectedAccount = this.state.selectedAccount
+      const newSelectedAccount =
+        (currentlySelectedAccount
+          ? this.props.accounts.find(a =>
+              accountEquals(a, currentlySelectedAccount)
+            )
+          : undefined) ?? this.props.accounts.at(0)
+
+      if (currentlySelectedAccount !== newSelectedAccount) {
+        this.setState({ selectedAccount: newSelectedAccount })
+        this.ensureRepositoriesForAccount(this.state.selectedAccount)
+      }
     }
   }
 
-  private ensureRepositoriesForAccount(account: Account | null) {
-    if (account !== null) {
+  private ensureRepositoriesForAccount(account: Account | undefined) {
+    if (account) {
       const accountState = this.props.apiRepositories.get(account)
 
       if (accountState === undefined) {
@@ -183,26 +157,13 @@ export class NoRepositoriesView extends React.Component<
   }
 
   private isUserSignedIn() {
-    return (
-      this.props.dotComAccount !== null || this.props.enterpriseAccount !== null
-    )
-  }
-
-  private getSelectedAccount() {
-    const { selectedTab } = this.state
-    if (selectedTab === AccountTab.dotCom) {
-      return this.props.dotComAccount || this.props.enterpriseAccount
-    } else if (selectedTab === AccountTab.enterprise) {
-      return this.props.enterpriseAccount || this.props.dotComAccount
-    } else {
-      return assertNever(selectedTab, `Unknown account tab ${selectedTab}`)
-    }
+    return this.props.accounts.length > 0
   }
 
   private renderRepositoryList() {
-    const account = this.getSelectedAccount()
+    const account = this.selectedAccount
 
-    if (account === null) {
+    if (!account) {
       // not signed in to any accounts
       return null
     }
@@ -211,16 +172,31 @@ export class NoRepositoriesView extends React.Component<
 
     return (
       <div className="content-pane repository-list">
-        {this.renderAccountsTabBar()}
+        {this.renderAccountPicker()}
         {this.renderAccountRepositoryList(account, accountState)}
       </div>
     )
   }
 
-  private getSelectedItemForAccount(account: Account) {
-    return account === this.props.dotComAccount
-      ? this.state.selectedDotComRepository
-      : this.state.selectedEnterpriseRepository
+  private renderAccountPicker() {
+    const { accounts } = this.props
+    const selectedAccount = this.selectedAccount
+    if (accounts.length < 2 || !selectedAccount) {
+      return null
+    }
+
+    return (
+      <AccountPicker
+        accounts={accounts}
+        selectedAccount={selectedAccount}
+        onSelectedAccountChanged={this.onSelectedAccountChanged}
+      />
+    )
+  }
+
+  private onSelectedAccountChanged = (selectedAccount: Account) => {
+    this.setState({ selectedAccount })
+    this.ensureRepositoriesForAccount(selectedAccount)
   }
 
   private renderAccountRepositoryList(
@@ -232,19 +208,14 @@ export class NoRepositoriesView extends React.Component<
     const repositories =
       accountState === undefined ? null : accountState.repositories
 
-    const selectedItem = this.getSelectedItemForAccount(account)
-
-    const filterText =
-      account === this.props.dotComAccount
-        ? this.state.dotComFilterText
-        : this.state.enterpriseFilterText
+    const selectedItem = this.state.selectedRepository
 
     return (
       <>
         <CloneableRepositoryFilterList
           account={account}
           selectedItem={selectedItem}
-          filterText={filterText}
+          filterText={this.state.filterText}
           onRefreshRepositories={this.props.onRefreshRepositories}
           loading={loading}
           repositories={repositories}
@@ -285,63 +256,19 @@ export class NoRepositoriesView extends React.Component<
   }
 
   private onCloneSelectedRepository = () => {
-    const selectedAccount = this.getSelectedAccount()
-    if (selectedAccount === null) {
-      return
+    const selectedItem = this.state.selectedRepository
+
+    if (selectedItem !== null) {
+      this.props.onClone(selectedItem.clone_url)
     }
-
-    const selectedItem = this.getSelectedItemForAccount(selectedAccount)
-
-    if (selectedItem === null) {
-      return
-    }
-
-    this.props.onClone(selectedItem.clone_url)
   }
 
-  private onSelectionChanged = (selectedItem: IAPIRepository | null) => {
-    const account = this.getSelectedAccount()
-    if (account === this.props.dotComAccount) {
-      this.setState({ selectedDotComRepository: selectedItem })
-    } else if (account === this.props.enterpriseAccount) {
-      this.setState({ selectedEnterpriseRepository: selectedItem })
-    }
+  private onSelectionChanged = (selectedRepository: IAPIRepository | null) => {
+    this.setState({ selectedRepository })
   }
 
   private onFilterTextChanged = (filterText: string) => {
-    const account = this.getSelectedAccount()
-    if (account === this.props.dotComAccount) {
-      this.setState({ dotComFilterText: filterText })
-    } else if (account === this.props.enterpriseAccount) {
-      this.setState({ enterpriseFilterText: filterText })
-    }
-  }
-
-  private renderAccountsTabBar() {
-    if (
-      this.props.dotComAccount === null ||
-      this.props.enterpriseAccount === null
-    ) {
-      return null
-    }
-
-    const selectedIndex =
-      this.getSelectedAccount() === this.props.dotComAccount ? 0 : 1
-
-    return (
-      <TabBar selectedIndex={selectedIndex} onTabClicked={this.onTabClicked}>
-        <span>GitHub.com</span>
-        <span>GitHub Enterprise</span>
-      </TabBar>
-    )
-  }
-
-  private onTabClicked = (index: number) => {
-    if (index === 0) {
-      this.setState({ selectedTab: AccountTab.dotCom })
-    } else if (index === 1) {
-      this.setState({ selectedTab: AccountTab.enterprise })
-    }
+    this.setState({ filterText })
   }
 
   // Note: this wrapper is necessary in order to ensure

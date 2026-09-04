@@ -50,6 +50,7 @@ These editors are currently supported:
  - [Zed](https://zed.dev/) - both Stable and Preview channel
  - [Pulsar](https://pulsar-edit.dev/)
  - [Cursor](https://www.cursor.com/)
+ - [Windsurf](https://www.codeium.com/windsurf)
 
 
 These are defined in a list at the top of the file:

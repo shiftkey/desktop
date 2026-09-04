@@ -22,7 +22,9 @@ export abstract class Merge extends BaseMultiCommitOperation {
     } = this.props
 
     if (
-      state.step.kind !== MultiCommitOperationStepKind.ShowConflicts ||
+      (state.step.kind !== MultiCommitOperationStepKind.ShowConflicts &&
+        state.step.kind !==
+          MultiCommitOperationStepKind.ShowCopilotConflicts) ||
       conflictState === null ||
       !isMergeConflictState(conflictState) ||
       operationDetail.kind !== MultiCommitOperationKind.Merge

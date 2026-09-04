@@ -1,28 +1,30 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { round } from '../../src/ui/lib/round'
 
 describe('round', () => {
   it('rounds to the desired number decimals', () => {
-    expect(round(1.23456789, 0)).toBe(1)
-    expect(round(1.23456789, 1)).toBe(1.2)
-    expect(round(1.23456789, 2)).toBe(1.23)
-    expect(round(1.23456789, 3)).toBe(1.235)
-    expect(round(1.23456789, 4)).toBe(1.2346)
-    expect(round(1.23456789, 5)).toBe(1.23457)
-    expect(round(1.23456789, 6)).toBe(1.234568)
+    assert.equal(round(1.23456789, 0), 1)
+    assert.equal(round(1.23456789, 1), 1.2)
+    assert.equal(round(1.23456789, 2), 1.23)
+    assert.equal(round(1.23456789, 3), 1.235)
+    assert.equal(round(1.23456789, 4), 1.2346)
+    assert.equal(round(1.23456789, 5), 1.23457)
+    assert.equal(round(1.23456789, 6), 1.234568)
   })
 
   it("doesn't attempt to round NaN", () => {
-    expect(round(NaN, 1)).toBeNaN()
+    assert.ok(Number.isNaN(round(NaN, 1)))
   })
 
   it("doesn't attempt to round infinity", () => {
-    expect(round(Infinity, 1)).not.toBeFinite()
-    expect(round(-Infinity, 1)).not.toBeFinite()
+    assert(!Number.isFinite(round(Infinity, 1)))
+    assert(!Number.isFinite(round(-Infinity, 1)))
   })
 
   it("doesn't attempt to round to less than zero decimals", () => {
-    expect(round(1.23456789, 0)).toBe(1)
-    expect(round(1.23456789, -1)).toBe(1)
-    expect(round(1.23456789, -2)).toBe(1)
+    assert.equal(round(1.23456789, 0), 1)
+    assert.equal(round(1.23456789, -1), 1)
+    assert.equal(round(1.23456789, -2), 1)
   })
 })

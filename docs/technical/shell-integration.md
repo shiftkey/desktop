@@ -235,6 +235,7 @@ The source for the Linux shell integration is found in [`app/src/lib/shells/linu
 These shells are currently supported:
 
  - [GNOME Terminal](https://help.gnome.org/users/gnome-terminal/stable/)
+ - [Ptyxis](https://gitlab.gnome.org/chergert/ptyxis/)
  - [MATE Terminal](https://github.com/mate-desktop/mate-terminal)
  - [Tilix](https://github.com/gnunn1/tilix)
  - [Terminator](https://gnometerminator.blogspot.com)
@@ -243,6 +244,8 @@ These shells are currently supported:
  - [XTerm](http://invisible-island.net/xterm/)
  - [Terminology](https://www.enlightenment.org/docs/apps/terminology.md)
  - [Ghostty](https://ghostty.org/)
+ - [Black Box](https://gitlab.gnome.org/raggesilver/blackbox)
+ - [Ptyxis](https://gitlab.gnome.org/chergert/ptyxis)
 
 These are defined in an enum at the top of the file:
 
@@ -256,6 +259,9 @@ export enum Shell {
   Konsole = 'Konsole',
   Xterm = 'XTerm',
   Terminology = 'Terminology',
+  Ghostty = 'Ghostty',
+  BlackBox = 'Black Box',
+  Ptyxis = 'Ptyxis',
 }
 ```
 

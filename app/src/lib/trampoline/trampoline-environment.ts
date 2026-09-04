@@ -8,7 +8,6 @@ import {
 } from '../ssh/ssh-credential-storage'
 import { GitError as DugiteError, exec } from 'dugite'
 import memoizeOne from 'memoize-one'
-import { enableGitConfigParameters } from '../feature-flag'
 import { GitError, getDescriptionForError } from '../git/core'
 import { getDesktopAskpassTrampolineFilename } from 'desktop-trampoline'
 
@@ -141,17 +140,8 @@ export async function withTrampolineEnv<T>(
         //
         // See https://github.com/desktop/desktop/issues/18945
         // See https://github.com/git/git/blob/ed155187b429a/config.c#L664
-        ...(enableGitConfigParameters()
-          ? {
-              GIT_CONFIG_PARAMETERS: `${gitEnvConfigPrefix}'credential.helper=' 'credential.helper=desktop'`,
-            }
-          : {
-              GIT_CONFIG_COUNT: '2',
-              GIT_CONFIG_KEY_0: 'credential.helper',
-              GIT_CONFIG_VALUE_0: '',
-              GIT_CONFIG_KEY_1: 'credential.helper',
-              GIT_CONFIG_VALUE_1: 'desktop',
-            }),
+        GIT_CONFIG_PARAMETERS: `${gitEnvConfigPrefix}'credential.helper=' 'credential.helper=desktop'`,
+
         GIT_USER_AGENT: await GitUserAgent(),
         ...sshEnv,
       })

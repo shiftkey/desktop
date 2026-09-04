@@ -23,6 +23,10 @@ import { GitHubRepository } from './github-repository'
 import { ValidNotificationPullRequestReview } from '../lib/valid-notification-pull-request-review'
 import { UnreachableCommitsTab } from '../ui/history/unreachable-commits-dialog'
 import { IAPIComment } from '../lib/api'
+import { ISecretScanResult } from '../ui/secret-scanning/push-protection-error-dialog'
+import { BypassReasonType } from '../ui/secret-scanning/bypass-push-protection-dialog'
+import { TerminalOutput, TerminalOutputListener } from '../lib/git'
+import type { IBYOKModel, IBYOKProvider } from '../lib/copilot/byok'
 
 export enum PopupType {
   RenameBranch = 'RenameBranch',
@@ -47,6 +51,7 @@ export enum PopupType {
   CLIInstalled = 'CLIInstalled',
   GenericGitAuthentication = 'GenericGitAuthentication',
   ExternalEditorFailed = 'ExternalEditorFailed',
+  OpenWithExternalEditor = 'OpenWithExternalEditor',
   OpenShellFailed = 'OpenShellFailed',
   InitializeLFS = 'InitializeLFS',
   LFSAttributeMismatch = 'LFSAttributeMismatch',
@@ -97,13 +102,22 @@ export enum PopupType {
   TestIcons = 'TestIcons',
   ConfirmCommitFilteredChanges = 'ConfirmCommitFilteredChanges',
   TestAbout = 'TestAbout',
+  PushProtectionError = 'PushProtectionError',
+  BypassPushProtection = 'BypassPushProtection',
+  GenerateCommitMessageOverrideWarning = 'GenerateCommitMessageOverrideWarning',
+  GenerateCommitMessageDisclaimer = 'GenerateCommitMessageDisclaimer',
+  HookFailed = 'HookFailed',
+  CommitProgress = 'CommitProgress',
+  EditCopilotBYOKProvider = 'EditCopilotBYOKProvider',
+  EditCopilotBYOKModel = 'EditCopilotBYOKModel',
+  ConfirmDeleteCopilotBYOKProvider = 'ConfirmDeleteCopilotBYOKProvider',
 }
 
 interface IBasePopup {
   /**
    * Unique id of the popup that it receives upon adding to the stack.
    */
-  readonly id?: string
+  readonly id?: number
 }
 
 export type PopupDetail =
@@ -134,6 +148,20 @@ export type PopupDetail =
       selection: DiffSelection
     }
   | { type: PopupType.Preferences; initialSelectedTab?: PreferencesTab }
+  | {
+      type: PopupType.EditCopilotBYOKProvider
+      provider: IBYOKProvider | null
+    }
+  | {
+      type: PopupType.EditCopilotBYOKModel
+      model: IBYOKModel | null
+      otherModelIds: ReadonlyArray<string>
+      onSave: (model: IBYOKModel) => void
+    }
+  | {
+      type: PopupType.ConfirmDeleteCopilotBYOKProvider
+      provider: IBYOKProvider
+    }
   | {
       type: PopupType.RepositorySettings
       repository: Repository
@@ -181,6 +209,7 @@ export type PopupDetail =
       onSubmit: (username: string, password: string) => void
       onDismiss: () => void
     }
+  | { type: PopupType.OpenWithExternalEditor }
   | {
       type: PopupType.ExternalEditorFailed
       message: string
@@ -433,5 +462,39 @@ export type PopupDetail =
   | {
       type: PopupType.TestAbout
     }
-
+  | {
+      type: PopupType.PushProtectionError
+      secrets: ReadonlyArray<ISecretScanResult>
+    }
+  | {
+      type: PopupType.BypassPushProtection
+      secret: ISecretScanResult
+      bypassPushProtection: (
+        secret: ISecretScanResult,
+        reason: BypassReasonType
+      ) => void
+      onDismissed: () => void
+    }
+  | {
+      type: PopupType.GenerateCommitMessageOverrideWarning
+      repository: Repository
+      filesSelected: ReadonlyArray<WorkingDirectoryFileChange>
+    }
+  | {
+      type: PopupType.GenerateCommitMessageDisclaimer
+      // Same parameters as PopupType.GenerateCommitMessageOverrideWarning because
+      // from this popup we will trigger the commit message generation too.
+      repository: Repository
+      filesSelected: ReadonlyArray<WorkingDirectoryFileChange>
+    }
+  | {
+      type: PopupType.HookFailed
+      hookName: string
+      terminalOutput: TerminalOutput
+      resolve: (value: 'abort' | 'ignore') => void
+    }
+  | {
+      type: PopupType.CommitProgress
+      subscribeToCommitOutput: TerminalOutputListener
+    }
 export type Popup = IBasePopup & PopupDetail

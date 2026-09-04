@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { createReadStream } from 'fs'
 import { Readable } from 'stream'
 import { createTerminalStream } from '../../../src/lib/create-terminal-stream'
@@ -20,7 +22,7 @@ describe('terminal-stream', () => {
       `Resolving deltas: 100% (8517403/8517403), done.\n` +
       `Updating files: 100% (86676/86676), done.\n`
 
-    expect(actual).toEqual(expected)
+    assert.equal(actual, expected)
   })
 
   it('can handle all kinds of chunk sizes', async () => {
@@ -48,7 +50,7 @@ describe('terminal-stream', () => {
     const actual = await outputPromise
     const expected = Buffer.concat(buffers).toString()
 
-    expect(actual).toEqual(expected)
+    assert.equal(actual, expected)
   })
 
   it('can handle empty buffers', async () => {
@@ -64,6 +66,6 @@ describe('terminal-stream', () => {
     const actual = await outputPromise
     const expected = ''
 
-    expect(actual).toEqual(expected)
+    assert.equal(actual, expected)
   })
 })

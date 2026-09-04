@@ -112,24 +112,29 @@ export class TabBar extends React.Component<ITabBarProps, {}> {
   }
 
   private renderItems() {
+    const { type, selectedIndex } = this.props
     const children = React.Children.toArray(this.props.children)
 
     return children.map((child, index) => {
-      const selected = index === this.props.selectedIndex
+      const selected = index === selectedIndex
       return (
-        <TabBarItem
-          key={index}
-          selected={selected}
-          index={index}
-          onClick={this.onTabClicked}
-          onMouseEnter={this.onMouseEnter}
-          onMouseLeave={this.onMouseLeave}
-          onSelectAdjacent={this.onSelectAdjacentTab}
-          onButtonRef={this.onTabRef}
-          type={this.props.type}
-        >
-          {child}
-        </TabBarItem>
+        <React.Fragment key={index}>
+          <TabBarItem
+            selected={selected}
+            index={index}
+            onClick={this.onTabClicked}
+            onMouseEnter={this.onMouseEnter}
+            onMouseLeave={this.onMouseLeave}
+            onSelectAdjacent={this.onSelectAdjacentTab}
+            onButtonRef={this.onTabRef}
+            type={type}
+          >
+            {child}
+          </TabBarItem>
+          {type === TabBarType.Switch && index < children.length - 1 && (
+            <div className="tab-bar-separator" />
+          )}
+        </React.Fragment>
       )
     })
   }

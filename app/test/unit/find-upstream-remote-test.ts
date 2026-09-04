@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import {
   findUpstreamRemote,
   UpstreamRemoteName,
@@ -17,9 +19,10 @@ describe('findUpstreamRemote', () => {
       },
     ]
     const upstream = findUpstreamRemote(parent, remotes)
-    expect(upstream).not.toBeNull()
-    expect(upstream!.name).toBe(UpstreamRemoteName)
-    expect(upstream!.url).toBe(
+    assert(upstream !== null)
+    assert.equal(upstream.name, UpstreamRemoteName)
+    assert.equal(
+      upstream.url,
       'https://github.com/Somsubhra/github-release-stats.git'
     )
   })

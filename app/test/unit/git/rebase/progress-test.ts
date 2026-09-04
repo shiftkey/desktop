@@ -1,8 +1,6 @@
-import {
-  IStatusResult,
-  continueRebase,
-  getStatus,
-} from '../../../../src/lib/git'
+import { describe, it, TestContext } from 'node:test'
+import assert from 'node:assert'
+import { continueRebase, getStatus } from '../../../../src/lib/git'
 import {
   rebase,
   RebaseResult,
@@ -11,7 +9,6 @@ import {
 import { createRepository as createShortRebaseTest } from '../../../helpers/repository-builder-rebase-test'
 import { createRepository as createLongRebaseTest } from '../../../helpers/repository-builder-long-rebase-test'
 import { getStatusOrThrow } from '../../../helpers/status'
-import { GitRebaseSnapshot } from '../../../../src/models/rebase'
 import { setupEmptyDirectory } from '../../../helpers/repositories'
 import { getBranchOrError } from '../../../helpers/git'
 import { IMultiCommitOperationProgress } from '../../../../src/models/progress'
@@ -24,23 +21,18 @@ const featureBranchName = 'this-is-a-feature'
 
 describe('git/rebase', () => {
   describe('skips a normal repository', () => {
-    it('returns null for rebase progress', async () => {
-      const repository = setupEmptyDirectory()
+    it('returns null for rebase progress', async t => {
+      const repository = await setupEmptyDirectory(t)
       const progress = await getRebaseSnapshot(repository)
 
-      expect(progress).toEqual(null)
+      assert.equal(progress, null)
     })
   })
 
   describe('can parse progress', () => {
-    let repository: Repository | null
-    let result: RebaseResult
-    let snapshot: GitRebaseSnapshot | null
-    let status: IStatusResult
-    let progress = new Array<IMultiCommitOperationProgress>()
-
-    beforeEach(async () => {
-      repository = await createShortRebaseTest(
+    const setup = async (t: TestContext) => {
+      const repository = await createShortRebaseTest(
+        t,
         baseBranchName,
         featureBranchName
       )
@@ -52,22 +44,26 @@ describe('git/rebase', () => {
 
       const baseBranch = await getBranchOrError(repository, baseBranchName)
 
-      progress = new Array<IMultiCommitOperationProgress>()
-      result = await rebase(repository, baseBranch, featureBranch, p =>
+      const progress = new Array<IMultiCommitOperationProgress>()
+      const result = await rebase(repository, baseBranch, featureBranch, p =>
         progress.push(p)
       )
 
-      snapshot = await getRebaseSnapshot(repository)
+      const snapshot = await getRebaseSnapshot(repository)
 
-      status = await getStatusOrThrow(repository)
+      const status = await getStatusOrThrow(repository)
+
+      return { repository, result, snapshot, status, progress }
+    }
+
+    it('returns a value indicating conflicts were encountered', async t => {
+      const { result } = await setup(t)
+      assert.equal(result, RebaseResult.ConflictsEncountered)
     })
 
-    it('returns a value indicating conflicts were encountered', () => {
-      expect(result).toBe(RebaseResult.ConflictsEncountered)
-    })
-
-    it('reported step-by-step progress before encountering conflicts', () => {
-      expect(progress).toEqual([
+    it('reported step-by-step progress before encountering conflicts', async t => {
+      const { progress } = await setup(t)
+      assert.deepStrictEqual(progress, [
         {
           currentCommitSummary: 'Feature Branch!',
           kind: 'multiCommitOperation',
@@ -78,32 +74,33 @@ describe('git/rebase', () => {
       ])
     })
 
-    it('status detects REBASE_HEAD', () => {
-      expect(snapshot).not.toEqual(null)
-      const s = snapshot!
-      expect(s.commits.length).toEqual(1)
-      expect(s.commits[0].summary).toEqual('Feature Branch!')
+    it('status detects REBASE_HEAD', async t => {
+      const { snapshot } = await setup(t)
 
-      expect(s.progress.position).toEqual(1)
-      expect(s.progress.totalCommitCount).toEqual(1)
-      expect(s.progress.currentCommitSummary).toEqual('Feature Branch!')
-      expect(s.progress.value).toEqual(1)
+      assert(snapshot !== null)
+      const s = snapshot
+      assert.equal(s.commits.length, 1)
+      assert.equal(s.commits[0].summary, 'Feature Branch!')
+
+      assert.equal(s.progress.position, 1)
+      assert.equal(s.progress.totalCommitCount, 1)
+      assert.equal(s.progress.currentCommitSummary, 'Feature Branch!')
+      assert.equal(s.progress.value, 1)
     })
 
-    it('is a detached HEAD state', () => {
-      expect(status.currentBranch).toBeUndefined()
+    it('is a detached HEAD state', async t => {
+      const { status } = await setup(t)
+      assert(status.currentBranch === undefined)
     })
   })
 
   describe('can parse progress for long rebase', () => {
-    let repository: Repository | null
-    let result: RebaseResult
-    let snapshot: GitRebaseSnapshot | null
-    let status: IStatusResult
-    let progress = new Array<IMultiCommitOperationProgress>()
-
-    beforeEach(async () => {
-      repository = await createLongRebaseTest(baseBranchName, featureBranchName)
+    const setup = async (t: TestContext) => {
+      const repository = await createLongRebaseTest(
+        t,
+        baseBranchName,
+        featureBranchName
+      )
 
       const featureBranch = await getBranchOrError(
         repository,
@@ -112,22 +109,26 @@ describe('git/rebase', () => {
 
       const baseBranch = await getBranchOrError(repository, baseBranchName)
 
-      progress = new Array<IMultiCommitOperationProgress>()
-      result = await rebase(repository, baseBranch, featureBranch, p =>
+      const progress = new Array<IMultiCommitOperationProgress>()
+      const result = await rebase(repository, baseBranch, featureBranch, p =>
         progress.push(p)
       )
 
-      snapshot = await getRebaseSnapshot(repository)
+      const snapshot = await getRebaseSnapshot(repository)
 
-      status = await getStatusOrThrow(repository)
+      const status = await getStatusOrThrow(repository)
+
+      return { repository, result, snapshot, status, progress }
+    }
+
+    it('returns a value indicating conflicts were encountered', async t => {
+      const { result } = await setup(t)
+      assert.equal(result, RebaseResult.ConflictsEncountered)
     })
 
-    it('returns a value indicating conflicts were encountered', () => {
-      expect(result).toBe(RebaseResult.ConflictsEncountered)
-    })
-
-    it('reported step-by-step progress before encountering conflicts', () => {
-      expect(progress).toEqual([
+    it('reported step-by-step progress before encountering conflicts', async t => {
+      const { progress } = await setup(t)
+      assert.deepStrictEqual(progress, [
         {
           currentCommitSummary: 'Feature Branch First Commit!',
           kind: 'multiCommitOperation',
@@ -138,16 +139,19 @@ describe('git/rebase', () => {
       ])
     })
 
-    it('reports progress after resolving conflicts', async () => {
+    it('reports progress after resolving conflicts', async t => {
+      const { progress, result, repository } = await setup(t)
+
       const strategy = ManualConflictResolution.theirs
       const progressCb = (p: IMultiCommitOperationProgress) => progress.push(p)
 
-      while (result === RebaseResult.ConflictsEncountered) {
-        result = await resolveAndContinue(repository!, strategy, progressCb)
+      let r = result
+      while (r === RebaseResult.ConflictsEncountered) {
+        r = await resolveAndContinue(repository, strategy, progressCb)
       }
 
-      expect(progress.length).toEqual(10)
-      expect(progress[9]).toEqual({
+      assert.equal(progress.length, 10)
+      assert.deepStrictEqual(progress[9], {
         currentCommitSummary: 'Feature Branch Tenth Commit!',
         kind: 'multiCommitOperation',
         position: 10,
@@ -156,22 +160,26 @@ describe('git/rebase', () => {
       })
     })
 
-    it('status detects REBASE_HEAD', () => {
-      expect(snapshot).not.toEqual(null)
-      const s = snapshot!
-      expect(s.commits.length).toEqual(10)
-      expect(s.commits[0].summary).toEqual('Feature Branch First Commit!')
+    it('status detects REBASE_HEAD', async t => {
+      const { snapshot } = await setup(t)
 
-      expect(s.progress.position).toEqual(1)
-      expect(s.progress.totalCommitCount).toEqual(10)
-      expect(s.progress.currentCommitSummary).toEqual(
+      assert(snapshot !== null)
+      const s = snapshot
+      assert.equal(s.commits.length, 10)
+      assert.equal(s.commits[0].summary, 'Feature Branch First Commit!')
+
+      assert.equal(s.progress.position, 1)
+      assert.equal(s.progress.totalCommitCount, 10)
+      assert.equal(
+        s.progress.currentCommitSummary,
         'Feature Branch First Commit!'
       )
-      expect(s.progress.value).toEqual(0.1)
+      assert.equal(s.progress.value, 0.1)
     })
 
-    it('is a detached HEAD state', () => {
-      expect(status.currentBranch).toBeUndefined()
+    it('is a detached HEAD state', async t => {
+      const { status } = await setup(t)
+      assert(status.currentBranch === undefined)
     })
   })
 })
@@ -179,7 +187,7 @@ describe('git/rebase', () => {
 async function resolveAndContinue(
   repository: Repository,
   strategy: ManualConflictResolution,
-  progressCb: (progress: IMultiCommitOperationProgress) => void
+  progressCallback: (progress: IMultiCommitOperationProgress) => void
 ) {
   const status = await getStatus(repository)
   const files = status?.workingDirectory.files ?? []
@@ -191,5 +199,7 @@ async function resolveAndContinue(
     }
   }
 
-  return continueRebase(repository, files, resolutions, progressCb)
+  return continueRebase(repository, files, resolutions, {
+    progressCallback,
+  })
 }

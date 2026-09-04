@@ -188,8 +188,26 @@ const conflictStatusCodes = ['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU']
  *  and fail gracefully if the location is not a Git repository
  */
 export async function getStatus(
+  repository: Repository
+): Promise<IStatusResult | null>
+export async function getStatus(
   repository: Repository,
-  includeUntracked = true
+  includeUntracked: boolean
+): Promise<IStatusResult | null>
+export async function getStatus(
+  repository: Repository,
+  includeUntracked: boolean,
+  rejectOnError: true
+): Promise<IStatusResult>
+export async function getStatus(
+  repository: Repository,
+  includeUntracked: boolean,
+  rejectOnError: false
+): Promise<IStatusResult | null>
+export async function getStatus(
+  repository: Repository,
+  includeUntracked = true,
+  rejectOnError = false
 ): Promise<IStatusResult | null> {
   const args = [
     '--no-optional-locks',
@@ -201,7 +219,7 @@ export async function getStatus(
   ]
 
   const { stdout, exitCode } = await git(args, repository.path, 'getStatus', {
-    successExitCodes: new Set([0, 128]),
+    successExitCodes: new Set(rejectOnError ? [0] : [0, 128]),
     encoding: 'buffer',
   })
 

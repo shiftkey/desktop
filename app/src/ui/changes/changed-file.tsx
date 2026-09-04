@@ -19,14 +19,17 @@ interface IChangedFileProps {
   readonly focused: boolean
   /** The characters in the file path to highlight */
   readonly matches?: IMatches
-  readonly onIncludeChanged: (path: string, include: boolean) => void
+  readonly onIncludeChanged: (
+    file: WorkingDirectoryFileChange,
+    include: boolean
+  ) => void
 }
 
 /** a changed file in the working directory for a given repository */
 export class ChangedFile extends React.Component<IChangedFileProps, {}> {
   private handleCheckboxChange = (event: React.FormEvent<HTMLInputElement>) => {
     const include = event.currentTarget.checked
-    this.props.onIncludeChanged(this.props.file.path, include)
+    this.props.onIncludeChanged(this.props.file, include)
   }
 
   private get checkboxValue(): CheckboxValue {

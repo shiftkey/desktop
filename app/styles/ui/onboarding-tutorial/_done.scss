@@ -8,6 +8,22 @@
   overflow-y: auto;
   overflow-x: hidden;
 
+  @media (max-width: 850px) {
+    padding: var(--spacing);
+
+    .header img {
+      display: none;
+    }
+  }
+
+  @media (max-width: 550px) {
+    .suggested-action .button-component {
+      height: auto;
+      text-overflow: unset;
+      white-space: unset;
+    }
+  }
+
   .header {
     display: flex;
     flex-direction: row;

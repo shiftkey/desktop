@@ -201,10 +201,23 @@ export class AppWindow {
     )
 
     registerWindowStateChangedEvents(this.window)
-    this.window.loadURL(encodePathAsUrl(__dirname, 'index.html'))
+
+    // We want to have the locale country code available in the renderer on load
+    // so that it can be used to try to deduce some sane date/time/number
+    // formatting defaults. This is a bit of a hack but it avoids the need to
+    // have an IPC round trip to get that information from the main process.
+    const localeCountryCode = app.getLocaleCountryCode() ?? ''
+    this.window.loadURL(
+      encodePathAsUrl(__dirname, 'index.html') +
+        `#lc=${encodeURIComponent(localeCountryCode)}`
+    )
 
     nativeTheme.addListener('updated', () => {
       ipcWebContents.send(this.window.webContents, 'native-theme-updated')
+    })
+
+    ipcMain.on('update-window-background-color', (_, color) => {
+      this.window.setBackgroundColor(color)
     })
 
     this.setupAutoUpdater()
@@ -326,7 +339,7 @@ export class AppWindow {
       // automatically. The modal panel is not brought to the front for an inactive app."
       // NOTE: flashFrame() uses the 'informational' level, so we need to explicitly bounce the dock
       // with the 'critical' level in order to that described behavior.
-      app.dock.bounce('critical')
+      app.dock?.bounce('critical')
     } else {
       // See https://learn.microsoft.com/en-us/windows/win32/uxguide/winenv-taskbar#taskbar-button-flashing
       // "If an inactive program requires immediate attention,

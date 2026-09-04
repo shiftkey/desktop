@@ -1,3 +1,5 @@
+import { describe, it, beforeEach } from 'node:test'
+import assert from 'node:assert'
 import {
   setBoolean,
   getBoolean,
@@ -17,13 +19,13 @@ describe('local storage', () => {
     it('round-trips a true value', () => {
       const expected = true
       setBoolean(booleanKey, expected)
-      expect(getBoolean(booleanKey)).toEqual(expected)
+      assert.strictEqual(getBoolean(booleanKey), expected)
     })
 
     it('round-trips a false value', () => {
       const expected = false
       setBoolean(booleanKey, expected)
-      expect(getBoolean(booleanKey)).toEqual(expected)
+      assert.strictEqual(getBoolean(booleanKey), expected)
     })
   })
 
@@ -33,7 +35,7 @@ describe('local storage', () => {
 
       const actual = getBoolean(booleanKey, defaultValue)
 
-      expect(actual).toEqual(defaultValue)
+      assert.strictEqual(actual, defaultValue)
     })
 
     it('returns default value when malformed string encountered', () => {
@@ -42,7 +44,7 @@ describe('local storage', () => {
 
       const actual = getBoolean(booleanKey, defaultValue)
 
-      expect(actual).toEqual(defaultValue)
+      assert.strictEqual(actual, defaultValue)
     })
 
     it('returns false if found and ignores default value', () => {
@@ -50,7 +52,7 @@ describe('local storage', () => {
 
       const actual = getBoolean(booleanKey, true)
 
-      expect(actual).toEqual(false)
+      assert.strictEqual(actual, false)
     })
 
     it(`can parse the string 'true' if found`, () => {
@@ -58,7 +60,7 @@ describe('local storage', () => {
 
       const actual = getBoolean(booleanKey)
 
-      expect(actual).toEqual(true)
+      assert.strictEqual(actual, true)
     })
 
     it(`can parse the string 'false' if found`, () => {
@@ -67,7 +69,7 @@ describe('local storage', () => {
 
       const actual = getBoolean(booleanKey, defaultValue)
 
-      expect(actual).toEqual(false)
+      assert.strictEqual(actual, false)
     })
   })
 
@@ -77,7 +79,7 @@ describe('local storage', () => {
 
       setNumber(numberKey, expected)
 
-      expect(getNumber(numberKey)).toEqual(expected)
+      assert.strictEqual(getNumber(numberKey), expected)
     })
 
     it('round-trip zero and ignore default value', () => {
@@ -86,7 +88,7 @@ describe('local storage', () => {
 
       setNumber(numberKey, expected)
 
-      expect(getNumber(numberKey, defaultNumber)).toEqual(expected)
+      assert.strictEqual(getNumber(numberKey, defaultNumber), expected)
     })
   })
 
@@ -94,7 +96,7 @@ describe('local storage', () => {
     it('returns default value when no key found', () => {
       const defaultValue = 3456
       const actual = getNumber(numberKey, defaultValue)
-      expect(actual).toEqual(defaultValue)
+      assert.strictEqual(actual, defaultValue)
     })
 
     it('returns default value when malformed string encountered', () => {
@@ -103,7 +105,7 @@ describe('local storage', () => {
 
       const actual = getNumber(numberKey, defaultValue)
 
-      expect(actual).toEqual(defaultValue)
+      assert.strictEqual(actual, defaultValue)
     })
 
     it('returns zero if found and ignores default value', () => {
@@ -112,7 +114,7 @@ describe('local storage', () => {
 
       const actual = getNumber(numberKey, defaultValue)
 
-      expect(actual).toEqual(0)
+      assert.strictEqual(actual, 0)
     })
   })
 })

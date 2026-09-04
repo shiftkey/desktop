@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { exec } from 'dugite'
 import {
   setupTwoCommitRepo,
@@ -23,18 +25,16 @@ import {
   ITextDiff,
 } from '../../../src/models/diff'
 import { findInteractiveDiffRange } from '../../../src/ui/diff/diff-explorer'
-import { diffStringsUnified } from 'jest-diff'
-import * as FSE from 'fs-extra'
+import { readFile } from 'fs/promises'
 import * as Path from 'path'
+import { structuredPatch } from 'diff'
 
 describe('git/apply', () => {
   describe('checkPatch()', () => {
     describe('on related repository without conflicts', () => {
-      let repository: Repository
-      let patch: string
-      beforeEach(async () => {
-        const originalRepo = await setupTwoCommitRepo()
-        repository = await cloneLocalRepository(originalRepo)
+      it('returns true', async t => {
+        const originalRepo = await setupTwoCommitRepo(t)
+        const repository = await cloneLocalRepository(t, originalRepo)
         await makeCommit(originalRepo, {
           entries: [{ path: 'just-okay-file', contents: 'okay' }],
         })
@@ -42,38 +42,30 @@ describe('git/apply', () => {
           ['format-patch', '--stdout', 'HEAD~'],
           originalRepo.path
         )
-        patch = result.stdout
-      })
-      it('returns true', async () => {
-        expect(await checkPatch(repository, patch)).toBe(true)
+        const patch = result.stdout
+        assert.equal(await checkPatch(repository, patch), true)
       })
     })
     describe('on a related repo with conflicts', () => {
-      let repository: Repository
-      let patch: string
-      beforeEach(async () => {
-        const originalRepo = await setupTwoCommitRepo()
+      it('returns false', async t => {
+        const originalRepo = await setupTwoCommitRepo(t)
         const result = await exec(
           ['format-patch', '--stdout', 'HEAD~'],
           originalRepo.path
         )
-        patch = result.stdout
-        repository = await cloneLocalRepository(originalRepo)
+        const patch = result.stdout
+        const repository = await cloneLocalRepository(t, originalRepo)
         await makeCommit(repository, {
           entries: [{ path: 'good-file', contents: 'okay' }],
         })
-      })
-      it('returns false', async () => {
-        expect(await checkPatch(repository, patch)).toBe(false)
+
+        assert.equal(await checkPatch(repository, patch), false)
       })
     })
   })
 
   describe('discardChangesFromSelection()', () => {
-    let repository: Repository
-    let testRepoPath: string
-
-    async function getDiff(filePath: string) {
+    async function getDiff(repository: Repository, filePath: string) {
       const file = new WorkingDirectoryFileChange(
         filePath,
         { kind: AppFileStatusKind.Modified },
@@ -82,14 +74,12 @@ describe('git/apply', () => {
       return (await getWorkingDirectoryDiff(repository, file)) as ITextDiff
     }
 
-    beforeEach(async () => {
-      testRepoPath = await setupFixtureRepository('repo-with-changes')
-      repository = new Repository(testRepoPath, -1, null, false)
-    })
+    it('does not change the file when an empty selection is passed', async t => {
+      const testRepoPath = await setupFixtureRepository(t, 'repo-with-changes')
+      const repository = new Repository(testRepoPath, -1, null, false)
 
-    it('does not change the file when an empty selection is passed', async () => {
       const filePath = 'modified-file.md'
-      const previousDiff = await getDiff(filePath)
+      const previousDiff = await getDiff(repository, filePath)
 
       await discardChangesFromSelection(
         repository,
@@ -98,34 +88,40 @@ describe('git/apply', () => {
         DiffSelection.fromInitialSelection(DiffSelectionType.None)
       )
 
-      const diff = await getDiff(filePath)
+      const diff = await getDiff(repository, filePath)
 
-      expect(diff.text).toEqual(previousDiff.text)
+      assert.equal(diff.text, previousDiff.text)
     })
 
-    it('discards all file changes when a full selection is passed', async () => {
+    it('discards all file changes when a full selection is passed', async t => {
+      const testRepoPath = await setupFixtureRepository(t, 'repo-with-changes')
+      const repository = new Repository(testRepoPath, -1, null, false)
+
       const filePath = 'modified-file.md'
       await discardChangesFromSelection(
         repository,
         filePath,
-        await getDiff(filePath),
+        await getDiff(repository, filePath),
         DiffSelection.fromInitialSelection(DiffSelectionType.All)
       )
 
-      const diff = await getDiff(filePath)
+      const diff = await getDiff(repository, filePath)
 
       // Check that the file has no local changes.
-      expect(diff.text).toEqual('')
-      expect(diff.hunks).toEqual([])
+      assert.equal(diff.text, '')
+      assert.equal(diff.hunks.length, 0)
     })
 
-    it('re-adds a single removed line', async () => {
+    it('re-adds a single removed line', async t => {
+      const testRepoPath = await setupFixtureRepository(t, 'repo-with-changes')
+      const repository = new Repository(testRepoPath, -1, null, false)
+
       const filePath = 'modified-file.md'
       const selection = DiffSelection.fromInitialSelection(
         DiffSelectionType.None
       ).withLineSelection(4, true)
 
-      const previousContents = await FSE.readFile(
+      const previousContents = await readFile(
         Path.join(repository.path, filePath),
         'utf8'
       )
@@ -133,63 +129,71 @@ describe('git/apply', () => {
       await discardChangesFromSelection(
         repository,
         filePath,
-        await getDiff(filePath),
+        await getDiff(repository, filePath),
         selection
       )
 
-      const fileContents = await FSE.readFile(
+      const fileContents = await readFile(
         Path.join(repository.path, filePath),
         'utf8'
       )
 
-      expect(getDifference(previousContents, fileContents))
-        .toMatchInlineSnapshot(`
-"@@ -7,0 +7,1 @@
-+ Aliquam leo ipsum, laoreet sed libero at, mollis pulvinar arcu. Nullam porttitor"
-`)
+      assert.equal(
+        getDifference(previousContents, fileContents),
+        `@@ -7,0 +7,1 @@
++Aliquam leo ipsum, laoreet sed libero at, mollis pulvinar arcu. Nullam porttitor`
+      )
     })
 
-    it('re-adds a removed hunk', async () => {
+    it('re-adds a removed hunk', async t => {
+      const testRepoPath = await setupFixtureRepository(t, 'repo-with-changes')
+      const repository = new Repository(testRepoPath, -1, null, false)
+
       const filePath = 'modified-file.md'
-      const diff = await getDiff(filePath)
+      const diff = await getDiff(repository, filePath)
       const hunkRange = findInteractiveDiffRange(diff.hunks, 4)
+      assert(hunkRange !== null)
+
       const selection = DiffSelection.fromInitialSelection(
         DiffSelectionType.None
       ).withRangeSelection(
-        hunkRange!.from,
-        hunkRange!.to - hunkRange!.from + 1,
+        hunkRange.from,
+        hunkRange.to - hunkRange.from + 1,
         true
       )
 
-      const previousContents = await FSE.readFile(
+      const previousContents = await readFile(
         Path.join(repository.path, filePath),
         'utf8'
       )
 
       await discardChangesFromSelection(repository, filePath, diff, selection)
 
-      const fileContents = await FSE.readFile(
+      const fileContents = await readFile(
         Path.join(repository.path, filePath),
         'utf8'
       )
 
-      expect(getDifference(previousContents, fileContents))
-        .toMatchInlineSnapshot(`
-"@@ -7,0 +7,4 @@
-+ Aliquam leo ipsum, laoreet sed libero at, mollis pulvinar arcu. Nullam porttitor
-+ nisl eget hendrerit vestibulum. Curabitur ornare id neque ac tristique. Cras in
-+ eleifend mi.
-+"
-`)
+      assert.equal(
+        getDifference(previousContents, fileContents),
+        `@@ -7,0 +7,4 @@
++Aliquam leo ipsum, laoreet sed libero at, mollis pulvinar arcu. Nullam porttitor
++nisl eget hendrerit vestibulum. Curabitur ornare id neque ac tristique. Cras in
++eleifend mi.
++`
+      )
     })
 
-    it('removes an added line', async () => {
+    it('removes an added line', async t => {
+      const testRepoPath = await setupFixtureRepository(t, 'repo-with-changes')
+      const repository = new Repository(testRepoPath, -1, null, false)
+
       const filePath = 'modified-file.md'
       const selection = DiffSelection.fromInitialSelection(
         DiffSelectionType.None
       ).withLineSelection(16, true)
 
-      const previousContents = await FSE.readFile(
+      const previousContents = await readFile(
         Path.join(repository.path, filePath),
         'utf8'
       )
@@ -197,37 +201,39 @@ describe('git/apply', () => {
       await discardChangesFromSelection(
         repository,
         filePath,
-        await getDiff(filePath),
+        await getDiff(repository, filePath),
         selection
       )
 
-      const fileContents = await FSE.readFile(
+      const fileContents = await readFile(
         Path.join(repository.path, filePath),
         'utf8'
       )
 
-      expect(getDifference(previousContents, fileContents))
-        .toMatchInlineSnapshot(`
-"@@ -21,1 +21,0 @@
-- nisl eget hendrerit vestibulum. Curabitur ornare id neque ac tristique. Cras in"
-`)
+      assert.equal(
+        getDifference(previousContents, fileContents),
+        `@@ -21,1 +21,0 @@
+-nisl eget hendrerit vestibulum. Curabitur ornare id neque ac tristique. Cras in`
+      )
     })
 
-    it('removes an added hunk', async () => {
+    it('removes an added hunk', async t => {
+      const testRepoPath = await setupFixtureRepository(t, 'repo-with-changes')
+      const repository = new Repository(testRepoPath, -1, null, false)
+
       const filePath = 'modified-file.md'
-      const diff = await getDiff(filePath)
+      const diff = await getDiff(repository, filePath)
       const hunkRange = findInteractiveDiffRange(diff.hunks, 16)
+      assert(hunkRange !== null)
       const selection = DiffSelection.fromInitialSelection(
         DiffSelectionType.None
       ).withRangeSelection(
-        hunkRange!.from,
-        hunkRange!.to - hunkRange!.from + 1,
+        hunkRange.from,
+        hunkRange.to - hunkRange.from + 1,
         true
       )
 
-      console.log('diff', hunkRange)
-
-      const previousContents = await FSE.readFile(
+      const previousContents = await readFile(
         Path.join(repository.path, filePath),
         'utf8'
       )
@@ -235,45 +241,43 @@ describe('git/apply', () => {
       await discardChangesFromSelection(
         repository,
         filePath,
-        await getDiff(filePath),
+        await getDiff(repository, filePath),
         selection
       )
 
-      const fileContents = await FSE.readFile(
+      const fileContents = await readFile(
         Path.join(repository.path, filePath),
         'utf8'
       )
 
-      expect(getDifference(previousContents, fileContents))
-        .toMatchInlineSnapshot(`
-"@@ -20,4 +20,0 @@
-- Aliquam leo ipsum, laoreet sed libero at, mollis pulvinar arcu. Nullam porttitor
-- nisl eget hendrerit vestibulum. Curabitur ornare id neque ac tristique. Cras in
-- eleifend mi.
--"
-`)
+      assert.equal(
+        getDifference(previousContents, fileContents),
+        `@@ -20,4 +20,0 @@
+-Aliquam leo ipsum, laoreet sed libero at, mollis pulvinar arcu. Nullam porttitor
+-nisl eget hendrerit vestibulum. Curabitur ornare id neque ac tristique. Cras in
+-eleifend mi.
+-`
+      )
     })
   })
 })
-
-const noColor = (str: string) => str
 
 /**
  * Returns a diff-style string with the line differences between two strings.
  */
 function getDifference(before: string, after: string) {
-  return diffStringsUnified(
+  return structuredPatch(
+    'before',
+    'after',
     before.replace(/\r\n/g, '\n'),
     after.replace(/\r\n/g, '\n'),
-    {
-      omitAnnotationLines: true,
-      contextLines: 0,
-      expand: false,
-      aColor: noColor,
-      bColor: noColor,
-      changeColor: noColor,
-      commonColor: noColor,
-      patchColor: noColor,
-    }
+    undefined,
+    undefined,
+    { context: 0 }
   )
+    .hunks.flatMap(hunk => [
+      `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`,
+      ...hunk.lines,
+    ])
+    .join('\n')
 }

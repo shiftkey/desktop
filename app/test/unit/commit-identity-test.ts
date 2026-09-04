@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { CommitIdentity } from '../../src/models/commit-identity'
 
 describe('CommitIdentity', () => {
@@ -6,29 +8,32 @@ describe('CommitIdentity', () => {
       const identity = CommitIdentity.parseIdentity(
         'Markus Olsson <markus@github.com> 1475670580 +0200'
       )
-      expect(identity.name).toBe('Markus Olsson')
-      expect(identity.email).toBe('markus@github.com')
-      expect(identity.date).toEqual(new Date('2016-10-05T12:29:40.000Z'))
+      assert.equal(identity.name, 'Markus Olsson')
+      assert.equal(identity.email, 'markus@github.com')
+      assert.deepStrictEqual(
+        identity.date,
+        new Date('2016-10-05T12:29:40.000Z')
+      )
     })
 
     it('parses timezone information', () => {
       const identity1 = CommitIdentity.parseIdentity(
         'Markus Olsson <markus@github.com> 1475670580 +0130'
       )
-      expect(identity1.tzOffset).toBe(90)
+      assert.equal(identity1.tzOffset, 90)
 
       const identity2 = CommitIdentity.parseIdentity(
         'Markus Olsson <markus@github.com> 1475670580 -0245'
       )
-      expect(identity2.tzOffset).toBe(-165)
+      assert.equal(identity2.tzOffset, -165)
     })
 
     it("parses even if the email address isn't a normal email", () => {
       const identity = CommitIdentity.parseIdentity(
         'Markus Olsson <Markus Olsson> 1475670580 +0200'
       )
-      expect(identity.name).toBe('Markus Olsson')
-      expect(identity.email).toBe('Markus Olsson')
+      assert.equal(identity.name, 'Markus Olsson')
+      assert.equal(identity.email, 'Markus Olsson')
     })
 
     it('parses even if the email address is broken', () => {
@@ -36,8 +41,8 @@ describe('CommitIdentity', () => {
       const identity = CommitIdentity.parseIdentity(
         'Markus Olsson <Markus >Olsson> 1475670580 +0200'
       )
-      expect(identity.name).toBe('Markus Olsson')
-      expect(identity.email).toBe('Markus >Olsson')
+      assert.equal(identity.name, 'Markus Olsson')
+      assert.equal(identity.email, 'Markus >Olsson')
     })
   })
 })

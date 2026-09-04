@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import * as path from 'path'
 
 import { Repository } from '../../../src/models/repository'
@@ -6,43 +8,42 @@ import { getStatusOrThrow } from '../../helpers/status'
 import { setupFixtureRepository } from '../../helpers/repositories'
 import { exec } from 'dugite'
 
-import * as FSE from 'fs-extra'
+import { unlink, writeFile } from 'fs/promises'
 
 describe('git/reset', () => {
-  let repository: Repository
-
-  beforeEach(async () => {
-    const testRepoPath = await setupFixtureRepository('test-repo')
-    repository = new Repository(testRepoPath, -1, null, false)
-  })
-
   describe('reset', () => {
-    it('can hard reset a repository', async () => {
+    it('can hard reset a repository', async t => {
+      const testRepoPath = await setupFixtureRepository(t, 'test-repo')
+      const repository = new Repository(testRepoPath, -1, null, false)
+
       const repoPath = repository.path
       const fileName = 'README.md'
       const filePath = path.join(repoPath, fileName)
 
-      await FSE.writeFile(filePath, 'Hi world\n')
+      await writeFile(filePath, 'Hi world\n')
 
       await reset(repository, GitResetMode.Hard, 'HEAD')
 
       const status = await getStatusOrThrow(repository)
-      expect(status.workingDirectory.files).toHaveLength(0)
+      assert.equal(status.workingDirectory.files.length, 0)
     })
   })
 
   describe('resetPaths', () => {
-    it.skip('resets discarded staged file', async () => {
+    it.skip('resets discarded staged file', async t => {
+      const testRepoPath = await setupFixtureRepository(t, 'test-repo')
+      const repository = new Repository(testRepoPath, -1, null, false)
+
       const repoPath = repository.path
       const fileName = 'README.md'
       const filePath = path.join(repoPath, fileName)
 
       // modify the file
-      await FSE.writeFile(filePath, 'Hi world\n')
+      await writeFile(filePath, 'Hi world\n')
 
       // stage the file, then delete it to mimic discarding
       exec(['add', fileName], repoPath)
-      await FSE.unlink(filePath)
+      await unlink(filePath)
 
       await resetPaths(repository, GitResetMode.Mixed, 'HEAD', [filePath])
 
@@ -50,7 +51,7 @@ describe('git/reset', () => {
       await exec(['checkout-index', '-f', '-u', '-q', '--', fileName], repoPath)
 
       const status = await getStatusOrThrow(repository)
-      expect(status.workingDirectory.files).toHaveLength(0)
+      assert.equal(status.workingDirectory.files.length, 0)
     })
   })
 })

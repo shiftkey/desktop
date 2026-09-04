@@ -189,6 +189,12 @@ export interface IButtonProps {
    * Defaults to true
    */
   readonly tooltipDismissable?: boolean
+
+  /**
+   * An optional html id for the button. This is useful for refering to the
+   * button in a label element.
+   */
+  readonly id?: string
 }
 
 /**
@@ -231,6 +237,7 @@ export class Button extends React.Component<IButtonProps, {}> {
 
     return (
       <button
+        id={this.props.id}
         className={className}
         onClick={disabled ? preventDefault : this.onClick}
         onKeyDown={this.props.onKeyDown}

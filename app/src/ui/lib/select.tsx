@@ -1,9 +1,13 @@
 import * as React from 'react'
 import { createUniqueId, releaseUniqueId } from './id-pool'
+import classNames from 'classnames'
 
 interface ISelectProps {
   /** The label for the select control. */
   readonly label?: string
+
+  /** The className for the select component. */
+  readonly className?: string
 
   /** The value of the select control. */
   readonly value?: string
@@ -55,7 +59,7 @@ export class Select extends React.Component<ISelectProps, ISelectState> {
 
   public render() {
     return (
-      <div className="select-component">
+      <div className={classNames('select-component', this.props.className)}>
         {this.renderLabel()}
         <select
           id={this.state.inputId}

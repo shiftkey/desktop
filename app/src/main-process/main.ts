@@ -103,10 +103,16 @@ function getExtraErrorContext(): Record<string, string> {
 const protocolLauncherArg = '--protocol-launcher'
 
 const possibleProtocols = new Set(['x-github-client'])
-if (__DEV__) {
+if (__DEV_SECRETS__) {
   possibleProtocols.add('x-github-desktop-dev-auth')
 } else {
   possibleProtocols.add('x-github-desktop-auth')
+}
+// Community Linux builds use the development OAuth application credentials
+// when official release credentials are unavailable. Accept its callback in
+// production builds as well so browser-based sign-in can complete.
+if (__LINUX__) {
+  possibleProtocols.add('x-github-desktop-dev-auth')
 }
 // Also support Desktop Classic's protocols.
 if (__DARWIN__) {
@@ -239,6 +245,21 @@ async function handleCommandLineArguments(argv: string[]) {
   const args = parseCommandLineArgs(argv, {
     boolean: ['protocol-launcher'],
   })
+
+  // Linux desktop entries pass custom protocol URLs directly as positional
+  // arguments. Preserve that integration after the cross-platform CLI parser
+  // refactor so OAuth and "Open in Desktop" links reach the running app.
+  if (__LINUX__) {
+    const prefixes = Array.from(possibleProtocols, p => `${p}://`)
+    const matchingUrl = argv.find(arg =>
+      prefixes.some(prefix => arg.startsWith(prefix))
+    )
+
+    if (matchingUrl) {
+      handleAppURL(matchingUrl)
+      return
+    }
+  }
 
   // Desktop registers it's protocol handler callback on Windows as
   // `[executable path] --protocol-launcher "%1"`. Note that extra command
@@ -610,6 +631,11 @@ app.on('ready', () => {
    * An event sent by the renderer asking for the app's path
    */
   ipcMain.handle('get-app-path', async () => app.getAppPath())
+
+  /**
+   * An event sent by the renderer asking for the executable path
+   */
+  ipcMain.handle('get-exec-path', async () => process.execPath)
 
   /**
    * An event sent by the renderer asking for whether the app is running under

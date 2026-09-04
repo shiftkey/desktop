@@ -1,3 +1,5 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert'
 import { match } from '../../src/lib/fuzzy-find'
 import { getText } from '../../src/ui/lib/filter-list'
 describe('fuzzy find', () => {
@@ -19,27 +21,27 @@ describe('fuzzy find', () => {
   it('should find matching item when searching by pull request number', () => {
     const results = match('4653', items, getText)
 
-    expect(results).toHaveLength(1)
-    expect(results[0].item['text'].join('')).toContain('4653')
+    assert.equal(results.length, 1)
+    assert(results[0].item['text'].join('').includes('4653'))
   })
 
   it('should find matching item when searching by author', () => {
     const results = match('damaneice', items, getText)
 
-    expect(results).toHaveLength(1)
-    expect(results[0].item['text'].join('')).toContain('damaneice')
+    assert.equal(results.length, 1)
+    assert(results[0].item['text'].join('').includes('damaneice'))
   })
 
   it('should find matching item when by title', () => {
     const results = match('awesome feature', items, getText)
 
-    expect(results).toHaveLength(1)
-    expect(results[0].item['text'].join('')).toContain('awesome feature')
+    assert.equal(results.length, 1)
+    assert(results[0].item['text'].join('').includes('awesome feature'))
   })
 
   it('should find nothing', () => {
     const results = match('$%^', items, getText)
 
-    expect(results).toHaveLength(0)
+    assert.equal(results.length, 0)
   })
 })

@@ -6,12 +6,17 @@
     margin-top: var(--spacing-half);
   }
 
-  & > input {
-    margin: 0;
-  }
-
   & > label {
-    margin: 0;
-    margin-left: var(--spacing-half);
+    display: flex;
+    align-items: center;
+
+    & > input {
+      margin: 0;
+    }
+
+    > span {
+      margin: 0;
+      margin-left: var(--spacing-half);
+    }
   }
 }

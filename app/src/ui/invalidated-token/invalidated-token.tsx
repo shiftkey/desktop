@@ -1,10 +1,10 @@
 import * as React from 'react'
 import { Dialog, DialogContent, DialogFooter } from '../dialog'
 import { Dispatcher } from '../dispatcher'
-import { Row } from '../lib/row'
 import { OkCancelButtonGroup } from '../dialog/ok-cancel-button-group'
-import { Account } from '../../models/account'
-import { getDotComAPIEndpoint } from '../../lib/api'
+import { Account, isEnterpriseAccount } from '../../models/account'
+import { getHTMLURL } from '../../lib/api'
+import { Ref } from '../lib/ref'
 
 interface IInvalidatedTokenProps {
   readonly dispatcher: Dispatcher
@@ -18,7 +18,7 @@ interface IInvalidatedTokenProps {
  */
 export class InvalidatedToken extends React.Component<IInvalidatedTokenProps> {
   public render() {
-    const accountTypeSuffix = this.isEnterpriseAccount ? ' Enterprise' : ''
+    const { account } = this.props
 
     return (
       <Dialog
@@ -31,11 +31,9 @@ export class InvalidatedToken extends React.Component<IInvalidatedTokenProps> {
         onDismissed={this.props.onDismissed}
       >
         <DialogContent>
-          <Row>
-            Your account token has been invalidated and you have been signed out
-            from your GitHub{accountTypeSuffix} account. Do you want to sign in
-            again?
-          </Row>
+          Your account token has been invalidated and you have been signed out
+          from your <Ref>{account.friendlyEndpoint}</Ref> account. Do you want
+          to sign in again?
         </DialogContent>
         <DialogFooter>
           <OkCancelButtonGroup okButtonText="Yes" cancelButtonText="No" />
@@ -44,17 +42,15 @@ export class InvalidatedToken extends React.Component<IInvalidatedTokenProps> {
     )
   }
 
-  private get isEnterpriseAccount() {
-    return this.props.account.endpoint !== getDotComAPIEndpoint()
-  }
-
   private onSubmit = () => {
-    const { dispatcher, onDismissed } = this.props
+    const { dispatcher, onDismissed, account } = this.props
 
     onDismissed()
 
-    if (this.isEnterpriseAccount) {
-      dispatcher.showEnterpriseSignInDialog(this.props.account.endpoint)
+    if (isEnterpriseAccount(account)) {
+      dispatcher.showEnterpriseSignInDialog(
+        getHTMLURL(this.props.account.endpoint)
+      )
     } else {
       dispatcher.showDotComSignInDialog()
     }

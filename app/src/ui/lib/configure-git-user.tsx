@@ -1,12 +1,9 @@
 import * as React from 'react'
 import { Commit } from '../../models/commit'
 import { lookupPreferredEmail } from '../../lib/email'
-import {
-  getGlobalConfigValue,
-  setGlobalConfigValue,
-} from '../../lib/git/config'
+import { setGlobalConfigValue } from '../../lib/git/config'
 import { CommitListItem } from '../history/commit-list-item'
-import { Account } from '../../models/account'
+import { Account, isDotComAccount } from '../../models/account'
 import { CommitIdentity } from '../../models/commit-identity'
 import { Form } from '../lib/form'
 import { Button } from '../lib/button'
@@ -20,8 +17,6 @@ import { ConfigLockFileExists } from './config-lock-file-exists'
 import { RadioButton } from './radio-button'
 import { Select } from './select'
 import { GitEmailNotFoundWarning } from './git-email-not-found-warning'
-import { getDotComAPIEndpoint } from '../../lib/api'
-import { Loading } from './loading'
 
 interface IConfigureGitUserProps {
   /** The logged-in accounts. */
@@ -32,12 +27,12 @@ interface IConfigureGitUserProps {
 
   /** The label for the button which saves config changes. */
   readonly saveLabel?: string
+
+  readonly globalUserName: string | undefined
+  readonly globalUserEmail: string | undefined
 }
 
 interface IConfigureGitUserState {
-  readonly globalUserName: string | null
-  readonly globalUserEmail: string | null
-
   readonly manualName: string
   readonly manualEmail: string
 
@@ -54,8 +49,6 @@ interface IConfigureGitUserState {
    * choice to delete the lock file.
    */
   readonly existingLockFilePath?: string
-
-  readonly loadingGitConfig: boolean
 }
 
 /**
@@ -67,109 +60,56 @@ export class ConfigureGitUser extends React.Component<
   IConfigureGitUserProps,
   IConfigureGitUserState
 > {
-  private readonly globalUsernamePromise = getGlobalConfigValue('user.name')
-  private readonly globalEmailPromise = getGlobalConfigValue('user.email')
-  private loadInitialDataPromise: Promise<void> | null = null
-
   public constructor(props: IConfigureGitUserProps) {
     super(props)
 
     const account = this.account
+    const preferredEmail = account ? lookupPreferredEmail(account) : ''
 
     this.state = {
-      globalUserName: null,
-      globalUserEmail: null,
-      manualName: '',
-      manualEmail: '',
+      manualName: props.globalUserName || account?.name || account?.login || '',
+      manualEmail: props.globalUserEmail || preferredEmail,
       useGitHubAuthorInfo: this.account !== null,
       gitHubName: account?.name || account?.login || '',
-      gitHubEmail:
-        this.account !== null ? lookupPreferredEmail(this.account) : '',
-      loadingGitConfig: true,
+      gitHubEmail: preferredEmail,
     }
-  }
-
-  public async componentDidMount() {
-    this.loadInitialDataPromise = this.loadInitialData()
-  }
-
-  private async loadInitialData() {
-    // Capture the current accounts prop because we'll be
-    // doing a bunch of asynchronous stuff and we can't
-    // rely on this.props.account to tell us what that prop
-    // was at mount-time.
-    const accounts = this.props.accounts
-
-    const [globalUserName, globalUserEmail] = await Promise.all([
-      this.globalUsernamePromise,
-      this.globalEmailPromise,
-    ])
-
-    this.setState(
-      prevState => ({
-        globalUserName,
-        globalUserEmail,
-        manualName:
-          prevState.manualName.length === 0
-            ? globalUserName || ''
-            : prevState.manualName,
-        manualEmail:
-          prevState.manualEmail.length === 0
-            ? globalUserEmail || ''
-            : prevState.manualEmail,
-        loadingGitConfig: false,
-      }),
-      () => {
-        // Chances are low that we actually have an account at mount-time
-        // the way things are designed now but in case the app changes around
-        // us and we do get passed an account at mount time in the future we
-        // want to make sure that not only was it passed at mount time but also
-        // that it hasn't been changed since (if it has been then
-        // componentDidUpdate would be responsible for handling it).
-        if (accounts === this.props.accounts && accounts.length > 0) {
-          this.setDefaultValuesFromAccount(accounts[0])
-        }
-      }
-    )
   }
 
   public async componentDidUpdate(prevProps: IConfigureGitUserProps) {
     if (
-      this.loadInitialDataPromise !== null &&
       this.props.accounts !== prevProps.accounts &&
       this.props.accounts.length > 0
     ) {
       if (this.props.accounts[0] !== prevProps.accounts[0]) {
-        // Wait for the initial data load to finish before updating the state
-        // with the new account info.
-        // The problem is we might get the account info before we retrieved the
-        // global user name and email in `loadInitialData` and updated the state
-        // with them, so `componentDidUpdate` would get called and override
-        // whatever the user had in the global git config with the account info.
-        await this.loadInitialDataPromise
-
         const account = this.props.accounts[0]
-        this.setDefaultValuesFromAccount(account)
+        const preferredEmail = lookupPreferredEmail(account)
+
+        this.setState({
+          useGitHubAuthorInfo: true,
+          gitHubName: account.name || account.login,
+          gitHubEmail: preferredEmail,
+          ...(this.state.manualName.length === 0
+            ? { manualName: account.name || account.login }
+            : { manualName: this.state.manualName }),
+          ...(this.state.manualEmail.length === 0
+            ? { manualEmail: preferredEmail }
+            : { manualEmail: this.state.manualEmail }),
+        })
       }
     }
-  }
 
-  private setDefaultValuesFromAccount(account: Account) {
-    const preferredEmail = lookupPreferredEmail(account)
-    this.setState({
-      useGitHubAuthorInfo: true,
-      gitHubName: account.name || account.login,
-      gitHubEmail: preferredEmail,
-    })
+    const { globalUserName, globalUserEmail } = this.props
 
-    if (this.state.manualName.length === 0) {
-      this.setState({
-        manualName: account.name || account.login,
-      })
+    if (globalUserName && globalUserName !== prevProps.globalUserName) {
+      this.setState(prevState => ({
+        manualName: prevState.manualName || globalUserName,
+      }))
     }
 
-    if (this.state.manualEmail.length === 0) {
-      this.setState({ manualEmail: preferredEmail })
+    if (globalUserEmail && globalUserEmail !== prevProps.globalUserEmail) {
+      this.setState(prevState => ({
+        manualEmail: prevState.manualEmail || globalUserEmail,
+      }))
     }
   }
 
@@ -254,6 +194,7 @@ export class ConfigureGitUser extends React.Component<
           showUnpushedIndicator={false}
           selectedCommits={[dummyCommit]}
           accounts={this.props.accounts}
+          preferAbsoluteDates={false}
         />
       </div>
     )
@@ -266,8 +207,7 @@ export class ConfigureGitUser extends React.Component<
       return
     }
 
-    const accountTypeSuffix =
-      account.endpoint === getDotComAPIEndpoint() ? '' : ' Enterprise'
+    const accountTypeSuffix = isDotComAccount(account) ? '' : ' Enterprise'
 
     return (
       <div>
@@ -319,7 +259,6 @@ export class ConfigureGitUser extends React.Component<
           placeholder="your-email@example.com"
           value={this.state.manualEmail}
           onValueChanged={this.onEmailChange}
-          readOnly={this.state.loadingGitConfig}
         />
 
         {this.account !== null && (
@@ -335,11 +274,6 @@ export class ConfigureGitUser extends React.Component<
   private renderConfigForm() {
     return (
       <Form className="sign-in-form" onSubmit={this.save}>
-        {!this.state.useGitHubAuthorInfo && this.state.loadingGitConfig && (
-          <div className="git-config-loading">
-            <Loading /> Checking for an existing git config…
-          </div>
-        )}
         <div className="sign-in-form-inputs">
           <TextBox
             label="Name"
@@ -350,9 +284,7 @@ export class ConfigureGitUser extends React.Component<
                 ? this.state.gitHubName
                 : this.state.manualName
             }
-            readOnly={
-              this.state.useGitHubAuthorInfo || this.state.loadingGitConfig
-            }
+            readOnly={this.state.useGitHubAuthorInfo}
             autoFocus={true}
           />
 
@@ -406,8 +338,6 @@ export class ConfigureGitUser extends React.Component<
     const {
       manualName,
       manualEmail,
-      globalUserName,
-      globalUserEmail,
       useGitHubAuthorInfo,
       gitHubName,
       gitHubEmail,
@@ -417,11 +347,11 @@ export class ConfigureGitUser extends React.Component<
     const email = useGitHubAuthorInfo ? gitHubEmail : manualEmail
 
     try {
-      if (name.length > 0 && name !== globalUserName) {
+      if (name.length > 0 && name !== this.props.globalUserName) {
         await setGlobalConfigValue('user.name', name)
       }
 
-      if (email.length > 0 && email !== globalUserEmail) {
+      if (email.length > 0 && email !== this.props.globalUserEmail) {
         await setGlobalConfigValue('user.email', email)
       }
     } catch (e) {

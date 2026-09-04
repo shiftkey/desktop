@@ -54,7 +54,7 @@ interface ICommitMessageAvatarProps {
 
   /**
    * List of validations that failed for repo rules. Only used if
-   * {@link warningType} is 'disallowedEmail'.
+   * `warningType` is 'disallowedEmail'.
    */
   readonly emailRuleFailures?: RepoRulesMetadataFailures
 
@@ -122,6 +122,13 @@ export class CommitMessageAvatar extends React.Component<
       this.props.user?.email !== prevProps.user?.email
     ) {
       this.determineGitConfigLocation()
+    }
+
+    if (
+      this.props.preferredAccountEmail !== prevProps.preferredAccountEmail &&
+      this.state.accountEmail === prevProps.preferredAccountEmail
+    ) {
+      this.setState({ accountEmail: this.props.preferredAccountEmail })
     }
   }
 
@@ -417,6 +424,7 @@ export class CommitMessageAvatar extends React.Component<
         }
         anchorPosition={PopoverAnchorPosition.RightBottom}
         decoration={PopoverDecoration.Balloon}
+        onMousedownOutside={this.closePopover}
         onClickOutside={this.closePopover}
         ariaLabelledby="commit-avatar-popover-header"
       >
